@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/services/auth_service.dart';
+import 'package:flutter_application_1/screens/status_dp_screen.dart'; // Importação da tela StatusDPScreen
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -34,8 +35,17 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Login realizado com sucesso!')),
         );
-        // Navegar para a próxima tela (descomente e ajuste conforme sua rota)
-        // Navigator.pushReplacementNamed(context, '/home');
+
+        // Navegar para a tela StatusDPScreen após o login bem-sucedido
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => StatusDPScreen(
+              nome: 'Washington', // Substitua pelo nome do usuário logado
+              setor: 'Suporte', // Substitua pelo setor do usuário logado
+            ),
+          ),
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('E-mail ou senha incorretos.')),
