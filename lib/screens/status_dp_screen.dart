@@ -94,34 +94,66 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                   ),
                 ),
                 const SizedBox(height: 40),
-                ...statusList.map((status) {
-                  return ListTile(
-                    leading: Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: _getStatusColor(status['nome']),
-                        shape: BoxShape.circle,
-                      ),
+
+                // DropdownButton para selecionar o status
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.white.withOpacity(0.3)),
+                  ),
+                  child: DropdownButton<String>(
+                    value: selectedStatus,
+                    hint: const Text(
+                      'Selecione um status',
+                      style: TextStyle(color: Colors.white70),
                     ),
-                    title: Text(
-                      status['nome'],
-                      style: const TextStyle(
-                        fontSize: 18,
-                        color: Colors.white,
-                      ),
-                    ),
-                    trailing: Radio<String>(
-                      value: status['nome'],
-                      groupValue: selectedStatus,
-                      onChanged: (value) {
-                        setState(() {
-                          selectedStatus = value;
-                        });
-                      },
-                    ),
-                  );
-                }).toList(),
+                    dropdownColor: const Color(0xFF1A1A2E),
+                    icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
+                    iconSize: 30,
+                    isExpanded: true,
+                    underline: const SizedBox(), // Remove a linha inferior
+                    onChanged: (String? newValue) {
+                      setState(() {
+                        selectedStatus = newValue;
+                      });
+                    },
+                    items: statusList.map<DropdownMenuItem<String>>((status) {
+                      final nome = status['nome'] as String?;
+                      if (nome == null) {
+                        return const DropdownMenuItem<String>(
+                          value: null,
+                          child: SizedBox.shrink(),
+                        );
+                      }
+                      return DropdownMenuItem<String>(
+                        value: nome,
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: _getStatusColor(nome),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              nome,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+
                 const SizedBox(height: 40),
                 ElevatedButton(
                   onPressed: () {

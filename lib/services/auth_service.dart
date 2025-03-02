@@ -2,7 +2,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class AuthService {
-  final String apiUrl = 'https://c4b9-2804-431-c7e6-9b27-5136-b699-6ffa-f9d3.ngrok-free.app/api/Usuarios';
+  final String apiUrl = 'https://2e25-2804-431-c7e6-9b27-5136-b699-6ffa-f9d3.ngrok-free.app/api/Usuarios';
 
   Future<bool> login(String email, String password) async {
     try {
