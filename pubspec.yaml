@@ -1,0 +1,22 @@
+name: flutter_application_1
+description: "Um novo projeto Flutter."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.6.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^0.13.3  # Adicione esta linha para fazer requisições HTTP
+  supabase_flutter: ^2.5.5  # Mantenha se ainda precisar do Supabase para outras funcionalidades
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
