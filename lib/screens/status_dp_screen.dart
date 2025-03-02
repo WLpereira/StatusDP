@@ -14,6 +14,7 @@ class StatusDPScreen extends StatefulWidget {
 class _StatusDPScreenState extends State<StatusDPScreen> {
   List<Map<String, dynamic>> statusList = [];
   String? selectedStatus;
+  bool isLoading = true; // Adicionado para controlar o carregamento
 
   @override
   void initState() {
@@ -27,23 +28,27 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       final statuses = await statusService.getStatus();
       setState(() {
         statusList = statuses;
+        isLoading = false; // Dados carregados
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro ao carregar status: $e')),
       );
+      setState(() {
+        isLoading = false; // Parar o carregamento em caso de erro
+      });
     }
   }
 
   Color _getStatusColor(String status) {
-    switch (status) {
-      case 'Disponivel':
+    switch (status.toUpperCase()) { // Converte para maiúsculas para garantir a correspondência
+      case 'DISPONIVEL':
         return Colors.green;
-      case 'Ocupado':
+      case 'OCUPADO':
         return Colors.red;
-      case 'Ausente':
+      case 'AUSENTE':
         return Colors.orange;
-      case 'Não Incomodar':
+      case 'NÃO INCOMODAR':
         return Colors.purple;
       default:
         return Colors.grey;
@@ -95,64 +100,72 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                 ),
                 const SizedBox(height: 40),
 
-                // DropdownButton para selecionar o status
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.white.withOpacity(0.3)),
-                  ),
-                  child: DropdownButton<String>(
-                    value: selectedStatus,
-                    hint: const Text(
-                      'Selecione um status',
-                      style: TextStyle(color: Colors.white70),
+                // Exibir um indicador de carregamento enquanto os dados são carregados
+                if (isLoading)
+                  const CircularProgressIndicator(color: Colors.white)
+                else if (statusList.isEmpty)
+                  const Text(
+                    'Nenhum status disponível.',
+                    style: TextStyle(color: Colors.white70),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white.withOpacity(0.3)),
                     ),
-                    dropdownColor: const Color(0xFF1A1A2E),
-                    icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
-                    iconSize: 30,
-                    isExpanded: true,
-                    underline: const SizedBox(), // Remove a linha inferior
-                    onChanged: (String? newValue) {
-                      setState(() {
-                        selectedStatus = newValue;
-                      });
-                    },
-                    items: statusList.map<DropdownMenuItem<String>>((status) {
-                      final nome = status['nome'] as String?;
-                      if (nome == null) {
-                        return const DropdownMenuItem<String>(
-                          value: null,
-                          child: SizedBox.shrink(),
+                    child: DropdownButton<String>(
+                      value: selectedStatus,
+                      hint: const Text(
+                        'Selecione um status',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                      dropdownColor: const Color(0xFF1A1A2E),
+                      icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
+                      iconSize: 30,
+                      isExpanded: true,
+                      underline: const SizedBox(), // Remove a linha inferior
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          selectedStatus = newValue;
+                        });
+                      },
+                      items: statusList.map<DropdownMenuItem<String>>((status) {
+                        final statusName = status['status'] as String?; // Usa a coluna 'status' (minúsculo)
+                        if (statusName == null) {
+                          return const DropdownMenuItem<String>(
+                            value: null,
+                            child: SizedBox.shrink(),
+                          );
+                        }
+                        return DropdownMenuItem<String>(
+                          value: statusName,
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: _getStatusColor(statusName),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                statusName,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
                         );
-                      }
-                      return DropdownMenuItem<String>(
-                        value: nome,
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 24,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                color: _getStatusColor(nome),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              nome,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
+                      }).toList(),
+                    ),
                   ),
-                ),
 
                 const SizedBox(height: 40),
                 ElevatedButton(
