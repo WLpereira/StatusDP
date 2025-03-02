@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_StatusDP/services/status_service.dart';
+import 'package:flutter_application_1/services/status_service.dart'; // Verifique o caminho da importação
 
 class StatusDPScreen extends StatefulWidget {
   final String nome;
@@ -23,7 +23,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
 
   Future<void> _fetchStatus() async {
     try {
-      final statusService = StatusService();
+      final statusService = StatusService(); // Instância correta da classe
       final statuses = await statusService.getStatus();
       setState(() {
         statusList = statuses;
