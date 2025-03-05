@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/services/status_service.dart'; // Verifique o caminho da importação
+import 'package:flutter_application_1/services/status_service.dart';
 
 class StatusDPScreen extends StatefulWidget {
   final String nome;
@@ -12,48 +12,63 @@ class StatusDPScreen extends StatefulWidget {
 }
 
 class _StatusDPScreenState extends State<StatusDPScreen> {
-  List<Map<String, dynamic>> statusList = [];
-  String? selectedStatus;
-  bool isLoading = true; // Adicionado para controlar o carregamento
+  String? selectedStatus; // Valor selecionado
+  List<Map<String, dynamic>> statusList = []; // Lista de status carregada da API
+  bool isLoading = true; // Indicador de carregamento
 
   @override
   void initState() {
     super.initState();
-    _fetchStatus();
+    _fetchStatus(); // Carrega os status ao iniciar a tela
   }
 
   Future<void> _fetchStatus() async {
+    final statusService = StatusService();
     try {
-      final statusService = StatusService(); // Instância correta da classe
-      final statuses = await statusService.getStatus();
-      setState(() {
-        statusList = statuses;
-        isLoading = false; // Dados carregados
-      });
+      final response = await statusService.getStatus();
+      print('Status recebidos na tela: $response');
+
+      if (response.isNotEmpty) {
+        setState(() {
+          statusList = response;
+          // Define "DISPONIVEL" como status padrão, se existir na lista
+          selectedStatus = statusList.firstWhere(
+            (status) => status['status'] == 'DISPONIVEL',
+            orElse: () => statusList[0], // Se "DISPONIVEL" não existir, usa o primeiro status
+          )['status'];
+          isLoading = false;
+        });
+      } else {
+        setState(() {
+          statusList = [];
+          isLoading = false;
+        });
+      }
     } catch (e) {
+      print('Erro ao carregar status na tela: $e');
+      setState(() {
+        isLoading = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro ao carregar status: $e')),
       );
-      setState(() {
-        isLoading = false; // Parar o carregamento em caso de erro
-      });
     }
   }
 
-  Color _getStatusColor(String status) {
-    switch (status.toUpperCase()) { // Converte para maiúsculas para garantir a correspondência
-      case 'DISPONIVEL':
-        return Colors.green;
-      case 'OCUPADO':
-        return Colors.red;
-      case 'AUSENTE':
-        return Colors.orange;
-      case 'NÃO INCOMODAR':
-        return Colors.purple;
-      default:
-        return Colors.grey;
-    }
-  }
+  // Mapear status para ícones e cores
+  Map<String, IconData> statusIcons = {
+    'DISPONIVEL': Icons.check_circle_outline,
+    'AUSENTE': Icons.person_off,
+    'OCUPADO': Icons.work,
+    'NÃO INCOMODAR': Icons.do_not_disturb_on,
+  };
+
+  Map<String, Color> statusColors = {
+    'DISPONIVEL': Colors.green,
+    'AUSENTE': Colors.grey,
+    'OCUPADO': Colors.orange,
+    'NÃO INCOMODAR': Colors.red,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -70,137 +85,142 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
             end: Alignment.bottomRight,
           ),
         ),
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.person_outline,
-                  size: 100,
-                  color: Colors.white,
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'Bem-vindo, ${widget.nome}',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Setor: ${widget.setor}',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    color: Colors.white70,
-                  ),
-                ),
-                const SizedBox(height: 40),
-
-                // Exibir um indicador de carregamento enquanto os dados são carregados
-                if (isLoading)
-                  const CircularProgressIndicator(color: Colors.white)
-                else if (statusList.isEmpty)
-                  const Text(
-                    'Nenhum status disponível.',
-                    style: TextStyle(color: Colors.white70),
-                  )
-                else
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.white.withOpacity(0.3)),
-                    ),
-                    child: DropdownButton<String>(
-                      value: selectedStatus,
-                      hint: const Text(
-                        'Selecione um status',
-                        style: TextStyle(color: Colors.white70),
+        child: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.person_outline,
+                        size: 100,
+                        color: Colors.white,
                       ),
-                      dropdownColor: const Color(0xFF1A1A2E),
-                      icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
-                      iconSize: 30,
-                      isExpanded: true,
-                      underline: const SizedBox(), // Remove a linha inferior
-                      onChanged: (String? newValue) {
-                        setState(() {
-                          selectedStatus = newValue;
-                        });
-                      },
-                      items: statusList.map<DropdownMenuItem<String>>((status) {
-                        final statusName = status['status'] as String?; // Usa a coluna 'status' (minúsculo)
-                        if (statusName == null) {
-                          return const DropdownMenuItem<String>(
-                            value: null,
-                            child: SizedBox.shrink(),
-                          );
-                        }
-                        return DropdownMenuItem<String>(
-                          value: statusName,
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 24,
-                                height: 24,
-                                decoration: BoxDecoration(
-                                  color: _getStatusColor(statusName),
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Text(
-                                statusName,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Bem-vindo, ${widget.nome}',
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Setor: ${widget.setor}',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          color: Colors.white70,
+                        ),
+                      ),
+                      const SizedBox(height: 40),
 
-                const SizedBox(height: 40),
-                ElevatedButton(
-                  onPressed: () {
-                    if (selectedStatus != null) {
-                      // Aqui você pode adicionar a lógica para salvar o status selecionado
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Status selecionado: $selectedStatus')),
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Selecione um status')),
-                      );
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    elevation: 10,
-                    shadowColor: Colors.blueAccent.withOpacity(0.5),
-                  ),
-                  child: const Text(
-                    'Salvar Status',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+                      if (isLoading)
+                        const CircularProgressIndicator(color: Colors.white)
+                      else if (statusList.isEmpty)
+                        const Text(
+                          'Nenhum status disponível.',
+                          style: TextStyle(color: Colors.white70),
+                        )
+                      else
+                        SizedBox(
+                          height: 150, // Altura fixa para a lista horizontal
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: statusList.length,
+                            itemBuilder: (context, index) {
+                              final status = statusList[index]['status'] as String;
+                              final isSelected = selectedStatus == status;
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                                child: GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      selectedStatus = status;
+                                    });
+                                  },
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    width: 120,
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? statusColors[status]!.withOpacity(0.8)
+                                          : Colors.white.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? statusColors[status]!
+                                            : Colors.white.withOpacity(0.3),
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          statusIcons[status] ?? Icons.circle,
+                                          color: isSelected ? Colors.white : Colors.white70,
+                                          size: 30,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          status,
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: isSelected ? Colors.white : Colors.white70,
+                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+
+                      const SizedBox(height: 40),
+                      ElevatedButton(
+                        onPressed: () {
+                          if (selectedStatus != null) {
+                            // Aqui você pode adicionar a lógica para salvar o status selecionado (via API, por exemplo)
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Status selecionado: $selectedStatus')),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Selecione um status')),
+                            );
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blueAccent,
+                          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          elevation: 10,
+                          shadowColor: Colors.blueAccent.withOpacity(0.5),
+                        ),
+                        child: const Text(
+                          'Salvar Status',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

@@ -2,7 +2,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class StatusService {
-  final String apiUrl = 'https://c4b9-2804-431-c7e6-9b27-5136-b699-6ffa-f9d3.ngrok-free.app/api/Status_'; // URL da tabela "Status_"
+  final String apiUrl = 'https://8467-177-105-135-154.ngrok-free.app/api/Status_';
 
   Future<List<Map<String, dynamic>>> getStatus() async {
     try {
@@ -13,18 +13,28 @@ class StatusService {
         },
       );
 
+      print('Resposta da API Status: StatusCode=${response.statusCode}, Body=${response.body}');
+
       if (response.statusCode == 200) {
         final List<dynamic> statuses = jsonDecode(response.body);
-        return statuses.map((status) {
+        if (statuses.isEmpty) {
+          print('Lista de status vazia retornada pela API');
+          return [];
+        }
+        final List<Map<String, dynamic>> formattedStatuses = statuses.map((status) {
           return {
-            'id': status['id'], // Mapeia a coluna id (minúsculo)
-            'status': status['status'], // Mapeia a coluna status (minúsculo)
+            'id': status['id'] as int? ?? 0, // Usa int? para tratar null, com valor padrão 0
+            'status': status['status'] as String, // Certifique-se de que é String
           };
         }).toList();
+        print('Status carregados: $formattedStatuses');
+        return formattedStatuses;
       } else {
+        print('Erro HTTP ao carregar status: ${response.statusCode}');
         throw Exception('Falha ao carregar status: ${response.statusCode}');
       }
     } catch (e) {
+      print('Erro ao buscar status: $e');
       throw Exception('Erro ao buscar status: $e');
     }
   }

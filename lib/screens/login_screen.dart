@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/services/auth_service.dart';
-import 'package:flutter_application_1/screens/status_dp_screen.dart'; // Importação da tela StatusDPScreen
+import 'package:flutter_application_1/screens/status_dp_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -32,20 +32,29 @@ class _LoginScreenState extends State<LoginScreen> {
       bool isAuthenticated = await _authService.login(email, password);
 
       if (isAuthenticated) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login realizado com sucesso!')),
-        );
+        // Busca os dados do usuário (nome e setor) na API
+        final userData = await _authService.getUserData(email); // Método que você pode adicionar no AuthService
 
-        // Navegar para a tela StatusDPScreen após o login bem-sucedido
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => StatusDPScreen(
-              nome: 'Washington', // Substitua pelo nome do usuário logado
-              setor: 'Suporte', // Substitua pelo setor do usuário logado
+        if (userData != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Login realizado com sucesso!')),
+          );
+
+          // Navegar para a tela StatusDPScreen após o login bem-sucedido, passando os dados do usuário
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => StatusDPScreen(
+                nome: userData['nome'] ?? 'Usuário', // Valor padrão se não houver nome
+                setor: userData['setor'] ?? 'Não especificado', // Valor padrão se não houver setor
+              ),
             ),
-          ),
-        );
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Dados do usuário não encontrados.')),
+          );
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('E-mail ou senha incorretos.')),
