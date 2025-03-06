@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:status_dp_app/models/status.dart';
+import '../models/status.dart';
 
 class StatusService {
-  static const String apiUrl = 'http://localhost:5000'; // Ou use o endereço do ngrok, ex.: 'https://<seu-endereco-ngrok>'
+  static const String apiUrl = 'http://localhost:5000/api/Status'; // Corrigido para o endpoint correto
 
   Future<List<Status>> getStatuses() async {
-    final Uri uri = Uri.parse('$apiUrl/api/Status');
+    final Uri uri = Uri.parse(apiUrl);
 
     try {
       final response = await http.get(
@@ -27,8 +27,8 @@ class StatusService {
 
         final List<Status> formattedStatuses = statuses.map((status) {
           return Status(
-            id: status['id'] as int? ?? 0, // Usar 0 como valor padrão se nulo
-            status: status['status'] as String? ?? 'DISPONIVEL', // Usar "DISPONIVEL" como fallback
+            id: status['id'] as int? ?? 0,
+            status: status['status'] as String? ?? 'DISPONIVEL',
           );
         }).toList();
 

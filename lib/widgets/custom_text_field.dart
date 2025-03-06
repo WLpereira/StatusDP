@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
 class CustomTextField extends StatelessWidget {
-  final TextEditingController controller; // Controlador para o campo de texto
-  final String labelText; // Rótulo do campo de texto
-  final bool obscureText; // Define se o texto deve ser obscurecido (útil para senhas)
-  final IconData? icon; // Ícone opcional para o campo de texto
+  final TextEditingController controller;
+  final String labelText;
+  final bool obscureText;
+  final IconData? icon;
 
   const CustomTextField({
     super.key,
@@ -19,24 +19,24 @@ class CustomTextField extends StatelessWidget {
     return TextField(
       controller: controller,
       obscureText: obscureText,
-      style: const TextStyle(color: Colors.white), // Estilo do texto digitado
+      style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
-        labelText: labelText, // Rótulo do campo
-        labelStyle: const TextStyle(color: Colors.white70), // Estilo do rótulo
-        prefixIcon: icon != null ? Icon(icon, color: Colors.white70) : null, // Ícone prefixo (se fornecido)
-        filled: true, // Preenche o fundo do campo
-        fillColor: Colors.white.withOpacity(0.1), // Cor de fundo do campo
+        labelText: labelText,
+        labelStyle: const TextStyle(color: Colors.white70),
+        prefixIcon: icon != null ? Icon(icon, color: Colors.white70) : null,
+        filled: true,
+        fillColor: Colors.white.withOpacity(0.1),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10), // Borda arredondada
-          borderSide: BorderSide.none, // Sem borda
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10), // Borda arredondada quando o campo está habilitado
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.3)), // Cor da borda
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10), // Borda arredondada quando o campo está em foco
-          borderSide: const BorderSide(color: Colors.blueAccent, width: 2), // Cor e espessura da borda
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Colors.blueAccent, width: 2),
         ),
       ),
     );

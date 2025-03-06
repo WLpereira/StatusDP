@@ -1,22 +1,21 @@
-name: flutter_application_1
-description: "Um novo projeto Flutter."
+name: status_dp_app
+description: Status DP App
 publish_to: 'none'
-
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.6.1
+  sdk: '>=3.0.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  http: ^1.1.0  # Para chamadas à API
-  supabase_flutter: ^2.5.5  # Mantenha se ainda precisar do Supabase
+  http: ^1.1.0
+  intl: ^2.9.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
+  flutter_lints: ^2.0.0
 
 flutter:
   uses-material-design: true

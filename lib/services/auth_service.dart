@@ -1,33 +1,42 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:status_dp_app/models/usuario.dart';
-import 'package:status_dp_app/models/status.dart';
-import 'package:status_dp_app/models/planner.dart';
-import 'package:status_dp_app/models/horario_trabalho.dart';
-import 'package:status_dp_app/services/status_service.dart'; // Importar StatusService
+import '../models/usuario.dart';
+import '../models/status.dart';
+import '../models/planner.dart';
+import '../models/horario_trabalho.dart';
 
 class AuthService {
-  static const String baseUrl = 'http://localhost:5000'; // Ou use o endereço do ngrok, ex.: 'https://<seu-endereco-ngrok>'
+  static const String baseUrl = 'http://localhost:5000'; // Ou use o endereço do ngrok, ex.: 'https://8467-177-105-135-154.ngrok-free.app'
 
   Future<Usuario?> login(String email, String senha) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/api/Usuarios/login'),
-      headers: <String, String>{
-        'Content-Type': 'application/json; charset=UTF-8',
-      },
-      body: jsonEncode(<String, String>{
-        'email': email,
-        'senha': senha,
-      }),
-    );
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/Usuarios'),
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+      );
 
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> userData = jsonDecode(response.body);
-      return Usuario.fromJson(userData);
-    } else if (response.statusCode == 401) {
-      throw Exception('Credenciais inválidas');
-    } else {
-      throw Exception('Falha ao fazer login: ${response.statusCode}');
+      print('Resposta da API Login: StatusCode=${response.statusCode}, Body=${response.body}');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> usuarios = jsonDecode(response.body);
+        final usuario = usuarios.firstWhere(
+          (user) => user['email'] == email && user['senha'] == senha,
+          orElse: () => null,
+        );
+
+        if (usuario != null) {
+          return Usuario.fromJson(usuario);
+        } else {
+          return null; // Credenciais inválidas
+        }
+      } else {
+        throw Exception('Falha ao fazer login: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Erro ao fazer login: $e');
+      throw Exception('Erro ao fazer login: $e');
     }
   }
 
@@ -51,8 +60,19 @@ class AuthService {
   }
 
   Future<List<Status>> getStatuses() async {
-    final statusService = StatusService();
-    return await statusService.getStatuses(); // Usar o StatusService para buscar status
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/Status'),
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> statuses = jsonDecode(response.body);
+      return statuses.map((json) => Status.fromJson(json)).toList();
+    } else {
+      throw Exception('Falha ao carregar status: ${response.statusCode}');
+    }
   }
 
   Future<List<Planner>> getPlanner(int userId, DateTime date) async {
