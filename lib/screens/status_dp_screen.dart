@@ -5,7 +5,7 @@ import '../models/planner.dart';
 import '../models/horario_trabalho.dart';
 import '../services/auth_service.dart';
 import 'package:intl/intl.dart';
-import 'login_screen.dart'; // Adicionada a importação correta do LoginScreen
+import 'login_screen.dart';
 
 class StatusDPScreen extends StatefulWidget {
   final Usuario usuario;
@@ -83,6 +83,67 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
+  }
+
+  // Função para obter o status de um horário específico com cores
+  String _getStatusForTime(TimeOfDay time) {
+    final plannerEntry = _planner.firstWhere(
+      (p) {
+        final plannerTime = TimeOfDay.fromDateTime(DateTime.parse(p.data.toString()).add(Duration(hours: time.hour, minutes: time.minute)));
+        return plannerTime.hour == time.hour && plannerTime.minute == time.minute;
+      },
+      orElse: () => Planner(
+        id: -1,
+        usuarioId: -1,
+        data: DateTime.now(),
+        hora: '',
+        status: 'DISPONIVEL',
+        informacao: null,
+      ),
+    );
+    if (plannerEntry.status != 'DISPONIVEL') return plannerEntry.status;
+
+    final horario = _horariosTrabalho.firstWhere(
+      (h) => time.hour >= int.parse(h.horarioInicio.split(':')[0]) &&
+             time.hour <= int.parse(h.horarioFim.split(':')[0]),
+      orElse: () => HorarioTrabalho(
+        id: -1,
+        usuarioId: -1,
+        diaSemana: 1,
+        horarioInicio: '09:00',
+        horarioFim: '17:00',
+        horarioAlmocoInicio: null,
+        horarioAlmocoFim: null,
+        horarioGestaoInicio: null,
+        horarioGestaoFim: null,
+      ),
+    );
+    if (horario != null) {
+      if (time.hour == int.parse(horario.horarioGestaoInicio?.split(':')[0] ?? '-1') &&
+          time.minute >= int.parse(horario.horarioGestaoInicio?.split(':')[1] ?? '0') &&
+          time.hour < int.parse(horario.horarioGestaoFim?.split(':')[0] ?? '99')) return 'GESTÃO';
+      if (time.hour == int.parse(horario.horarioAlmocoInicio?.split(':')[0] ?? '-1') &&
+          time.minute >= int.parse(horario.horarioAlmocoInicio?.split(':')[1] ?? '0') &&
+          time.hour < int.parse(horario.horarioAlmocoFim?.split(':')[0] ?? '99')) return 'ALMOCO';
+      return 'DISPONIVEL';
+    }
+    return 'LICENÇA';
+  }
+
+  // Função para obter a cor com base no status
+  Color _getColorForStatus(String status) {
+    switch (status) {
+      case 'DISPONIVEL':
+        return Colors.grey.withOpacity(0.5); // Cinza como na imagem
+      case 'LICENÇA':
+        return Colors.red.withOpacity(0.5); // Vermelho
+      case 'GESTÃO':
+        return Colors.blue.withOpacity(0.5); // Azul
+      case 'ALMOCO':
+        return Colors.green.withOpacity(0.5); // Verde
+      default:
+        return Colors.grey.withOpacity(0.3); // Padrão
+    }
   }
 
   @override
