@@ -1,228 +1,227 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/services/status_service.dart';
+import 'package:provider/provider.dart';
+import 'package:status_dp_app/models/usuario.dart';
+import 'package:status_dp_app/models/status.dart';
+import 'package:status_dp_app/models/planner.dart';
+import 'package:status_dp_app/models/horario_trabalho.dart';
+import 'package:status_dp_app/services/auth_service.dart';
+import 'package:intl/intl.dart';
 
 class StatusDPScreen extends StatefulWidget {
-  final String nome;
-  final String setor;
-
-  const StatusDPScreen({super.key, required this.nome, required this.setor});
+  const StatusDPScreen({super.key});
 
   @override
-  _StatusDPScreenState createState() => _StatusDPScreenState();
+  State<StatusDPScreen> createState() => _StatusDPScreenState();
 }
 
 class _StatusDPScreenState extends State<StatusDPScreen> {
-  String? selectedStatus; // Valor selecionado
-  List<Map<String, dynamic>> statusList = []; // Lista de status carregada da API
-  bool isLoading = true; // Indicador de carregamento
+  final AuthService _authService = AuthService();
+  final _emailController = TextEditingController();
+  final _senhaController = TextEditingController();
+  Usuario? _usuario;
+  List<Status> _statuses = [];
+  List<Planner> _planner = [];
+  List<HorarioTrabalho> _horariosTrabalho = [];
+  DateTime _selectedDate = DateTime.now();
+  String? _selectedStatus;
 
   @override
   void initState() {
     super.initState();
-    _fetchStatus(); // Carrega os status ao iniciar a tela
+    _loadStatuses();
   }
 
-  Future<void> _fetchStatus() async {
-    final statusService = StatusService();
+  Future<void> _loadStatuses() async {
     try {
-      final response = await statusService.getStatus();
-      print('Status recebidos na tela: $response');
-
-      if (response.isNotEmpty) {
-        setState(() {
-          statusList = response;
-          // Define "DISPONIVEL" como status padrão, se existir na lista
-          selectedStatus = statusList.firstWhere(
-            (status) => status['status'] == 'DISPONIVEL',
-            orElse: () => statusList[0], // Se "DISPONIVEL" não existir, usa o primeiro status
-          )['status'];
-          isLoading = false;
-        });
-      } else {
-        setState(() {
-          statusList = [];
-          isLoading = false;
-        });
-      }
-    } catch (e) {
-      print('Erro ao carregar status na tela: $e');
+      final statuses = await _authService.getStatuses();
       setState(() {
-        isLoading = false;
+        _statuses = statuses;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao carregar status: $e')),
-      );
+    } catch (e) {
+      _showError('Erro ao carregar status: $e');
     }
   }
 
-  // Mapear status para ícones e cores
-  Map<String, IconData> statusIcons = {
-    'DISPONIVEL': Icons.check_circle_outline,
-    'AUSENTE': Icons.person_off,
-    'OCUPADO': Icons.work,
-    'NÃO INCOMODAR': Icons.do_not_disturb_on,
-  };
+  Future<void> _login() async {
+    try {
+      final usuario = await _authService.login(_emailController.text, _senhaController.text);
+      setState(() {
+        _usuario = usuario;
+      });
+      _loadUserData();
+      _loadPlanner();
+      _loadHorarioTrabalho();
+    } catch (e) {
+      _showError('Erro ao fazer login: $e');
+    }
+  }
 
-  Map<String, Color> statusColors = {
-    'DISPONIVEL': Colors.green,
-    'AUSENTE': Colors.grey,
-    'OCUPADO': Colors.orange,
-    'NÃO INCOMODAR': Colors.red,
-  };
+  Future<void> _loadUserData() async {
+    if (_usuario != null) {
+      try {
+        final userData = await _authService.getUserData(_usuario!.email);
+        setState(() {
+          _usuario = userData;
+        });
+      } catch (e) {
+        _showError('Erro ao carregar dados do usuário: $e');
+      }
+    }
+  }
+
+  Future<void> _loadPlanner() async {
+    if (_usuario != null) {
+      try {
+        final planner = await _authService.getPlanner(_usuario!.id, _selectedDate);
+        setState(() {
+          _planner = planner;
+        });
+      } catch (e) {
+        _showError('Erro ao carregar planner: $e');
+      }
+    }
+  }
+
+  Future<void> _loadHorarioTrabalho() async {
+    if (_usuario != null) {
+      try {
+        final horarios = await _authService.getHorarioTrabalho(_usuario!.id, _selectedDate.weekday);
+        setState(() {
+          _horariosTrabalho = horarios;
+        });
+      } catch (e) {
+        _showError('Erro ao carregar horários de trabalho: $e');
+      }
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Color(0xFF1A1A2E),
-              Color(0xFF16213E),
-              Color(0xFF0F3460),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.person_outline,
-                        size: 100,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        'Bem-vindo, ${widget.nome}',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'Setor: ${widget.setor}',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          color: Colors.white70,
-                        ),
-                      ),
-                      const SizedBox(height: 40),
-
-                      if (isLoading)
-                        const CircularProgressIndicator(color: Colors.white)
-                      else if (statusList.isEmpty)
-                        const Text(
-                          'Nenhum status disponível.',
-                          style: TextStyle(color: Colors.white70),
-                        )
-                      else
-                        SizedBox(
-                          height: 150, // Altura fixa para a lista horizontal
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: statusList.length,
-                            itemBuilder: (context, index) {
-                              final status = statusList[index]['status'] as String;
-                              final isSelected = selectedStatus == status;
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                                child: GestureDetector(
-                                  onTap: () {
-                                    setState(() {
-                                      selectedStatus = status;
-                                    });
-                                  },
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 200),
-                                    width: 120,
-                                    decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? statusColors[status]!.withOpacity(0.8)
-                                          : Colors.white.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: isSelected
-                                            ? statusColors[status]!
-                                            : Colors.white.withOpacity(0.3),
-                                        width: 2,
-                                      ),
-                                    ),
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          statusIcons[status] ?? Icons.circle,
-                                          color: isSelected ? Colors.white : Colors.white70,
-                                          size: 30,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          status,
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: isSelected ? Colors.white : Colors.white70,
-                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                          ),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-
-                      const SizedBox(height: 40),
-                      ElevatedButton(
-                        onPressed: () {
-                          if (selectedStatus != null) {
-                            // Aqui você pode adicionar a lógica para salvar o status selecionado (via API, por exemplo)
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Status selecionado: $selectedStatus')),
+      appBar: AppBar(
+        title: const Text('Status DP'),
+      ),
+      body: _usuario == null
+          ? _buildLoginForm()
+          : SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Bem-vindo, ${_usuario!.nome ?? _usuario!.email}!',
+                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
+                    Text('Setor: ${_usuario!.setor ?? "Não especificado"}'),
+                    Text('Status: ${_usuario!.status ?? "DISPONIVEL"}'),
+                    Text('Horário de Trabalho: ${_usuario!.horarioInicioTrabalho ?? "08:00"} - ${_usuario!.horarioFimTrabalho ?? "18:00"}'),
+                    Text('Almoço: ${_usuario!.horarioAlmocoInicio ?? "12:00"} - ${_usuario!.horarioAlmocoFim ?? "13:00"}'),
+                    Text('Gestão: ${_usuario!.horarioGestaoInicio ?? "15:00"} - ${_usuario!.horarioGestaoFim ?? "16:00"}'),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Planner para ${DateFormat('dd/MM/yyyy').format(_selectedDate)}',
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        TextButton(
+                          onPressed: () async {
+                            final DateTime? picked = await showDatePicker(
+                              context: context,
+                              initialDate: _selectedDate,
+                              firstDate: DateTime(2025),
+                              lastDate: DateTime(2026),
                             );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Selecione um status')),
-                            );
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blueAccent,
-                          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          elevation: 10,
-                          shadowColor: Colors.blueAccent.withOpacity(0.5),
+                            if (picked != null && picked != _selectedDate) {
+                              setState(() {
+                                _selectedDate = picked;
+                              });
+                              _loadPlanner();
+                            }
+                          },
+                          child: const Text('Selecionar Data'),
                         ),
-                        child: const Text(
-                          'Salvar Status',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ..._planner.map((p) => ListTile(
+                          title: Text('${p.hora} - ${p.status}'),
+                          subtitle: Text(p.informacao ?? 'Sem informações'),
+                        )),
+                    const SizedBox(height: 16),
+                    Text('Horários de Trabalho (Dia ${_selectedDate.weekday})',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    ..._horariosTrabalho.map((h) => ListTile(
+                          title: Text('Horário: ${h.horarioInicio} - ${h.horarioFim}'),
+                          subtitle: Text(
+                              'Almoço: ${h.horarioAlmocoInicio ?? "Não definido"} - ${h.horarioAlmocoFim ?? "Não definido"}, Gestão: ${h.horarioGestaoInicio ?? "Não definido"} - ${h.horarioGestaoFim ?? "Não definido"}'),
+                        )),
+                    const SizedBox(height: 16),
+                    DropdownButton<String>(
+                      value: _selectedStatus,
+                      hint: const Text('Alterar Status'),
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          _selectedStatus = newValue;
+                          // Aqui você pode adicionar a lógica para atualizar o status via API (POST ou PUT)
+                        });
+                      },
+                      items: _statuses.map((status) {
+                        return DropdownMenuItem<String>(
+                          value: status.status,
+                          child: Text(status.status),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          _usuario = null;
+                          _planner.clear();
+                          _horariosTrabalho.clear();
+                          _selectedStatus = null;
+                        });
+                        _emailController.clear();
+                        _senhaController.clear();
+                      },
+                      child: const Text('Sair'),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
+    );
+  }
+
+  Widget _buildLoginForm() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          TextField(
+            controller: _emailController,
+            decoration: const InputDecoration(labelText: 'Email'),
+            keyboardType: TextInputType.emailAddress,
           ),
-        ),
+          TextField(
+            controller: _senhaController,
+            decoration: const InputDecoration(labelText: 'Senha'),
+            obscureText: true,
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _login,
+            child: const Text('Login'),
+          ),
+        ],
       ),
     );
   }

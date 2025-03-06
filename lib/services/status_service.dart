@@ -1,13 +1,16 @@
-import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:status_dp_app/models/status.dart';
 
 class StatusService {
-  final String apiUrl = 'https://8467-177-105-135-154.ngrok-free.app/api/Status_';
+  static const String apiUrl = 'http://localhost:5000'; // Ou use o endereço do ngrok, ex.: 'https://<seu-endereco-ngrok>'
 
-  Future<List<Map<String, dynamic>>> getStatus() async {
+  Future<List<Status>> getStatuses() async {
+    final Uri uri = Uri.parse('$apiUrl/api/Status');
+
     try {
       final response = await http.get(
-        Uri.parse(apiUrl),
+        uri,
         headers: <String, String>{
           'Content-Type': 'application/json; charset=UTF-8',
         },
@@ -18,15 +21,17 @@ class StatusService {
       if (response.statusCode == 200) {
         final List<dynamic> statuses = jsonDecode(response.body);
         if (statuses.isEmpty) {
-          print('Lista de status vazia retornada pela API');
+          print('Lista vazia retornada pela API');
           return [];
         }
-        final List<Map<String, dynamic>> formattedStatuses = statuses.map((status) {
-          return {
-            'id': status['id'] as int? ?? 0, // Usa int? para tratar null, com valor padrão 0
-            'status': status['status'] as String, // Certifique-se de que é String
-          };
+
+        final List<Status> formattedStatuses = statuses.map((status) {
+          return Status(
+            id: status['id'] as int? ?? 0, // Usar 0 como valor padrão se nulo
+            status: status['status'] as String? ?? 'DISPONIVEL', // Usar "DISPONIVEL" como fallback
+          );
         }).toList();
+
         print('Status carregados: $formattedStatuses');
         return formattedStatuses;
       } else {
