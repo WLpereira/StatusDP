@@ -8,31 +8,38 @@ class AuthService {
   // Inicializar o Supabase com as credenciais do painel
   Future<void> initializeSupabase() async {
     await Supabase.initialize(
-      url: 'https://zfmyccxgynlmdspzjith.supabase.co', // Sua URL do Supabase
-      anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpmbXljY3hneW5sbWRzcHpqaXRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA4NDMyMjAsImV4cCI6MjA1NjQxOTIyMH0.IzYoSygScIOGtuMV6VvBi1HY5LhRAu5g-lUpzjKpJiM', // Sua anon key
+      url: 'https://zfmyccxgynlmdspzjith.supabase.co',
+      anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpmbXljY3hneW5sbWRzcHpqaXRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA4NDMyMjAsImV4cCI6MjA1NjQxOTIyMH0.IzYoSygScIOGtuMV6VvBi1HY5LhRAu5g-lUpzjKpJiM',
     );
+    print('Supabase inicializado com sucesso');
   }
 
   SupabaseClient get _client => Supabase.instance.client;
 
   Future<Usuario?> login(String email, String senha) async {
     try {
-      final response = await _client.auth.signInWithPassword(
-        email: email,
-        password: senha,
-      );
-      final user = response.user;
-      if (user != null) {
-        final userData = await _client
-            .from('Usuarios')
-            .select()
-            .eq('email', email)
-            .maybeSingle();
-        if (userData != null) {
-          return Usuario.fromJson(userData);
-        }
+      // Consultar a tabela Usuarios para encontrar um usuário com o e-mail fornecido
+      final response = await _client
+          .from('Usuarios')
+          .select()
+          .eq('email', email)
+          .maybeSingle();
+
+      if (response == null) {
+        print('Usuário não encontrado para o e-mail: $email');
+        return null; // Usuário não encontrado
       }
-      return null;
+
+      // Converter a resposta para um objeto Usuario
+      final usuario = Usuario.fromJson(response);
+
+      // Comparar a senha fornecida com a senha armazenada
+      if (usuario.senha == senha) {
+        return usuario; // Login bem-sucedido
+      } else {
+        print('Senha incorreta para o e-mail: $email');
+        return null; // Senha incorreta
+      }
     } catch (e) {
       print('Erro ao fazer login: $e');
       throw Exception('Erro ao fazer login: $e');

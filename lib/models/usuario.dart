@@ -1,7 +1,8 @@
 class Usuario {
   final int id;
-  final String? nome;
   final String email;
+  final String senha; // Novo campo
+  final String? nome;
   final String? status;
   final String? setor;
   final String? horarioInicioTrabalho;
@@ -13,8 +14,9 @@ class Usuario {
 
   Usuario({
     required this.id,
-    this.nome,
     required this.email,
+    required this.senha,
+    this.nome,
     this.status,
     this.setor,
     this.horarioInicioTrabalho,
@@ -28,8 +30,9 @@ class Usuario {
   factory Usuario.fromJson(Map<String, dynamic> json) {
     return Usuario(
       id: json['id'] as int,
-      nome: json['nome'] as String?,
       email: json['email'] as String,
+      senha: json['senha'] as String, // Novo campo
+      nome: json['nome'] as String?,
       status: json['status'] as String?,
       setor: json['setor'] as String?,
       horarioInicioTrabalho: json['horarioInicioTrabalho'] as String?,
@@ -39,5 +42,22 @@ class Usuario {
       horarioGestaoInicio: json['horarioGestaoInicio'] as String?,
       horarioGestaoFim: json['horarioGestaoFim'] as String?,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'email': email,
+      'senha': senha, // Novo campo
+      'nome': nome,
+      'status': status,
+      'setor': setor,
+      'horarioInicioTrabalho': horarioInicioTrabalho,
+      'horarioFimTrabalho': horarioFimTrabalho,
+      'horarioAlmocoInicio': horarioAlmocoInicio,
+      'horarioAlmocoFim': horarioAlmocoFim,
+      'horarioGestaoInicio': horarioGestaoInicio,
+      'horarioGestaoFim': horarioGestaoFim,
+    };
   }
 }
