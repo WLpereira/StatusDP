@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/usuario.dart';
 import '../models/status.dart';
@@ -5,28 +6,20 @@ import '../models/planner.dart';
 import '../models/horario_trabalho.dart';
 
 class AuthService {
-  // Inicializar o Supabase com as credenciais do painel
-  Future<void> initializeSupabase() async {
-    await Supabase.initialize(
-      url: 'https://zfmyccxgynlmdspzjith.supabase.co',
-      anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpmbXljY3hneW5sbWRzcHpqaXRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA4NDMyMjAsImV4cCI6MjA1NjQxOTIyMH0.IzYoSygScIOGtuMV6VvBi1HY5LhRAu5g-lUpzjKpJiM',
-    );
-    print('Supabase inicializado com sucesso');
-  }
-
-  SupabaseClient get _client => Supabase.instance.client;
-
-  Future<Usuario?> login(String email, String senha) async {
+  // Método de login manual consultando a tabela 'usuarios'
+  Future<Usuario?> login(String email, String senha, BuildContext context) async {
     try {
-      // Consultar a tabela Usuarios para encontrar um usuário com o e-mail fornecido
-      final response = await _client
-          .from('Usuarios')
+      // Consultar a tabela 'usuarios' para encontrar um usuário com o e-mail fornecido
+      final response = await Supabase.instance.client
+          .from('usuarios')
           .select()
-          .eq('email', email)
+          .eq('email', email.trim())
           .maybeSingle();
 
       if (response == null) {
-        print('Usuário não encontrado para o e-mail: $email');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Usuário não encontrado.')),
+        );
         return null; // Usuário não encontrado
       }
 
@@ -34,22 +27,31 @@ class AuthService {
       final usuario = Usuario.fromJson(response);
 
       // Comparar a senha fornecida com a senha armazenada
-      if (usuario.senha == senha) {
+      if (usuario.senha == senha.trim()) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Login realizado com sucesso!')),
+        );
         return usuario; // Login bem-sucedido
       } else {
-        print('Senha incorreta para o e-mail: $email');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('E-mail ou senha incorretos.')),
+        );
         return null; // Senha incorreta
       }
     } catch (e) {
       print('Erro ao fazer login: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao fazer login: $e')),
+      );
       throw Exception('Erro ao fazer login: $e');
     }
   }
 
+  // Buscar dados do usuário pelo e-mail
   Future<Usuario?> getUserData(String email) async {
     try {
-      final userData = await _client
-          .from('Usuarios')
+      final userData = await Supabase.instance.client
+          .from('usuarios')
           .select()
           .eq('email', email)
           .maybeSingle();
@@ -63,9 +65,10 @@ class AuthService {
     }
   }
 
+  // Buscar lista de status
   Future<List<Status>> getStatuses() async {
     try {
-      final response = await _client.from('Status_').select();
+      final response = await Supabase.instance.client.from('Status_').select();
       return response.map((json) => Status.fromJson(json)).toList();
     } catch (e) {
       print('Erro ao carregar status: $e');
@@ -73,10 +76,11 @@ class AuthService {
     }
   }
 
+  // Buscar planner para um usuário em uma data específica
   Future<List<Planner>> getPlanner(int userId, DateTime date) async {
     try {
       final dateOnly = DateTime(date.year, date.month, date.day).toIso8601String().split('T')[0];
-      final response = await _client
+      final response = await Supabase.instance.client
           .from('Planner')
           .select()
           .eq('usuarioId', userId)
@@ -88,9 +92,10 @@ class AuthService {
     }
   }
 
+  // Buscar horários de trabalho para um usuário em um dia da semana
   Future<List<HorarioTrabalho>> getHorarioTrabalho(int userId, int diaSemana) async {
     try {
-      final response = await _client
+      final response = await Supabase.instance.client
           .from('HorarioTrabalho')
           .select()
           .eq('usuarioId', userId)
@@ -102,6 +107,7 @@ class AuthService {
     }
   }
 
+  // Criar um novo registro no Planner
   Future<void> createPlanner(Planner planner) async {
     try {
       final status = await _getStatusIdFromStatus(planner.status);
@@ -109,7 +115,7 @@ class AuthService {
         throw Exception('Status inválido: ${planner.status}');
       }
       final dateOnly = planner.data.toIso8601String().split('T')[0];
-      await _client.from('Planner').insert({
+      await Supabase.instance.client.from('Planner').insert({
         'usuarioId': planner.usuarioId,
         'data': dateOnly,
         'hora': planner.hora,
@@ -122,6 +128,7 @@ class AuthService {
     }
   }
 
+  // Atualizar um registro no Planner
   Future<void> updatePlanner(Planner planner) async {
     try {
       final status = await _getStatusIdFromStatus(planner.status);
@@ -129,7 +136,7 @@ class AuthService {
         throw Exception('Status inválido: ${planner.status}');
       }
       final dateOnly = planner.data.toIso8601String().split('T')[0];
-      await _client.from('Planner').update({
+      await Supabase.instance.client.from('Planner').update({
         'usuarioId': planner.usuarioId,
         'data': dateOnly,
         'hora': planner.hora,
@@ -142,11 +149,12 @@ class AuthService {
     }
   }
 
+  // Obter o ID de um status a partir do nome
   Future<int?> _getStatusIdFromStatus(String status) async {
     final statuses = await getStatuses();
     final statusObj = statuses.firstWhere(
       (s) => s.status == status,
-      orElse: () => Status(id: 0, status: 'DISPONIVEL'),
+      orElse: () => Status(id: 1, status: 'DISPONIVEL'), // ID padrão
     );
     return statusObj.id;
   }

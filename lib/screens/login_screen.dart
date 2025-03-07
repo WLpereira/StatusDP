@@ -17,41 +17,38 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
 
   Future<void> _login() async {
-    final email = _emailController.text.trim();
-    final senha = _senhaController.text.trim();
+  final email = _emailController.text.trim();
+  final senha = _senhaController.text.trim();
 
-    if (email.isEmpty || senha.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, preencha todos os campos.')),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      final usuario = await _authService.login(email, senha);
-      if (usuario != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login realizado com sucesso!')),
-        );
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => StatusDPScreen(usuario: usuario)),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('E-mail ou senha incorretos.')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao fazer login: $e')),
-      );
-    } finally {
-      setState(() => _isLoading = false);
-    }
+  if (email.isEmpty || senha.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Por favor, preencha todos os campos.')),
+    );
+    return;
   }
+
+  setState(() => _isLoading = true);
+
+  try {
+    final usuario = await _authService.login(email, senha, context); // Passa o context
+    if (usuario != null) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => StatusDPScreen(usuario: usuario)),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('E-mail ou senha incorretos.')),
+      );
+    }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Erro ao fazer login: $e')),
+    );
+  } finally {
+    setState(() => _isLoading = false);
+  }
+}
 
   @override
   void dispose() {
