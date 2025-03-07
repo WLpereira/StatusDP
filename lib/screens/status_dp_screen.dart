@@ -23,8 +23,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
   List<Planner> _planner = [];
   List<HorarioTrabalho> _horariosTrabalho = [];
   DateTime _selectedDate = DateTime.now();
-  String? _selectedStatus = null;
-  TimeOfDay? _selectedTime; // Para armazenar a hora selecionada
+  String? _selectedStatus;
+  TimeOfDay? _selectedTime;
 
   @override
   void initState() {
@@ -88,45 +88,61 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
   }
 
   String _getStatusForTime(TimeOfDay time) {
+    // Buscar o planner para a hora específica
     final plannerEntry = _planner.firstWhere(
       (p) {
-        final plannerTime = TimeOfDay.fromDateTime(DateTime.parse(p.data.toString()).add(Duration(hours: time.hour, minutes: time.minute)));
-        return plannerTime.hour == time.hour && plannerTime.minute == time.minute;
+        final plannerHour = int.parse(p.hora.split(':')[0]);
+        final plannerMinute = int.parse(p.hora.split(':')[1]);
+        return plannerHour == time.hour && plannerMinute == time.minute;
       },
       orElse: () => Planner(
         id: -1,
         usuarioId: -1,
         data: DateTime.now(),
         hora: '',
-        status: 'DISPONIVEL',
+        statusId: _statuses.firstWhere((s) => s.status == 'DISPONIVEL', orElse: () => Status(id: 1, status: 'DISPONIVEL')).id,
         informacao: null,
       ),
     );
-    if (plannerEntry.status != 'DISPONIVEL') return plannerEntry.status;
 
+    // Obter o status a partir do statusId
+    if (plannerEntry.id != -1) {
+      final status = _statuses.firstWhere((s) => s.id == plannerEntry.statusId, orElse: () => Status(id: 1, status: 'DISPONIVEL'));
+      return status.status;
+    }
+
+    // Verificar horário de trabalho
     final horario = _horariosTrabalho.firstWhere(
-      (h) => time.hour >= int.parse(h.horarioInicio.split(':')[0]) &&
-             time.hour <= int.parse(h.horarioFim.split(':')[0]),
+      (h) {
+        final startHour = int.parse(h.horarioInicio.split(':')[0]);
+        final endHour = int.parse(h.horarioFim.split(':')[0]);
+        return time.hour >= startHour && time.hour <= endHour;
+      },
       orElse: () => HorarioTrabalho(
         id: -1,
         usuarioId: -1,
         diaSemana: 1,
         horarioInicio: '09:00',
         horarioFim: '17:00',
-        horarioAlmocoInicio: null,
-        horarioAlmocoFim: null,
-        horarioGestaoInicio: null,
-        horarioGestaoFim: null,
+        horarioAlmocoInicio: '12:00',
+        horarioAlmocoFim: '13:00',
         usuario: null,
       ),
     );
-    if (horario != null) {
-      if (time.hour == int.parse(horario.horarioGestaoInicio?.split(':')[0] ?? '-1') &&
-          time.minute >= int.parse(horario.horarioGestaoInicio?.split(':')[1] ?? '0') &&
-          time.hour < int.parse(horario.horarioGestaoFim?.split(':')[0] ?? '99')) return 'GESTÃO';
-      if (time.hour == int.parse(horario.horarioAlmocoInicio?.split(':')[0] ?? '-1') &&
-          time.minute >= int.parse(horario.horarioAlmocoInicio?.split(':')[1] ?? '0') &&
-          time.hour < int.parse(horario.horarioAlmocoFim?.split(':')[0] ?? '99')) return 'ALMOCO';
+
+    if (horario.id != -1) {
+      final almocoStartHour = int.parse(horario.horarioAlmocoInicio?.split(':')[0] ?? '12');
+      final almocoStartMinute = int.parse(horario.horarioAlmocoInicio?.split(':')[1] ?? '0');
+      final almocoEndHour = int.parse(horario.horarioAlmocoFim?.split(':')[0] ?? '13');
+      final almocoEndMinute = int.parse(horario.horarioAlmocoFim?.split(':')[1] ?? '0');
+
+      final timeInMinutes = time.hour * 60 + time.minute;
+      final almocoStartInMinutes = almocoStartHour * 60 + almocoStartMinute;
+      final almocoEndInMinutes = almocoEndHour * 60 + almocoEndMinute;
+
+      if (timeInMinutes >= almocoStartInMinutes && timeInMinutes < almocoEndInMinutes) {
+        return 'ALMOCO';
+      }
       return 'DISPONIVEL';
     }
     return 'LICENÇA';
@@ -138,8 +154,6 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
         return Colors.grey.withOpacity(0.5);
       case 'LICENÇA':
         return Colors.red.withOpacity(0.5);
-      case 'GESTÃO':
-        return Colors.blue.withOpacity(0.5);
       case 'ALMOCO':
         return Colors.green.withOpacity(0.5);
       default:
@@ -152,7 +166,6 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     return _statuses.map((s) => s.status).contains(status);
   }
 
-  // Função para salvar ou atualizar o status no Planner
   Future<void> _saveOrUpdateStatus() async {
     if (_selectedTime == null) {
       _showError('Por favor, selecione uma hora na grade.');
@@ -163,7 +176,6 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       return;
     }
 
-    // Construir a data e hora para o Planner
     final selectedDateTime = DateTime(
       _selectedDate.year,
       _selectedDate.month,
@@ -172,54 +184,42 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       _selectedTime!.minute,
     );
 
-    // Verificar se já existe um registro no Planner para a hora selecionada
+    final statusId = _statuses.firstWhere((s) => s.status == _selectedStatus, orElse: () => Status(id: 1, status: 'DISPONIVEL')).id;
+
     final existingPlanner = _planner.firstWhere(
       (p) {
-        final plannerTime = DateTime.parse(p.data.toString());
-        return plannerTime.hour == _selectedTime!.hour &&
-               plannerTime.minute == _selectedTime!.minute &&
-               plannerTime.day == _selectedDate.day &&
-               plannerTime.month == _selectedDate.month &&
-               plannerTime.year == _selectedDate.year;
+        final plannerHour = int.parse(p.hora.split(':')[0]);
+        final plannerMinute = int.parse(p.hora.split(':')[1]);
+        final plannerDate = DateTime.parse(p.data.toString());
+        return plannerHour == _selectedTime!.hour &&
+            plannerMinute == _selectedTime!.minute &&
+            plannerDate.day == _selectedDate.day &&
+            plannerDate.month == _selectedDate.month &&
+            plannerDate.year == _selectedDate.year;
       },
       orElse: () => Planner(
         id: -1,
         usuarioId: -1,
         data: DateTime.now(),
         hora: '',
-        status: '',
+        statusId: statusId,
         informacao: null,
       ),
     );
 
     try {
-      if (existingPlanner.id != -1) {
-        // Atualizar registro existente
-        final updatedPlanner = Planner(
-          id: existingPlanner.id,
-          usuarioId: _usuario.id,
-          data: selectedDateTime,
-          hora: '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}',
-          status: _selectedStatus!,
-          informacao: existingPlanner.informacao,
-        );
-        await _authService.updatePlanner(updatedPlanner);
-        _showError('Status atualizado com sucesso!');
-      } else {
-        // Criar novo registro
-        final newPlanner = Planner(
-          id: 0, // O ID será gerado pela API
-          usuarioId: _usuario.id,
-          data: selectedDateTime,
-          hora: '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}',
-          status: _selectedStatus!,
-          informacao: null,
-        );
-        await _authService.createPlanner(newPlanner);
-        _showError('Status criado com sucesso!');
-      }
+      final updatedPlanner = Planner(
+        id: existingPlanner.id != -1 ? existingPlanner.id : 0,
+        usuarioId: _usuario.id,
+        data: selectedDateTime,
+        hora: '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}',
+        statusId: statusId,
+        informacao: existingPlanner.informacao,
+      );
 
-      // Recarregar o Planner para refletir as mudanças
+      await _authService.upsertPlanner(updatedPlanner);
+      _showError('Status salvo com sucesso!');
+
       await _loadPlanner();
     } catch (e) {
       _showError('Erro ao salvar/atualizar status: $e');
@@ -303,27 +303,30 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                 ],
               ),
               const SizedBox(height: 8),
-              ..._planner.map((p) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.white.withOpacity(0.3)),
+              ..._planner.map((p) {
+                final status = _statuses.firstWhere((s) => s.id == p.statusId, orElse: () => Status(id: 1, status: 'DISPONIVEL'));
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white.withOpacity(0.3)),
+                    ),
+                    padding: const EdgeInsets.all(10),
+                    child: ListTile(
+                      title: Text(
+                        '${p.hora} - ${status.status}',
+                        style: const TextStyle(color: Colors.white),
                       ),
-                      padding: const EdgeInsets.all(10),
-                      child: ListTile(
-                        title: Text(
-                          '${p.hora} - ${p.status}',
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                        subtitle: Text(
-                          p.informacao ?? 'Sem informações',
-                          style: const TextStyle(color: Colors.white70),
-                        ),
+                      subtitle: Text(
+                        p.informacao ?? 'Sem informações',
+                        style: const TextStyle(color: Colors.white70),
                       ),
                     ),
-                  )),
+                  ),
+                );
+              }),
               const SizedBox(height: 16),
               Text(
                 'Horários de Trabalho (Dia ${_selectedDate.weekday})',
@@ -349,7 +352,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                           style: const TextStyle(color: Colors.white),
                         ),
                         subtitle: Text(
-                          'Almoço: ${h.horarioAlmocoInicio ?? "Não definido"} - ${h.horarioAlmocoFim ?? "Não definido"}, Gestão: ${h.horarioGestaoInicio ?? "Não definido"} - ${h.horarioGestaoFim ?? "Não definido"}',
+                          'Almoço: ${h.horarioAlmocoInicio ?? "Não definido"} - ${h.horarioAlmocoFim ?? "Não definido"}',
                           style: const TextStyle(color: Colors.white70),
                         ),
                       ),
@@ -383,13 +386,12 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                         final minute = (index % 2) == 0 ? 0 : 30;
                         final time = TimeOfDay(hour: hour, minute: minute);
                         final status = _getStatusForTime(time);
-                        final isActive = _planner.any((p) => DateTime.parse(p.data.toString()).hour == hour && DateTime.parse(p.data.toString()).minute == minute);
 
                         return GestureDetector(
                           onTap: () {
                             setState(() {
-                              _selectedTime = time; // Salva a hora selecionada
-                              _selectedStatus = status; // Define o status inicial
+                              _selectedTime = time;
+                              _selectedStatus = status;
                             });
                             _showError('Hora selecionada: ${time.format(context)}');
                           },
@@ -406,7 +408,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(
-                                    status == 'LICENÇA' ? Icons.lock : status == 'GESTÃO' ? Icons.business : status == 'ALMOCO' ? Icons.fastfood : Icons.check,
+                                    status == 'LICENÇA' ? Icons.lock : status == 'ALMOCO' ? Icons.fastfood : Icons.check,
                                     color: Colors.white70,
                                     size: 16,
                                   ),
@@ -460,7 +462,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
               ),
               const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: _saveOrUpdateStatus, // Botão para salvar/atualizar
+                onPressed: _saveOrUpdateStatus,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),

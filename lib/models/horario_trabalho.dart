@@ -1,3 +1,5 @@
+import 'package:status_dp_app/models/usuario.dart';
+
 class HorarioTrabalho {
   final int id;
   final int usuarioId;
@@ -6,9 +8,7 @@ class HorarioTrabalho {
   final String horarioFim;
   final String? horarioAlmocoInicio;
   final String? horarioAlmocoFim;
-  final String? horarioGestaoInicio;
-  final String? horarioGestaoFim;
-  final dynamic usuario; // Adicionado para lidar com "usuario": null
+  final Usuario? usuario; // Alterado para Usuario? e opcional
 
   HorarioTrabalho({
     required this.id,
@@ -18,23 +18,31 @@ class HorarioTrabalho {
     required this.horarioFim,
     this.horarioAlmocoInicio,
     this.horarioAlmocoFim,
-    this.horarioGestaoInicio,
-    this.horarioGestaoFim,
     this.usuario,
   });
 
   factory HorarioTrabalho.fromJson(Map<String, dynamic> json) {
     return HorarioTrabalho(
       id: json['id'] as int,
-      usuarioId: json['usuarioId'] as int,
-      diaSemana: json['diaSemana'] as int,
-      horarioInicio: json['horarioInicio'] as String,
-      horarioFim: json['horarioFim'] as String,
-      horarioAlmocoInicio: json['horarioAlmocoInicio'] as String?,
-      horarioAlmocoFim: json['horarioAlmocoFim'] as String?,
-      horarioGestaoInicio: json['horarioGestaoInicio'] as String?,
-      horarioGestaoFim: json['horarioGestaoFim'] as String?,
-      usuario: json['usuario'], // Pode ser null
+      usuarioId: json['usuarioid'] as int, // Corrigido para 'usuarioid' (nome da coluna no banco)
+      diaSemana: json['diasemana'] as int, // Corrigido para 'diasemana'
+      horarioInicio: json['horarioinicio'] as String, // Corrigido para 'horarioinicio'
+      horarioFim: json['horariofim'] as String, // Corrigido para 'horariofim'
+      horarioAlmocoInicio: json['horarioalmocoinicio'] as String?,
+      horarioAlmocoFim: json['horarioalmocofim'] as String?,
+      usuario: json['usuario'] != null ? Usuario.fromJson(json['usuario'] as Map<String, dynamic>) : null,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'usuarioid': usuarioId,
+      'diasemana': diaSemana,
+      'horarioinicio': horarioInicio,
+      'horariofim': horarioFim,
+      'horarioalmocoinicio': horarioAlmocoInicio,
+      'horarioalmocofim': horarioAlmocoFim,
+    };
   }
 }

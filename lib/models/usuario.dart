@@ -1,16 +1,14 @@
 class Usuario {
   final int id;
   final String email;
-  final String senha; // Novo campo
+  final String senha;
   final String? nome;
   final String? status;
   final String? setor;
-  final String? horarioInicioTrabalho;
-  final String? horarioFimTrabalho;
-  final String? horarioAlmocoInicio;
-  final String? horarioAlmocoFim;
-  final String? horarioGestaoInicio;
-  final String? horarioGestaoFim;
+  final String? horarioiniciotrabalho; // Corrigido para 'horarioiniciotrabalho'
+  final String? horariofimtrabalho; // Corrigido para 'horariofimtrabalho'
+  final String? horarioalmocoinicio; // Corrigido para 'horarioalmocoinicio'
+  final String? horarioalmocofim; // Corrigido para 'horarioalmocofim'
 
   Usuario({
     required this.id,
@@ -19,28 +17,24 @@ class Usuario {
     this.nome,
     this.status,
     this.setor,
-    this.horarioInicioTrabalho,
-    this.horarioFimTrabalho,
-    this.horarioAlmocoInicio,
-    this.horarioAlmocoFim,
-    this.horarioGestaoInicio,
-    this.horarioGestaoFim,
+    this.horarioiniciotrabalho,
+    this.horariofimtrabalho,
+    this.horarioalmocoinicio,
+    this.horarioalmocofim,
   });
 
   factory Usuario.fromJson(Map<String, dynamic> json) {
     return Usuario(
       id: json['id'] as int,
       email: json['email'] as String,
-      senha: json['senha'] as String, // Novo campo
+      senha: json['senha'] as String,
       nome: json['nome'] as String?,
       status: json['status'] as String?,
       setor: json['setor'] as String?,
-      horarioInicioTrabalho: json['horarioInicioTrabalho'] as String?,
-      horarioFimTrabalho: json['horarioFimTrabalho'] as String?,
-      horarioAlmocoInicio: json['horarioAlmocoInicio'] as String?,
-      horarioAlmocoFim: json['horarioAlmocoFim'] as String?,
-      horarioGestaoInicio: json['horarioGestaoInicio'] as String?,
-      horarioGestaoFim: json['horarioGestaoFim'] as String?,
+      horarioiniciotrabalho: json['horarioiniciotrabalho'] as String?,
+      horariofimtrabalho: json['horariofimtrabalho'] as String?,
+      horarioalmocoinicio: json['horarioalmocoinicio'] as String?,
+      horarioalmocofim: json['horarioalmocofim'] as String?,
     );
   }
 
@@ -48,16 +42,14 @@ class Usuario {
     return {
       'id': id,
       'email': email,
-      'senha': senha, // Novo campo
+      'senha': senha,
       'nome': nome,
       'status': status,
       'setor': setor,
-      'horarioInicioTrabalho': horarioInicioTrabalho,
-      'horarioFimTrabalho': horarioFimTrabalho,
-      'horarioAlmocoInicio': horarioAlmocoInicio,
-      'horarioAlmocoFim': horarioAlmocoFim,
-      'horarioGestaoInicio': horarioGestaoInicio,
-      'horarioGestaoFim': horarioGestaoFim,
+      'horarioiniciotrabalho': horarioiniciotrabalho,
+      'horariofimtrabalho': horariofimtrabalho,
+      'horarioalmocoinicio': horarioalmocoinicio,
+      'horarioalmocofim': horarioalmocofim,
     };
   }
 }
