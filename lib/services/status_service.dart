@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/status.dart';
 
 class StatusService {
-  static const String apiUrl = 'http://localhost:5000/api/Status'; // Corrigido para o endpoint correto
+  static const String apiUrl = 'http://localhost:5000/api/Status_'; // Corrigido para Status_
 
   Future<List<Status>> getStatuses() async {
     final Uri uri = Uri.parse(apiUrl);

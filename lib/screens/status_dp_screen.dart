@@ -23,7 +23,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
   List<Planner> _planner = [];
   List<HorarioTrabalho> _horariosTrabalho = [];
   DateTime _selectedDate = DateTime.now();
-  String? _selectedStatus;
+  String? _selectedStatus = null;
+  TimeOfDay? _selectedTime; // Para armazenar a hora selecionada
 
   @override
   void initState() {
@@ -38,6 +39,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
   Future<void> _loadStatuses() async {
     try {
       final statuses = await _authService.getStatuses();
+      print('Status carregados: $statuses');
       setState(() {
         _statuses = statuses;
       });
@@ -85,7 +87,6 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     );
   }
 
-  // Função para obter o status de um horário específico com cores
   String _getStatusForTime(TimeOfDay time) {
     final plannerEntry = _planner.firstWhere(
       (p) {
@@ -116,6 +117,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
         horarioAlmocoFim: null,
         horarioGestaoInicio: null,
         horarioGestaoFim: null,
+        usuario: null,
       ),
     );
     if (horario != null) {
@@ -130,19 +132,97 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     return 'LICENÇA';
   }
 
-  // Função para obter a cor com base no status
   Color _getColorForStatus(String status) {
     switch (status) {
       case 'DISPONIVEL':
-        return Colors.grey.withOpacity(0.5); // Cinza como na imagem
+        return Colors.grey.withOpacity(0.5);
       case 'LICENÇA':
-        return Colors.red.withOpacity(0.5); // Vermelho
+        return Colors.red.withOpacity(0.5);
       case 'GESTÃO':
-        return Colors.blue.withOpacity(0.5); // Azul
+        return Colors.blue.withOpacity(0.5);
       case 'ALMOCO':
-        return Colors.green.withOpacity(0.5); // Verde
+        return Colors.green.withOpacity(0.5);
       default:
-        return Colors.grey.withOpacity(0.3); // Padrão
+        return Colors.grey.withOpacity(0.3);
+    }
+  }
+
+  bool _isValidStatus(String? status) {
+    if (status == null) return false;
+    return _statuses.map((s) => s.status).contains(status);
+  }
+
+  // Função para salvar ou atualizar o status no Planner
+  Future<void> _saveOrUpdateStatus() async {
+    if (_selectedTime == null) {
+      _showError('Por favor, selecione uma hora na grade.');
+      return;
+    }
+    if (_selectedStatus == null || !_isValidStatus(_selectedStatus)) {
+      _showError('Por favor, selecione um status válido.');
+      return;
+    }
+
+    // Construir a data e hora para o Planner
+    final selectedDateTime = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      _selectedTime!.hour,
+      _selectedTime!.minute,
+    );
+
+    // Verificar se já existe um registro no Planner para a hora selecionada
+    final existingPlanner = _planner.firstWhere(
+      (p) {
+        final plannerTime = DateTime.parse(p.data.toString());
+        return plannerTime.hour == _selectedTime!.hour &&
+               plannerTime.minute == _selectedTime!.minute &&
+               plannerTime.day == _selectedDate.day &&
+               plannerTime.month == _selectedDate.month &&
+               plannerTime.year == _selectedDate.year;
+      },
+      orElse: () => Planner(
+        id: -1,
+        usuarioId: -1,
+        data: DateTime.now(),
+        hora: '',
+        status: '',
+        informacao: null,
+      ),
+    );
+
+    try {
+      if (existingPlanner.id != -1) {
+        // Atualizar registro existente
+        final updatedPlanner = Planner(
+          id: existingPlanner.id,
+          usuarioId: _usuario.id,
+          data: selectedDateTime,
+          hora: '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}',
+          status: _selectedStatus!,
+          informacao: existingPlanner.informacao,
+        );
+        await _authService.updatePlanner(updatedPlanner);
+        _showError('Status atualizado com sucesso!');
+      } else {
+        // Criar novo registro
+        final newPlanner = Planner(
+          id: 0, // O ID será gerado pela API
+          usuarioId: _usuario.id,
+          data: selectedDateTime,
+          hora: '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}',
+          status: _selectedStatus!,
+          informacao: null,
+        );
+        await _authService.createPlanner(newPlanner);
+        _showError('Status criado com sucesso!');
+      }
+
+      // Recarregar o Planner para refletir as mudanças
+      await _loadPlanner();
+    } catch (e) {
+      _showError('Erro ao salvar/atualizar status: $e');
     }
   }
 
@@ -277,6 +357,77 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                   )),
               const SizedBox(height: 16),
               Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: List.generate(9, (index) {
+                        final hour = 9 + index;
+                        return Text(
+                          '$hour:00',
+                          style: const TextStyle(color: Colors.white70, fontSize: 14),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 2.0,
+                      runSpacing: 2.0,
+                      children: List.generate(18, (index) {
+                        final hour = 9 + (index ~/ 2);
+                        final minute = (index % 2) == 0 ? 0 : 30;
+                        final time = TimeOfDay(hour: hour, minute: minute);
+                        final status = _getStatusForTime(time);
+                        final isActive = _planner.any((p) => DateTime.parse(p.data.toString()).hour == hour && DateTime.parse(p.data.toString()).minute == minute);
+
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedTime = time; // Salva a hora selecionada
+                              _selectedStatus = status; // Define o status inicial
+                            });
+                            _showError('Hora selecionada: ${time.format(context)}');
+                          },
+                          child: Container(
+                            width: (MediaQuery.of(context).size.width - 40) / 9 - 2,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: _getColorForStatus(status),
+                              borderRadius: BorderRadius.circular(5),
+                              border: Border.all(color: Colors.white.withOpacity(0.3)),
+                            ),
+                            child: Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    status == 'LICENÇA' ? Icons.lock : status == 'GESTÃO' ? Icons.business : status == 'ALMOCO' ? Icons.fastfood : Icons.check,
+                                    color: Colors.white70,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    status,
+                                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.1),
@@ -284,7 +435,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                   border: Border.all(color: Colors.white.withOpacity(0.3)),
                 ),
                 child: DropdownButton<String>(
-                  value: _selectedStatus,
+                  value: _isValidStatus(_selectedStatus) ? _selectedStatus : null,
                   hint: const Text(
                     'Alterar Status',
                     style: TextStyle(color: Colors.white70),
@@ -293,17 +444,39 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                   style: const TextStyle(color: Colors.white),
                   underline: const SizedBox(),
                   onChanged: (String? newValue) {
-                    setState(() {
-                      _selectedStatus = newValue;
-                      // Aqui você pode adicionar a lógica para atualizar o status via API (POST ou PUT)
-                    });
+                    if (newValue != null && _isValidStatus(newValue)) {
+                      setState(() {
+                        _selectedStatus = newValue;
+                      });
+                    }
                   },
                   items: _statuses.map((status) {
                     return DropdownMenuItem<String>(
                       value: status.status,
                       child: Text(status.status),
                     );
-                  }).toList(),
+                  }).toSet().toList(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _saveOrUpdateStatus, // Botão para salvar/atualizar
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  elevation: 10,
+                  shadowColor: Colors.green.withOpacity(0.5),
+                ),
+                child: const Text(
+                  'Salvar Status',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
