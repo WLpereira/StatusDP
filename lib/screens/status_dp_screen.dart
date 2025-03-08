@@ -26,6 +26,12 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
   String? _selectedStatus;
   TimeOfDay? _selectedTime;
 
+  // Horários padrão (padrão inicial: 08:30, 12:00, 13:30, 18:00)
+  TimeOfDay _startTime = const TimeOfDay(hour: 8, minute: 30); // Início padrão
+  TimeOfDay _lunchStartTime = const TimeOfDay(hour: 12, minute: 0); // Início almoço
+  TimeOfDay _lunchEndTime = const TimeOfDay(hour: 13, minute: 30); // Fim almoço
+  TimeOfDay _endTime = const TimeOfDay(hour: 18, minute: 0); // Fim expediente
+
   @override
   void initState() {
     super.initState();
@@ -39,7 +45,6 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
   Future<void> _loadStatuses() async {
     try {
       final statuses = await _authService.getStatuses();
-      print('Status carregados: $statuses');
       setState(() {
         _statuses = statuses;
       });
@@ -75,10 +80,23 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       final horarios = await _authService.getHorarioTrabalho(_usuario.id, _selectedDate.weekday);
       setState(() {
         _horariosTrabalho = horarios;
+        // Se houver horário salvo, atualizar os valores padrão
+        if (horarios.isNotEmpty) {
+          final horario = horarios.first;
+          _startTime = _parseTimeOfDay(horario.horarioInicio ?? '08:30');
+          _lunchStartTime = _parseTimeOfDay(horario.horarioAlmocoInicio ?? '12:00');
+          _lunchEndTime = _parseTimeOfDay(horario.horarioAlmocoFim ?? '13:30');
+          _endTime = _parseTimeOfDay(horario.horarioFim ?? '18:00');
+        }
       });
     } catch (e) {
       _showError('Erro ao carregar horários de trabalho: $e');
     }
+  }
+
+  TimeOfDay _parseTimeOfDay(String time) {
+    final parts = time.split(':');
+    return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
   }
 
   void _showError(String message) {
@@ -88,74 +106,60 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
   }
 
   String _getStatusForTime(TimeOfDay time) {
+    final timeInMinutes = time.hour * 60;
+    final startInMinutes = _startTime.hour * 60 + _startTime.minute;
+    final endInMinutes = _endTime.hour * 60 + _endTime.minute;
+    final lunchStartInMinutes = _lunchStartTime.hour * 60 + _lunchStartTime.minute;
+    final lunchEndInMinutes = _lunchEndTime.hour * 60 + _lunchEndTime.minute;
+
+    // Verificar se o slot está fora do expediente
+    final slotEndInMinutes = timeInMinutes + 60;
+    if (startInMinutes >= slotEndInMinutes || endInMinutes <= timeInMinutes) {
+      return 'FORA DO EXPEDIENTE';
+    }
+
+    // Verificar se o slot está no horário de almoço
+    if (timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes) {
+      return 'ALMOÇO';
+    }
+
     // Buscar o planner para a hora específica
     final plannerEntry = _planner.firstWhere(
       (p) {
         final plannerHour = int.parse(p.hora.split(':')[0]);
         final plannerMinute = int.parse(p.hora.split(':')[1]);
-        return plannerHour == time.hour && plannerMinute == time.minute;
+        return plannerHour == time.hour && plannerMinute == 0; // Apenas horas cheias
       },
       orElse: () => Planner(
         id: -1,
         usuarioId: -1,
         data: DateTime.now(),
         hora: '',
-        statusId: _statuses.firstWhere((s) => s.status == 'DISPONIVEL', orElse: () => Status(id: 1, status: 'DISPONIVEL')).id,
+        statusId: _statuses.firstWhere((s) => s.status == 'DISPONIVEL').id,
         informacao: null,
       ),
     );
 
-    // Obter o status a partir do statusId
     if (plannerEntry.id != -1) {
-      final status = _statuses.firstWhere((s) => s.id == plannerEntry.statusId, orElse: () => Status(id: 1, status: 'DISPONIVEL'));
+      final status = _statuses.firstWhere((s) => s.id == plannerEntry.statusId);
       return status.status;
     }
 
-    // Verificar horário de trabalho
-    final horario = _horariosTrabalho.firstWhere(
-      (h) {
-        final startHour = int.parse(h.horarioInicio.split(':')[0]);
-        final endHour = int.parse(h.horarioFim.split(':')[0]);
-        return time.hour >= startHour && time.hour <= endHour;
-      },
-      orElse: () => HorarioTrabalho(
-        id: -1,
-        usuarioId: -1,
-        diaSemana: 1,
-        horarioInicio: '09:00',
-        horarioFim: '17:00',
-        horarioAlmocoInicio: '12:00',
-        horarioAlmocoFim: '13:00',
-        usuario: null,
-      ),
-    );
-
-    if (horario.id != -1) {
-      final almocoStartHour = int.parse(horario.horarioAlmocoInicio?.split(':')[0] ?? '12');
-      final almocoStartMinute = int.parse(horario.horarioAlmocoInicio?.split(':')[1] ?? '0');
-      final almocoEndHour = int.parse(horario.horarioAlmocoFim?.split(':')[0] ?? '13');
-      final almocoEndMinute = int.parse(horario.horarioAlmocoFim?.split(':')[1] ?? '0');
-
-      final timeInMinutes = time.hour * 60 + time.minute;
-      final almocoStartInMinutes = almocoStartHour * 60 + almocoStartMinute;
-      final almocoEndInMinutes = almocoEndHour * 60 + almocoEndMinute;
-
-      if (timeInMinutes >= almocoStartInMinutes && timeInMinutes < almocoEndInMinutes) {
-        return 'ALMOCO';
-      }
-      return 'DISPONIVEL';
-    }
-    return 'LICENÇA';
+    return 'DISPONIVEL';
   }
 
   Color _getColorForStatus(String status) {
     switch (status) {
       case 'DISPONIVEL':
         return Colors.grey.withOpacity(0.5);
-      case 'LICENÇA':
+      case 'AUSENTE':
         return Colors.red.withOpacity(0.5);
-      case 'ALMOCO':
+      case 'ALMOÇO':
         return Colors.green.withOpacity(0.5);
+      case 'GESTAO':
+        return Colors.blue.withOpacity(0.5);
+      case 'FORA DO EXPEDIENTE':
+        return Colors.black.withOpacity(0.3);
       default:
         return Colors.grey.withOpacity(0.3);
     }
@@ -176,15 +180,29 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       return;
     }
 
+    final timeInMinutes = _selectedTime!.hour * 60;
+    final lunchStartInMinutes = _lunchStartTime.hour * 60 + _lunchStartTime.minute;
+    final lunchEndInMinutes = _lunchEndTime.hour * 60 + _lunchEndTime.minute;
+    final endInMinutes = _endTime.hour * 60 + _endTime.minute;
+
+    if (timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes) {
+      _showError('Não é possível agendar durante o horário de almoço.');
+      return;
+    }
+    if (timeInMinutes >= endInMinutes) {
+      _showError('Não é possível agendar após o fim do expediente.');
+      return;
+    }
+
     final selectedDateTime = DateTime(
       _selectedDate.year,
       _selectedDate.month,
       _selectedDate.day,
       _selectedTime!.hour,
-      _selectedTime!.minute,
+      0, // Apenas horas cheias
     );
 
-    final statusId = _statuses.firstWhere((s) => s.status == _selectedStatus, orElse: () => Status(id: 1, status: 'DISPONIVEL')).id;
+    final statusId = _statuses.firstWhere((s) => s.status == _selectedStatus).id;
 
     final existingPlanner = _planner.firstWhere(
       (p) {
@@ -192,7 +210,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
         final plannerMinute = int.parse(p.hora.split(':')[1]);
         final plannerDate = DateTime.parse(p.data.toString());
         return plannerHour == _selectedTime!.hour &&
-            plannerMinute == _selectedTime!.minute &&
+            plannerMinute == 0 &&
             plannerDate.day == _selectedDate.day &&
             plannerDate.month == _selectedDate.month &&
             plannerDate.year == _selectedDate.year;
@@ -212,7 +230,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
         id: existingPlanner.id != -1 ? existingPlanner.id : 0,
         usuarioId: _usuario.id,
         data: selectedDateTime,
-        hora: '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}',
+        hora: '${_selectedTime!.hour.toString().padLeft(2, '0')}:00',
         statusId: statusId,
         informacao: existingPlanner.informacao,
       );
@@ -226,8 +244,92 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     }
   }
 
+  Future<void> _updateHorarioTrabalho() async {
+    final horario = HorarioTrabalho(
+      id: _horariosTrabalho.isNotEmpty ? _horariosTrabalho.first.id : -1,
+      usuarioId: _usuario.id,
+      diaSemana: _selectedDate.weekday,
+      horarioInicio: '${_startTime.hour.toString().padLeft(2, '0')}:${_startTime.minute.toString().padLeft(2, '0')}',
+      horarioFim: '${_endTime.hour.toString().padLeft(2, '0')}:${_endTime.minute.toString().padLeft(2, '0')}',
+      horarioAlmocoInicio: '${_lunchStartTime.hour.toString().padLeft(2, '0')}:${_lunchStartTime.minute.toString().padLeft(2, '0')}',
+      horarioAlmocoFim: '${_lunchEndTime.hour.toString().padLeft(2, '0')}:${_lunchEndTime.minute.toString().padLeft(2, '0')}',
+      usuario: null,
+    );
+
+    try {
+      await _authService.upsertHorarioTrabalho(horario);
+      _showError('Horário de trabalho salvo com sucesso!');
+      await _loadHorarioTrabalho();
+    } catch (e) {
+      _showError('Erro ao salvar horário de trabalho: $e');
+    }
+  }
+
+  Future<void> _selectTime(BuildContext context, String field) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: field == 'start'
+          ? _startTime
+          : field == 'lunchStart'
+              ? _lunchStartTime
+              : field == 'lunchEnd'
+                  ? _lunchEndTime
+                  : _endTime,
+    );
+    if (picked != null) {
+      setState(() {
+        if (field == 'start') {
+          _startTime = picked;
+        } else if (field == 'lunchStart') {
+          _lunchStartTime = picked;
+        } else if (field == 'lunchEnd') {
+          _lunchEndTime = picked;
+        } else if (field == 'end') {
+          _endTime = picked;
+        }
+      });
+    }
+  }
+
+  List<TimeOfDay> _getAvailableHours() {
+    // Calcular o horário de início na hora cheia mais próxima ou igual
+    int startHour = _startTime.hour;
+    if (_startTime.minute > 0) startHour++; // Começar na próxima hora cheia se houver minutos
+
+    // Horário de fim é a hora cheia anterior ao fim do expediente
+    int endHour = _endTime.hour;
+
+    // Converter horários de almoço para horas cheias
+    int lunchStartHour = _lunchStartTime.hour;
+    int lunchEndHour = _lunchEndTime.hour;
+
+    List<TimeOfDay> hours = [];
+    for (int h = startHour; h < endHour; h++) {
+      final time = TimeOfDay(hour: h, minute: 0);
+      final timeInMinutes = h * 60;
+      final lunchStartInMinutes = _lunchStartTime.hour * 60 + _lunchStartTime.minute;
+      final lunchEndInMinutes = _lunchEndTime.hour * 60 + _lunchEndTime.minute;
+
+      // Excluir horários que caem dentro do intervalo de almoço
+      if (timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes) {
+        continue;
+      }
+
+      hours.add(time);
+    }
+
+    // Adicionar mensagem de depuração se a lista estiver vazia
+    if (hours.isEmpty) {
+      print('Aviso: Nenhum horário disponível. startHour: $startHour, endHour: $endHour, lunch: $lunchStartHour-$lunchEndHour');
+    }
+
+    return hours;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final availableHours = _getAvailableHours();
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -292,7 +394,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                         setState(() {
                           _selectedDate = picked;
                         });
-                        _loadPlanner();
+                        await _loadPlanner();
+                        await _loadHorarioTrabalho();
                       }
                     },
                     child: const Text(
@@ -304,7 +407,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
               ),
               const SizedBox(height: 8),
               ..._planner.map((p) {
-                final status = _statuses.firstWhere((s) => s.id == p.statusId, orElse: () => Status(id: 1, status: 'DISPONIVEL'));
+                final status = _statuses.firstWhere((s) => s.id == p.statusId);
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8.0),
                   child: Container(
@@ -329,7 +432,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
               }),
               const SizedBox(height: 16),
               Text(
-                'Horários de Trabalho (Dia ${_selectedDate.weekday})',
+                'Horário de Trabalho (Dia ${_selectedDate.weekday})',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -337,27 +440,39 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              ..._horariosTrabalho.map((h) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.white.withOpacity(0.3)),
-                      ),
-                      padding: const EdgeInsets.all(10),
-                      child: ListTile(
-                        title: Text(
-                          'Horário: ${h.horarioInicio} - ${h.horarioFim}',
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                        subtitle: Text(
-                          'Almoço: ${h.horarioAlmocoInicio ?? "Não definido"} - ${h.horarioAlmocoFim ?? "Não definido"}',
-                          style: const TextStyle(color: Colors.white70),
-                        ),
-                      ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  GestureDetector(
+                    onTap: () => _selectTime(context, 'start'),
+                    child: Text(
+                      'Início: ${_startTime.format(context)}',
+                      style: const TextStyle(color: Colors.white),
                     ),
-                  )),
+                  ),
+                  GestureDetector(
+                    onTap: () => _selectTime(context, 'lunchStart'),
+                    child: Text(
+                      'Almoço: ${_lunchStartTime.format(context)}',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => _selectTime(context, 'lunchEnd'),
+                    child: Text(
+                      'Fim Almoço: ${_lunchEndTime.format(context)}',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => _selectTime(context, 'end'),
+                    child: Text(
+                      'Fim Expediente: ${_endTime.format(context)}',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(10),
@@ -367,64 +482,68 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                 ),
                 child: Column(
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: List.generate(9, (index) {
-                        final hour = 9 + index;
-                        return Text(
-                          '$hour:00',
-                          style: const TextStyle(color: Colors.white70, fontSize: 14),
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 2.0,
-                      runSpacing: 2.0,
-                      children: List.generate(18, (index) {
-                        final hour = 9 + (index ~/ 2);
-                        final minute = (index % 2) == 0 ? 0 : 30;
-                        final time = TimeOfDay(hour: hour, minute: minute);
-                        final status = _getStatusForTime(time);
+                    if (availableHours.isEmpty)
+                      const Text(
+                        'Nenhum horário disponível. Verifique os horários de trabalho.',
+                        style: TextStyle(color: Colors.white70),
+                      )
+                    else
+                      Wrap(
+                        spacing: 2.0,
+                        runSpacing: 2.0,
+                        children: availableHours.map((time) {
+                          final status = _getStatusForTime(time);
 
-                        return GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _selectedTime = time;
-                              _selectedStatus = status;
-                            });
-                            _showError('Hora selecionada: ${time.format(context)}');
-                          },
-                          child: Container(
-                            width: (MediaQuery.of(context).size.width - 40) / 9 - 2,
-                            height: 50,
-                            decoration: BoxDecoration(
-                              color: _getColorForStatus(status),
-                              borderRadius: BorderRadius.circular(5),
-                              border: Border.all(color: Colors.white.withOpacity(0.3)),
-                            ),
-                            child: Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    status == 'LICENÇA' ? Icons.lock : status == 'ALMOCO' ? Icons.fastfood : Icons.check,
-                                    color: Colors.white70,
-                                    size: 16,
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    status,
-                                    style: const TextStyle(color: Colors.white70, fontSize: 12),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
+                          return GestureDetector(
+                            onTap: () {
+                              if (status == 'ALMOÇO' || status == 'FORA DO EXPEDIENTE') {
+                                _showError(status == 'ALMOÇO'
+                                    ? 'Não é possível agendar durante o horário de almoço.'
+                                    : 'Não é possível agendar fora do expediente.');
+                                return;
+                              }
+                              setState(() {
+                                _selectedTime = time;
+                                _selectedStatus = status;
+                              });
+                              _showError('Hora selecionada: ${time.format(context)}');
+                            },
+                            child: Container(
+                              width: (MediaQuery.of(context).size.width - 40) / 5 - 2,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: _getColorForStatus(status),
+                                borderRadius: BorderRadius.circular(5),
+                                border: Border.all(color: Colors.white.withOpacity(0.3)),
+                              ),
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      status == 'AUSENTE'
+                                          ? Icons.lock
+                                          : status == 'ALMOÇO'
+                                              ? Icons.fastfood
+                                              : status == 'FORA DO EXPEDIENTE'
+                                                  ? Icons.block
+                                                  : Icons.check,
+                                      color: Colors.white70,
+                                      size: 16,
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${time.hour.toString().padLeft(2, '0')}:00',
+                                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      }),
-                    ),
+                          );
+                        }).toList(),
+                      ),
                   ],
                 ),
               ),
@@ -474,6 +593,27 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                 ),
                 child: const Text(
                   'Salvar Status',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _updateHorarioTrabalho,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  elevation: 10,
+                  shadowColor: Colors.green.withOpacity(0.5),
+                ),
+                child: const Text(
+                  'Salvar Horários',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
