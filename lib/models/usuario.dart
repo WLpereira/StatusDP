@@ -5,10 +5,10 @@ class Usuario {
   final String? nome;
   final String? status;
   final String? setor;
-  final String? horarioiniciotrabalho; // Corrigido para 'horarioiniciotrabalho'
-  final String? horariofimtrabalho; // Corrigido para 'horariofimtrabalho'
-  final String? horarioalmocoinicio; // Corrigido para 'horarioalmocoinicio'
-  final String? horarioalmocofim; // Corrigido para 'horarioalmocofim'
+  final String? horarioiniciotrabalho;
+  final String? horariofimtrabalho;
+  final String? horarioalmocoinicio;
+  final String? horarioalmocofim;
 
   Usuario({
     required this.id,

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../screens/planner_screen.dart'; // Corrigido para planner_screen.dart
+import '../screens/status_dp_screen.dart'; // Alterado para status_dp_screen.dart
 import '../services/auth_service.dart';
 import '../widgets/custom_text_field.dart';
 
@@ -34,7 +34,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (usuario != null) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => PlannerScreen(usuario: usuario)), // Corrigido para PlannerScreen
+          MaterialPageRoute(builder: (context) => StatusDPScreen(usuario: usuario)),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(

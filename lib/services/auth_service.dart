@@ -143,7 +143,7 @@ class AuthService {
     final statuses = await getStatuses();
     return statuses.firstWhere(
       (s) => s.id == statusId,
-      orElse: () => Status(id: 1, status: 'DISPONIVEL'), // Retorna status padrão se não encontrado
+      orElse: () => Status(id: 1, status: 'DISPONIVEL'),
     );
   }
 }

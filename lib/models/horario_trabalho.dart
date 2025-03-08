@@ -8,7 +8,7 @@ class HorarioTrabalho {
   final String horarioFim;
   final String? horarioAlmocoInicio;
   final String? horarioAlmocoFim;
-  final Usuario? usuario; // Alterado para Usuario? e opcional
+  final Usuario? usuario;
 
   HorarioTrabalho({
     required this.id,
@@ -24,10 +24,10 @@ class HorarioTrabalho {
   factory HorarioTrabalho.fromJson(Map<String, dynamic> json) {
     return HorarioTrabalho(
       id: json['id'] as int,
-      usuarioId: json['usuarioid'] as int, // Corrigido para 'usuarioid' (nome da coluna no banco)
-      diaSemana: json['diasemana'] as int, // Corrigido para 'diasemana'
-      horarioInicio: json['horarioinicio'] as String, // Corrigido para 'horarioinicio'
-      horarioFim: json['horariofim'] as String, // Corrigido para 'horariofim'
+      usuarioId: json['usuarioid'] as int,
+      diaSemana: json['diasemana'] as int,
+      horarioInicio: json['horarioinicio'] as String,
+      horarioFim: json['horariofim'] as String,
       horarioAlmocoInicio: json['horarioalmocoinicio'] as String?,
       horarioAlmocoFim: json['horarioalmocofim'] as String?,
       usuario: json['usuario'] != null ? Usuario.fromJson(json['usuario'] as Map<String, dynamic>) : null,
