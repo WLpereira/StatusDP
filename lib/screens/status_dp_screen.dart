@@ -6,6 +6,7 @@ import '../models/horario_trabalho.dart';
 import '../services/auth_service.dart';
 import 'package:intl/intl.dart';
 import 'login_screen.dart';
+import 'painel_screen.dart';
 
 class StatusDPScreen extends StatefulWidget {
   final Usuario usuario;
@@ -25,13 +26,12 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
   DateTime _selectedDate = DateTime.now();
   String? _selectedStatus;
   TimeOfDay? _selectedTime;
-  bool _isLoading = true; // Adicionado para controlar o estado de carregamento
+  bool _isLoading = true;
 
-  // Horários padrão (padrão inicial: 08:30, 12:00, 13:30, 18:00)
-  TimeOfDay _startTime = const TimeOfDay(hour: 8, minute: 30);
+  TimeOfDay _startTime = const TimeOfDay(hour: 6, minute: 0); // Ajustado para 06:00
   TimeOfDay _lunchStartTime = const TimeOfDay(hour: 12, minute: 0);
   TimeOfDay _lunchEndTime = const TimeOfDay(hour: 13, minute: 30);
-  TimeOfDay _endTime = const TimeOfDay(hour: 18, minute: 0);
+  TimeOfDay _endTime = const TimeOfDay(hour: 18, minute: 0); // Ajustado para 18:00
 
   @override
   void initState() {
@@ -40,12 +40,10 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     _loadInitialData();
   }
 
-  // Carrega todos os dados iniciais de forma assíncrona
   Future<void> _loadInitialData() async {
     setState(() {
       _isLoading = true;
     });
-
     try {
       await _loadStatuses();
       await _loadUserData();
@@ -73,7 +71,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
         _statuses = [
           Status(id: 1, status: 'DISPONIVEL'),
           Status(id: 2, status: 'AUSENTE'),
-          Status(id: 3, status: 'GESTAO'),
+          Status(id: 3, status: 'ALMOCO'),
+          Status(id: 4, status: 'GESTAO'),
         ];
         _selectedStatus = 'DISPONIVEL';
       });
@@ -109,12 +108,12 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
         _horariosTrabalho = horarios;
         if (horarios.isNotEmpty) {
           final horario = horarios.first;
-          _startTime = _parseTimeOfDay(horario.horarioInicio ?? _usuario.horarioiniciotrabalho ?? '08:30');
+          _startTime = _parseTimeOfDay(horario.horarioInicio ?? _usuario.horarioiniciotrabalho ?? '06:00');
           _lunchStartTime = _parseTimeOfDay(horario.horarioAlmocoInicio ?? _usuario.horarioalmocoinicio ?? '12:00');
           _lunchEndTime = _parseTimeOfDay(horario.horarioAlmocoFim ?? _usuario.horarioalmocofim ?? '13:30');
           _endTime = _parseTimeOfDay(horario.horarioFim ?? _usuario.horariofimtrabalho ?? '18:00');
         } else {
-          _startTime = _parseTimeOfDay(_usuario.horarioiniciotrabalho ?? '08:30');
+          _startTime = _parseTimeOfDay(_usuario.horarioiniciotrabalho ?? '06:00');
           _lunchStartTime = _parseTimeOfDay(_usuario.horarioalmocoinicio ?? '12:00');
           _lunchEndTime = _parseTimeOfDay(_usuario.horarioalmocofim ?? '13:30');
           _endTime = _parseTimeOfDay(_usuario.horariofimtrabalho ?? '18:00');
@@ -133,12 +132,14 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
   void _showError(String message) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.grey[800],
+        ),
       );
     }
   }
 
-  // Nova função para determinar a cor do grid com base na presença de informação
   Color _getColorForGrid(TimeOfDay time) {
     final informacao = _getInformacaoForTime(time);
     return informacao != null ? Colors.greenAccent : Colors.grey.withOpacity(0.5);
@@ -147,22 +148,12 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
   String? _getInformacaoForTime(TimeOfDay time) {
     final plannerEntry = _planner.firstWhere(
       (p) => DateFormat('yyyy-MM-dd').format(p.data) == DateFormat('yyyy-MM-dd').format(_selectedDate),
-      orElse: () {
-        if (_statuses.isEmpty) {
-          return Planner(
-            id: -1,
-            usuarioId: -1,
-            data: DateTime.now(),
-            statusId: 1,
-          );
-        }
-        return Planner(
-          id: -1,
-          usuarioId: -1,
-          data: _selectedDate,
-          statusId: _statuses.firstWhere((s) => s.status == 'DISPONIVEL').id,
-        );
-      },
+      orElse: () => Planner(
+        id: -1,
+        usuarioId: _usuario.id,
+        data: _selectedDate,
+        statusId: _statuses.isNotEmpty ? _statuses.firstWhere((s) => s.status == 'DISPONIVEL').id : 1,
+      ),
     );
 
     if (plannerEntry.id != -1) {
@@ -211,12 +202,12 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       _showError('Não é possível agendar durante o horário de almoço.');
       return;
     }
+
     if (timeInMinutes >= endInMinutes) {
       _showError('Não é possível agendar após o fim do expediente.');
       return;
     }
 
-    // Verificar se o horário já passou
     final now = DateTime.now();
     final currentTimeInMinutes = now.hour * 60 + now.minute;
     if (DateFormat('yyyy-MM-dd').format(now) == DateFormat('yyyy-MM-dd').format(_selectedDate) &&
@@ -225,28 +216,16 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       return;
     }
 
-    // Buscar um Planner existente para a data selecionada
     Planner existingPlanner = _planner.firstWhere(
       (p) => DateFormat('yyyy-MM-dd').format(p.data) == DateFormat('yyyy-MM-dd').format(_selectedDate),
-      orElse: () {
-        if (_statuses.isEmpty) {
-          return Planner(
-            id: -1,
-            usuarioId: -1,
-            data: DateTime.now(),
-            statusId: 1,
-          );
-        }
-        return Planner(
-          id: -1,
-          usuarioId: -1,
-          data: _selectedDate,
-          statusId: _statuses.firstWhere((s) => s.status == 'DISPONIVEL').id,
-        );
-      },
+      orElse: () => Planner(
+        id: -1,
+        usuarioId: _usuario.id,
+        data: _selectedDate,
+        statusId: _statuses.isNotEmpty ? _statuses.firstWhere((s) => s.status == 'DISPONIVEL').id : 1,
+      ),
     );
 
-    // Criar listas para os horários e informações existentes
     List<String?> horarios = [
       existingPlanner.horario1,
       existingPlanner.horario2,
@@ -272,30 +251,22 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       existingPlanner.informacao10,
     ];
 
-    // Procurar o índice do horário que está sendo editado
     int index = horarios.indexOf(timeString);
-
-    if (index != -1) {
-      // Se o horário já existe, atualizar a informação correspondente
-      informacoes[index] = informacao;
-    } else {
-      // Se o horário não existe, encontrar um slot vazio para adicionar
+    if (index == -1) {
       index = horarios.indexWhere((h) => h == null);
-      if (index != -1) {
-        horarios[index] = timeString;
-        informacoes[index] = informacao;
-      } else {
-        _showError('Não há mais slots disponíveis para agendamento.');
+      if (index == -1) {
+        _showError('Limite de 10 horários atingido. Substitua um horário existente.');
         return;
       }
+      horarios[index] = timeString;
     }
+    informacoes[index] = informacao;
 
-    // Criar o objeto Planner com os dados atualizados
     Map<String, dynamic> plannerData = {
       'id': existingPlanner.id != -1 ? existingPlanner.id : 0,
       'usuarioid': _usuario.id,
       'data': DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day).toIso8601String().split('T')[0],
-      'statusid': existingPlanner.statusId, // Status não afeta o grid
+      'statusid': existingPlanner.statusId,
       'horario1': horarios[0],
       'informacao1': informacoes[0],
       'horario2': horarios[1],
@@ -346,7 +317,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
         informacao10: plannerData['informacao10'],
       ));
       _showError('Informação salva com sucesso!');
-      await _loadPlanner();
+      await _loadPlanner(); // Atualiza o planner localmente
     } catch (e) {
       _showError('Erro ao salvar informação: $e');
     }
@@ -368,6 +339,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       await _authService.upsertHorarioTrabalho(horario);
       _showError('Horário de trabalho salvo com sucesso!');
       await _loadHorarioTrabalho();
+      await _loadPlanner(); // Atualiza o planner após mudar o horário
     } catch (e) {
       _showError('Erro ao salvar horário de trabalho: $e');
     }
@@ -421,18 +393,48 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
         continue;
       }
 
-      if (h == _endTime.hour) {
-        continue;
-      }
-
       hours.add(time);
     }
-
-    if (hours.isEmpty) {
-      print('Aviso: Nenhum horário disponível. startHour: $startHour, endHour: $endHour, lunch: $lunchStartHour-$lunchEndHour');
-    }
-
     return hours;
+  }
+
+  Color _getStatusColor(String? status) {
+    switch (status) {
+      case 'DISPONIVEL':
+        return Colors.green;
+      case 'AUSENTE':
+        return Colors.orange;
+      case 'ALMOCO':
+        return Colors.yellow;
+      case 'GESTAO':
+        return Colors.blueAccent;
+      default:
+        return Colors.white;
+    }
+  }
+
+  IconData _getStatusIcon(String? status) {
+    switch (status) {
+      case 'DISPONIVEL':
+        return Icons.check_circle;
+      case 'AUSENTE':
+        return Icons.lock;
+      case 'ALMOCO':
+        return Icons.local_dining;
+      case 'GESTAO':
+        return Icons.business;
+      default:
+        return Icons.help;
+    }
+  }
+
+  void _goToPainel() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => PainelScreen(usuarioLogado: widget.usuario)),
+    ).then((_) async {
+      await _loadInitialData(); // Recarrega dados ao voltar
+    });
   }
 
   @override
@@ -450,6 +452,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     final currentTimeInMinutes = now.hour * 60 + now.minute;
 
     return Scaffold(
+      backgroundColor: const Color(0xFF1A1A2E),
+      extendBody: true,
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -475,17 +479,10 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                     size: 100,
                     color: Colors.white,
                   ),
-                  // Ícone para indicar o status atual
                   Icon(
-                    _selectedStatus == 'DISPONIVEL'
-                        ? Icons.check_circle
-                        : _selectedStatus == 'AUSENTE'
-                            ? Icons.lock
-                            : _selectedStatus == 'GESTAO'
-                                ? Icons.business
-                                : Icons.help,
+                    _getStatusIcon(_selectedStatus),
                     size: 40,
-                    color: Colors.white,
+                    color: _getStatusColor(_selectedStatus),
                   ),
                 ],
               ),
@@ -649,9 +646,9 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                             onTap: isPastHour
                                 ? null
                                 : () {
-                                    if (informacao != null || timeInMinutes >= (_lunchStartTime.hour * 60 + _lunchStartTime.minute) &&
+                                    if (timeInMinutes >= (_lunchStartTime.hour * 60 + _lunchStartTime.minute) &&
                                         timeInMinutes < (_lunchEndTime.hour * 60 + _lunchEndTime.minute)) {
-                                      _showError('Não é possível agendar ou editar este horário.');
+                                      _showError('Não é possível agendar durante o horário de almoço.');
                                       return;
                                     }
                                     showDialog(
@@ -692,19 +689,33 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                 borderRadius: BorderRadius.circular(5),
                                 border: Border.all(color: Colors.white.withOpacity(0.3)),
                               ),
+                              padding: const EdgeInsets.all(8),
                               child: Center(
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Icon(
                                       informacao != null ? Icons.check : Icons.add,
-                                      color: Colors.white,
+                                      color: informacao != null ? Colors.white : Colors.black,
                                       size: 16,
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
                                       '${time.hour.toString().padLeft(2, '0')}:00',
-                                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                                      style: TextStyle(
+                                        color: informacao != null ? Colors.white : Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        shadows: informacao != null
+                                            ? [
+                                                const Shadow(
+                                                  color: Colors.black26,
+                                                  offset: Offset(1.0, 1.0),
+                                                  blurRadius: 2.0,
+                                                ),
+                                              ]
+                                            : null,
+                                      ),
                                       textAlign: TextAlign.center,
                                     ),
                                     if (informacao != null)
@@ -802,31 +813,57 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (context) => const LoginScreen()),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.redAccent,
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton(
+                    onPressed: _goToPainel,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      elevation: 10,
+                      shadowColor: Colors.green.withOpacity(0.5),
+                    ),
+                    child: const Text(
+                      'Painel',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
-                  elevation: 10,
-                  shadowColor: Colors.redAccent.withOpacity(0.5),
-                ),
-                child: const Text(
-                  'Sair',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (context) => const LoginScreen()),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      elevation: 10,
+                      shadowColor: Colors.redAccent.withOpacity(0.5),
+                    ),
+                    child: const Text(
+                      'Sair',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
+              const SizedBox(height: 20),
             ],
           ),
         ),

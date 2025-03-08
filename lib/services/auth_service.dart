@@ -68,7 +68,7 @@ class AuthService {
   Future<List<Planner>> getPlanner(int usuarioId, DateTime date) async {
     try {
       final response = await supabase
-          .from('planner_')
+          .from('planner')
           .select()
           .eq('usuarioid', usuarioId)
           .eq('data', date.toIso8601String().split('T')[0]);
@@ -95,7 +95,7 @@ class AuthService {
 
   Future<void> upsertPlanner(Planner planner) async {
     try {
-      await supabase.from('planner_').upsert(planner.toJson());
+      await supabase.from('planner').upsert(planner.toJson());
     } catch (e) {
       throw Exception('Erro ao salvar planner: $e');
     }
@@ -177,7 +177,7 @@ class AuthService {
 
   Future<List<Planner>> getAllPlanners() async {
     try {
-      final response = await supabase.from('planner_').select();
+      final response = await supabase.from('planner').select();
       return (response as List).map((json) => Planner.fromJson(json)).toList();
     } catch (e) {
       throw Exception('Erro ao buscar planners: $e');
