@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/usuario.dart';
 import '../models/status.dart';
@@ -6,144 +5,191 @@ import '../models/planner.dart';
 import '../models/horario_trabalho.dart';
 
 class AuthService {
-  Future<Usuario?> login(String email, String senha, BuildContext context) async {
+  final SupabaseClient supabase = Supabase.instance.client;
+
+  Future<Usuario?> login(String email, String password) async {
     try {
-      final response = await Supabase.instance.client
+      final response = await supabase
           .from('usuarios')
           .select()
-          .eq('email', email.trim())
-          .maybeSingle();
+          .eq('email', email)
+          .eq('senha', password)
+          .single();
 
-      if (response == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Usuário não encontrado.')),
-        );
+      if (response.isEmpty) {
         return null;
       }
 
-      final usuario = Usuario.fromJson(response);
-
-      if (usuario.senha == senha.trim()) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login realizado com sucesso!')),
-        );
-        return usuario;
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('E-mail ou senha incorretos.')),
-        );
-        return null;
-      }
+      return Usuario.fromJson(response);
     } catch (e) {
-      print('Erro ao fazer login: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao fazer login: $e')),
-      );
       throw Exception('Erro ao fazer login: $e');
     }
   }
 
   Future<Usuario?> getUserData(String email) async {
     try {
-      final userData = await Supabase.instance.client
+      final response = await supabase
           .from('usuarios')
           .select()
           .eq('email', email)
-          .maybeSingle();
-      if (userData != null) {
-        return Usuario.fromJson(userData);
+          .single();
+
+      if (response.isEmpty) {
+        return null;
       }
-      return null;
+
+      return Usuario.fromJson(response);
     } catch (e) {
-      print('Erro ao buscar dados do usuário: $e');
       throw Exception('Erro ao buscar dados do usuário: $e');
+    }
+  }
+
+  Future<void> updateUserStatus(int userId, String status) async {
+    try {
+      await supabase
+          .from('usuarios')
+          .update({'status': status})
+          .eq('id', userId);
+    } catch (e) {
+      throw Exception('Erro ao atualizar status do usuário: $e');
     }
   }
 
   Future<List<Status>> getStatuses() async {
     try {
-      final response = await Supabase.instance.client.from('status_').select();
-      return response.map((json) => Status.fromJson(json)).toList();
+      final response = await supabase.from('status_').select();
+
+      return (response as List).map((json) => Status.fromJson(json)).toList();
     } catch (e) {
-      print('Erro ao carregar status: $e');
-      throw Exception('Erro ao carregar status: $e');
+      throw Exception('Erro ao buscar status: $e');
     }
   }
 
-  Future<void> updateUserStatus(int userId, String newStatus) async {
+  Future<List<Planner>> getPlanner(int usuarioId, DateTime date) async {
     try {
-      await Supabase.instance.client
-          .from('usuarios')
-          .update({'status': newStatus})
-          .eq('id', userId);
-    } catch (e) {
-      print('Erro ao atualizar status do usuário: $e');
-      throw Exception('Erro ao atualizar status do usuário: $e');
-    }
-  }
-
-  Future<List<Planner>> getPlanner(int userId, DateTime date) async {
-    try {
-      final dateOnly = DateTime(date.year, date.month, date.day).toIso8601String().split('T')[0];
-      final response = await Supabase.instance.client
-          .from('planner')
+      final response = await supabase
+          .from('planner_')
           .select()
-          .eq('usuarioid', userId)
-          .eq('data', dateOnly);
-      return response.map((json) => Planner.fromJson(json)).toList();
+          .eq('usuarioid', usuarioId)
+          .eq('data', date.toIso8601String().split('T')[0]);
+
+      return (response as List).map((json) => Planner.fromJson(json)).toList();
     } catch (e) {
-      print('Erro ao carregar planner: $e');
-      throw Exception('Erro ao carregar planner: $e');
+      throw Exception('Erro ao buscar planner: $e');
     }
   }
 
-  Future<List<HorarioTrabalho>> getHorarioTrabalho(int userId, int diaSemana) async {
+  Future<List<HorarioTrabalho>> getHorarioTrabalho(int usuarioId, int diaSemana) async {
     try {
-      final response = await Supabase.instance.client
+      final response = await supabase
           .from('horariotrabalho')
           .select()
-          .eq('usuarioid', userId)
+          .eq('usuarioid', usuarioId)
           .eq('diasemana', diaSemana);
-      return response.map((json) => HorarioTrabalho.fromJson(json)).toList();
-    } catch (e) {
-      print('Erro ao carregar horários de trabalho: $e');
-      throw Exception('Erro ao carregar horários de trabalho: $e');
-    }
-  }
 
-  Future<void> upsertHorarioTrabalho(HorarioTrabalho horario) async {
-    try {
-      await Supabase.instance.client.from('horariotrabalho').upsert(horario.toJson());
+      return (response as List).map((json) => HorarioTrabalho.fromJson(json)).toList();
     } catch (e) {
-      print('Erro ao salvar horário de trabalho: $e');
-      throw Exception('Erro ao salvar horário de trabalho: $e');
+      throw Exception('Erro ao buscar horários de trabalho: $e');
     }
   }
 
   Future<void> upsertPlanner(Planner planner) async {
     try {
-      final plannerData = planner.toJson();
-      await Supabase.instance.client.from('planner').upsert(plannerData);
+      await supabase.from('planner_').upsert(planner.toJson());
     } catch (e) {
-      print('Erro ao salvar registro no planner: $e');
-      throw Exception('Erro ao salvar registro no planner: $e');
+      throw Exception('Erro ao salvar planner: $e');
     }
   }
 
-  Future<int?> _getStatusIdFromStatus(String status) async {
-    final statuses = await getStatuses();
-    final statusObj = statuses.firstWhere(
-      (s) => s.status == status,
-      orElse: () => Status(id: 1, status: 'DISPONIVEL'),
-    );
-    return statusObj.id;
+  Future<void> upsertHorarioTrabalho(HorarioTrabalho horario) async {
+    try {
+      await supabase.from('horariotrabalho').upsert(horario.toJson());
+    } catch (e) {
+      throw Exception('Erro ao salvar horário de trabalho: $e');
+    }
   }
 
-  Future<Status?> _getStatusFromId(int statusId) async {
-    final statuses = await getStatuses();
-    return statuses.firstWhere(
-      (s) => s.id == statusId,
-      orElse: () => Status(id: 1, status: 'DISPONIVEL'),
-    );
+  // Métodos para AdminScreen
+  Future<List<Usuario>> getAllUsuarios() async {
+    try {
+      final response = await supabase.from('usuarios').select();
+      return (response as List).map((json) => Usuario.fromJson(json)).toList();
+    } catch (e) {
+      throw Exception('Erro ao buscar usuários: $e');
+    }
+  }
+
+  Future<void> createUsuario(Usuario usuario) async {
+    try {
+      await supabase.from('usuarios').insert({
+        'email': usuario.email,
+        'nome': usuario.nome,
+        'setor': usuario.setor,
+        'senha': usuario.senha,
+        'status': usuario.status,
+        'horarioiniciotrabalho': usuario.horarioiniciotrabalho,
+        'horariofimtrabalho': usuario.horariofimtrabalho,
+        'horarioalmocoinicio': usuario.horarioalmocoinicio,
+        'horarioalmocofim': usuario.horarioalmocofim,
+      });
+    } catch (e) {
+      throw Exception('Erro ao criar usuário: $e');
+    }
+  }
+
+  Future<void> updateUsuario(Usuario usuario) async {
+    try {
+      await supabase.from('usuarios').update({
+        'email': usuario.email,
+        'nome': usuario.nome,
+        'setor': usuario.setor,
+        'senha': usuario.senha,
+        'status': usuario.status,
+        'horarioiniciotrabalho': usuario.horarioiniciotrabalho,
+        'horariofimtrabalho': usuario.horariofimtrabalho,
+        'horarioalmocoinicio': usuario.horarioalmocoinicio,
+        'horarioalmocofim': usuario.horarioalmocofim,
+      }).eq('id', usuario.id);
+    } catch (e) {
+      throw Exception('Erro ao atualizar usuário: $e');
+    }
+  }
+
+  Future<void> createStatus(Status status) async {
+    try {
+      await supabase.from('status_').insert({
+        'status': status.status,
+      });
+    } catch (e) {
+      throw Exception('Erro ao criar status: $e');
+    }
+  }
+
+  Future<void> updateStatus(Status status) async {
+    try {
+      await supabase.from('status_').update({
+        'status': status.status,
+      }).eq('id', status.id);
+    } catch (e) {
+      throw Exception('Erro ao atualizar status: $e');
+    }
+  }
+
+  Future<List<Planner>> getAllPlanners() async {
+    try {
+      final response = await supabase.from('planner_').select();
+      return (response as List).map((json) => Planner.fromJson(json)).toList();
+    } catch (e) {
+      throw Exception('Erro ao buscar planners: $e');
+    }
+  }
+
+  Future<List<HorarioTrabalho>> getAllHorariosTrabalho() async {
+    try {
+      final response = await supabase.from('horariotrabalho').select();
+      return (response as List).map((json) => HorarioTrabalho.fromJson(json)).toList();
+    } catch (e) {
+      throw Exception('Erro ao buscar horários de trabalho: $e');
+    }
   }
 }

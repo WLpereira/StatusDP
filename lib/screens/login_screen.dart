@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../screens/status_dp_screen.dart'; // Alterado para status_dp_screen.dart
 import '../services/auth_service.dart';
-import '../widgets/custom_text_field.dart';
+import 'status_dp_screen.dart';
+import 'admin_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,49 +12,58 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final AuthService _authService = AuthService();
-  final _emailController = TextEditingController();
-  final _senhaController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
 
   Future<void> _login() async {
-    final email = _emailController.text.trim();
-    final senha = _senhaController.text.trim();
+    setState(() {
+      _isLoading = true;
+    });
 
-    if (email.isEmpty || senha.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, preencha todos os campos.')),
-      );
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      _showError('Por favor, preencha todos os campos.');
+      setState(() {
+        _isLoading = false;
+      });
       return;
     }
 
-    setState(() => _isLoading = true);
-
     try {
-      final usuario = await _authService.login(email, senha, context);
+      final usuario = await _authService.login(email, password);
       if (usuario != null) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => StatusDPScreen(usuario: usuario)),
-        );
+        if (email == 'adm@dataplace.com.br') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => AdminScreen(usuario: usuario)),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => StatusDPScreen(usuario: usuario)),
+          );
+        }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('E-mail ou senha incorretos.')),
-        );
+        _showError('Email ou senha incorretos.');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao fazer login: $e')),
-      );
+      _showError('Erro ao fazer login: $e');
     } finally {
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _senhaController.dispose();
-    super.dispose();
+  void _showError(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    }
   }
 
   @override
@@ -85,42 +94,60 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 20),
                 const Text(
-                  'Login',
+                  'Bem-vindo ao DataPlace',
                   style: TextStyle(
-                    fontSize: 32,
+                    fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
-                    letterSpacing: 1.5,
                   ),
                 ),
                 const SizedBox(height: 40),
-                CustomTextField(
+                TextField(
                   controller: _emailController,
-                  labelText: 'E-mail',
-                  icon: Icons.email,
-                ),
-                const SizedBox(height: 16.0),
-                CustomTextField(
-                  controller: _senhaController,
-                  labelText: 'Senha',
-                  obscureText: true,
-                  icon: Icons.lock,
-                ),
-                const SizedBox(height: 24.0),
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _login,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                    shape: RoundedRectangleBorder(
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.white.withOpacity(0.1),
+                    hintText: 'Email',
+                    hintStyle: const TextStyle(color: Colors.white70),
+                    border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide.none,
                     ),
-                    elevation: 10,
-                    shadowColor: Colors.blueAccent.withOpacity(0.5),
                   ),
-                  child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text(
+                  style: const TextStyle(color: Colors.white),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _passwordController,
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.white.withOpacity(0.1),
+                    hintText: 'Senha',
+                    hintStyle: const TextStyle(color: Colors.white70),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  style: const TextStyle(color: Colors.white),
+                  obscureText: true,
+                ),
+                const SizedBox(height: 40),
+                _isLoading
+                    ? const CircularProgressIndicator()
+                    : ElevatedButton(
+                        onPressed: _login,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blueAccent,
+                          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          elevation: 10,
+                          shadowColor: Colors.blueAccent.withOpacity(0.5),
+                        ),
+                        child: const Text(
                           'Entrar',
                           style: TextStyle(
                             fontSize: 18,
@@ -128,20 +155,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             color: Colors.white,
                           ),
                         ),
-                ),
-                const SizedBox(height: 20),
-                TextButton(
-                  onPressed: () {
-                    // Adicione a lógica para "Esqueci a senha"
-                  },
-                  child: const Text(
-                    'Esqueci a senha',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
+                      ),
               ],
             ),
           ),
