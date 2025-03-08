@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import '../models/usuario.dart';
 import '../models/planner.dart';
 import '../models/status.dart';
-import '../models/horario_trabalho.dart'; // Adicionar import para HorarioTrabalho
+import '../models/horario_trabalho.dart';
+import '../models/user_period.dart';
 import '../services/auth_service.dart';
 import 'package:intl/intl.dart';
 
@@ -20,7 +21,8 @@ class _PainelScreenState extends State<PainelScreen> {
   List<Usuario> _usuarios = [];
   List<Planner> _planners = [];
   List<Status> _statuses = [];
-  Map<int, List<HorarioTrabalho>> _horariosTrabalho = {}; // Mapa para armazenar horários de trabalho por usuário
+  Map<int, List<HorarioTrabalho>> _horariosTrabalho = {};
+  List<UserPeriod> _userPeriods = [];
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = true;
 
@@ -40,7 +42,7 @@ class _PainelScreenState extends State<PainelScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _loadInitialData(); // Garante que os dados sejam recarregados ao retornar à tela
+    _loadInitialData();
   }
 
   Future<void> _loadInitialData() async {
@@ -51,8 +53,8 @@ class _PainelScreenState extends State<PainelScreen> {
       final usuarios = await _authService.getAllUsuarios();
       final planners = await _authService.getAllPlanners();
       final statuses = await _authService.getStatuses();
+      final userPeriods = await _authService.getAllUserPeriods();
 
-      // Carregar os horários de trabalho para todos os usuários
       Map<int, List<HorarioTrabalho>> horariosTrabalho = {};
       for (var usuario in usuarios) {
         final horarios = await _authService.getHorarioTrabalho(usuario.id, _selectedDate.weekday);
@@ -64,6 +66,7 @@ class _PainelScreenState extends State<PainelScreen> {
         _planners = planners;
         _statuses = statuses;
         _horariosTrabalho = horariosTrabalho;
+        _userPeriods = userPeriods;
       });
     } catch (e) {
       _showError('Erro ao carregar dados: $e');
@@ -271,7 +274,7 @@ class _PainelScreenState extends State<PainelScreen> {
         informacao10: plannerData['informacao10'],
       ));
       _showError('Informação salva com sucesso!');
-      await _loadInitialData(); // Recarrega os dados imediatamente após salvar
+      await _loadInitialData();
     } catch (e) {
       _showError('Erro ao salvar informação: $e');
     }
@@ -283,24 +286,29 @@ class _PainelScreenState extends State<PainelScreen> {
   }
 
   List<TimeOfDay> _getAvailableHours(Usuario user) {
-    // Carrega os horários de trabalho do usuário para o dia atual
     final horarios = _horariosTrabalho[user.id] ?? [];
     TimeOfDay startTime;
     TimeOfDay endTime;
     TimeOfDay lunchStartTime;
     TimeOfDay lunchEndTime;
+    TimeOfDay gestaoStartTime;
+    TimeOfDay gestaoEndTime;
 
     if (horarios.isNotEmpty) {
       final horario = horarios.first;
       startTime = _parseTimeOfDay(horario.horarioInicio ?? user.horarioiniciotrabalho ?? '06:00');
-      endTime = _parseTimeOfDay(horario.horarioFim ?? user.horariofimtrabalho ?? '22:00');
-      lunchStartTime = _parseTimeOfDay(horario.horarioAlmocoInicio ?? user.horarioalmocoinicio ?? '14:00');
-      lunchEndTime = _parseTimeOfDay(horario.horarioAlmocoFim ?? user.horarioalmocofim ?? '15:30');
+      endTime = _parseTimeOfDay(horario.horarioFim ?? user.horariofimtrabalho ?? '18:00');
+      lunchStartTime = _parseTimeOfDay(horario.horarioAlmocoInicio ?? user.horarioalmocoinicio ?? '12:00');
+      lunchEndTime = _parseTimeOfDay(horario.horarioAlmocoFim ?? user.horarioalmocofim ?? '13:30');
+      gestaoStartTime = _parseTimeOfDay(horario.horarioAlmocoInicio ?? user.horariogestaoinicio ?? '14:00');
+      gestaoEndTime = _parseTimeOfDay(horario.horarioAlmocoFim ?? user.horariogestaofim ?? '15:00');
     } else {
       startTime = _parseTimeOfDay(user.horarioiniciotrabalho ?? '06:00');
-      endTime = _parseTimeOfDay(user.horariofimtrabalho ?? '22:00');
-      lunchStartTime = _parseTimeOfDay(user.horarioalmocoinicio ?? '14:00');
-      lunchEndTime = _parseTimeOfDay(user.horarioalmocofim ?? '15:30');
+      endTime = _parseTimeOfDay(user.horariofimtrabalho ?? '18:00');
+      lunchStartTime = _parseTimeOfDay(user.horarioalmocoinicio ?? '12:00');
+      lunchEndTime = _parseTimeOfDay(user.horarioalmocofim ?? '13:30');
+      gestaoStartTime = _parseTimeOfDay(user.horariogestaoinicio ?? '14:00');
+      gestaoEndTime = _parseTimeOfDay(user.horariogestaofim ?? '15:00');
     }
 
     int startHour = startTime.hour;
@@ -313,14 +321,21 @@ class _PainelScreenState extends State<PainelScreen> {
     int lunchEndHour = lunchEndTime.hour;
     if (lunchEndTime.minute > 0) lunchEndHour++;
 
+    int gestaoStartHour = gestaoStartTime.hour;
+    int gestaoEndHour = gestaoEndTime.hour;
+    if (gestaoEndTime.minute > 0) gestaoEndHour++;
+
     List<TimeOfDay> hours = [];
     for (int h = startHour; h <= endHour; h++) {
       final time = TimeOfDay(hour: h, minute: 0);
       final timeInMinutes = h * 60;
       final lunchStartInMinutes = lunchStartTime.hour * 60 + lunchStartTime.minute;
       final lunchEndInMinutes = lunchEndTime.hour * 60 + lunchEndTime.minute;
+      final gestaoStartInMinutes = gestaoStartTime.hour * 60 + gestaoStartTime.minute;
+      final gestaoEndInMinutes = gestaoEndTime.hour * 60 + gestaoEndTime.minute;
 
-      if (timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes) {
+      if ((timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes) ||
+          (timeInMinutes >= gestaoStartInMinutes && timeInMinutes < gestaoEndInMinutes)) {
         continue;
       }
 
@@ -333,6 +348,25 @@ class _PainelScreenState extends State<PainelScreen> {
     final parts = time.split(':');
     return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
   }
+
+  bool _isUserUnavailable(int userId, DateTime date) {
+    return _userPeriods.any((period) =>
+        period.usuarioId == userId &&
+        date.isAfter(period.startDate.subtract(const Duration(days: 1))) &&
+        date.isBefore(period.endDate.add(const Duration(days: 1))));
+  }
+
+String? _getPeriodInfoForUser(int userId, TimeOfDay time) {
+  final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
+  final period = _userPeriods.cast<UserPeriod?>().firstWhere(
+        (p) => p != null && p.usuarioId == userId && date.isAfter(p.startDate.subtract(const Duration(days: 1))) && date.isBefore(p.endDate.add(const Duration(days: 1))),
+        orElse: () => null,
+      );
+  if (period != null) {
+    return '${period.info} (${DateFormat('dd/MM/yyyy').format(period.startDate)} - ${DateFormat('dd/MM/yyyy').format(period.endDate)})';
+  }
+  return null;
+}
 
   @override
   Widget build(BuildContext context) {
@@ -359,7 +393,7 @@ class _PainelScreenState extends State<PainelScreen> {
       backgroundColor: const Color(0xFF1A1A2E),
       extendBody: true,
       body: RefreshIndicator(
-        onRefresh: _loadInitialData, // Permite recarregamento manual
+        onRefresh: _loadInitialData,
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Column(
@@ -464,20 +498,25 @@ class _PainelScreenState extends State<PainelScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: availableHours.map((time) {
                                   final informacao = _getInformacaoForUser(user.id, time);
+                                  final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
+                                  final isUnavailable = _isUserUnavailable(user.id, date);
+                                  final periodInfo = _getPeriodInfoForUser(user.id, time);
                                   final timeInMinutes = time.hour * 60;
                                   final isPastHour = DateFormat('yyyy-MM-dd').format(now) == DateFormat('yyyy-MM-dd').format(_selectedDate) &&
                                       timeInMinutes <= currentTimeInMinutes;
                                   final canEdit = isAdmin || (widget.usuarioLogado.setor == 'ADM' && widget.usuarioLogado.id == user.id);
 
                                   return GestureDetector(
-                                    onTap: canEdit && !isPastHour
+                                    onTap: (canEdit && !isPastHour && !isUnavailable)
                                         ? () => _editPlanner(user.id, time)
                                         : null,
                                     child: Container(
                                       margin: const EdgeInsets.only(left: 4.0),
                                       padding: const EdgeInsets.all(4.0),
                                       decoration: BoxDecoration(
-                                        color: informacao != null ? Colors.greenAccent : Colors.grey.withOpacity(0.5),
+                                        color: isUnavailable
+                                            ? Colors.red.withOpacity(0.5)
+                                            : (informacao != null ? Colors.greenAccent : Colors.grey.withOpacity(0.5)),
                                         borderRadius: BorderRadius.circular(5),
                                       ),
                                       child: Column(
@@ -486,10 +525,17 @@ class _PainelScreenState extends State<PainelScreen> {
                                             '${time.hour.toString().padLeft(2, '0')}:00',
                                             style: const TextStyle(color: Colors.white, fontSize: 12),
                                           ),
-                                          if (informacao != null)
+                                          if (isUnavailable && periodInfo != null)
+                                            Text(
+                                              periodInfo,
+                                              style: const TextStyle(color: Colors.white70, fontSize: 10),
+                                              textAlign: TextAlign.center,
+                                            )
+                                          else if (informacao != null)
                                             Text(
                                               informacao,
                                               style: const TextStyle(color: Colors.white70, fontSize: 10),
+                                              textAlign: TextAlign.center,
                                             ),
                                         ],
                                       ),
@@ -514,13 +560,13 @@ class _PainelScreenState extends State<PainelScreen> {
                     Navigator.pop(context);
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
+                    backgroundColor: Colors.redAccent,
                     padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
                     ),
                     elevation: 10,
-                    shadowColor: Colors.blueAccent.withOpacity(0.5),
+                    shadowColor: Colors.redAccent.withOpacity(0.5),
                   ),
                   child: const Text(
                     'Voltar',
@@ -532,7 +578,6 @@ class _PainelScreenState extends State<PainelScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
             ],
           ),
         ),

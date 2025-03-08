@@ -3,6 +3,7 @@ import '../models/usuario.dart';
 import '../models/status.dart';
 import '../models/planner.dart';
 import '../models/horario_trabalho.dart';
+import '../models/user_period.dart';
 import '../services/auth_service.dart';
 import 'package:intl/intl.dart';
 import 'login_screen.dart';
@@ -23,15 +24,22 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
   List<Status> _statuses = [];
   List<Planner> _planner = [];
   List<HorarioTrabalho> _horariosTrabalho = [];
+  List<UserPeriod> _userPeriods = [];
   DateTime _selectedDate = DateTime.now();
   String? _selectedStatus;
   TimeOfDay? _selectedTime;
   bool _isLoading = true;
 
-  TimeOfDay _startTime = const TimeOfDay(hour: 6, minute: 0); // Ajustado para 06:00
+  TimeOfDay _startTime = const TimeOfDay(hour: 6, minute: 0);
   TimeOfDay _lunchStartTime = const TimeOfDay(hour: 12, minute: 0);
   TimeOfDay _lunchEndTime = const TimeOfDay(hour: 13, minute: 30);
-  TimeOfDay _endTime = const TimeOfDay(hour: 18, minute: 0); // Ajustado para 18:00
+  TimeOfDay _endTime = const TimeOfDay(hour: 18, minute: 0);
+  TimeOfDay _gestaoStartTime = const TimeOfDay(hour: 14, minute: 0);
+  TimeOfDay _gestaoEndTime = const TimeOfDay(hour: 15, minute: 0);
+
+  DateTime? _startDate;
+  DateTime? _endDate;
+  String _customInfo = '';
 
   @override
   void initState() {
@@ -49,6 +57,10 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       await _loadUserData();
       await _loadPlanner();
       await _loadHorarioTrabalho();
+      final periods = await _authService.getUserPeriods(_usuario.id);
+      setState(() {
+        _userPeriods = periods;
+      });
     } catch (e) {
       _showError('Erro ao carregar dados iniciais: $e');
     } finally {
@@ -112,11 +124,15 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
           _lunchStartTime = _parseTimeOfDay(horario.horarioAlmocoInicio ?? _usuario.horarioalmocoinicio ?? '12:00');
           _lunchEndTime = _parseTimeOfDay(horario.horarioAlmocoFim ?? _usuario.horarioalmocofim ?? '13:30');
           _endTime = _parseTimeOfDay(horario.horarioFim ?? _usuario.horariofimtrabalho ?? '18:00');
+          _gestaoStartTime = _parseTimeOfDay(horario.horarioAlmocoInicio ?? _usuario.horariogestaoinicio ?? '14:00');
+          _gestaoEndTime = _parseTimeOfDay(horario.horarioAlmocoFim ?? _usuario.horariogestaofim ?? '15:00');
         } else {
           _startTime = _parseTimeOfDay(_usuario.horarioiniciotrabalho ?? '06:00');
           _lunchStartTime = _parseTimeOfDay(_usuario.horarioalmocoinicio ?? '12:00');
           _lunchEndTime = _parseTimeOfDay(_usuario.horarioalmocofim ?? '13:30');
           _endTime = _parseTimeOfDay(_usuario.horariofimtrabalho ?? '18:00');
+          _gestaoStartTime = _parseTimeOfDay(_usuario.horariogestaoinicio ?? '14:00');
+          _gestaoEndTime = _parseTimeOfDay(_usuario.horariogestaofim ?? '15:00');
         }
       });
     } catch (e) {
@@ -142,7 +158,9 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
 
   Color _getColorForGrid(TimeOfDay time) {
     final informacao = _getInformacaoForTime(time);
-    return informacao != null ? Colors.greenAccent : Colors.grey.withOpacity(0.5);
+    final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
+    final isUnavailable = _isUserUnavailable(date);
+    return isUnavailable ? Colors.red.withOpacity(0.5) : (informacao != null ? Colors.greenAccent : Colors.grey.withOpacity(0.5));
   }
 
   String? _getInformacaoForTime(TimeOfDay time) {
@@ -171,6 +189,23 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     return null;
   }
 
+String? _getPeriodInfoForTime(TimeOfDay time) {
+  final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
+  final period = _userPeriods.cast<UserPeriod?>().firstWhere(
+        (p) => p != null && date.isAfter(p.startDate.subtract(const Duration(days: 1))) && date.isBefore(p.endDate.add(const Duration(days: 1))),
+        orElse: () => null,
+      );
+  if (period != null) {
+    return '${period.info} (${DateFormat('dd/MM/yyyy').format(period.startDate)} - ${DateFormat('dd/MM/yyyy').format(period.endDate)})';
+  }
+  return null;
+}
+
+  bool _isUserUnavailable(DateTime date) {
+    return _userPeriods.any((period) =>
+        date.isAfter(period.startDate.subtract(const Duration(days: 1))) && date.isBefore(period.endDate.add(const Duration(days: 1))));
+  }
+
   bool _isValidStatus(String? status) {
     if (status == null) return false;
     return _statuses.map((s) => s.status).contains(status);
@@ -196,10 +231,13 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     final timeInMinutes = time.hour * 60;
     final lunchStartInMinutes = _lunchStartTime.hour * 60 + _lunchStartTime.minute;
     final lunchEndInMinutes = _lunchEndTime.hour * 60 + _lunchEndTime.minute;
+    final gestaoStartInMinutes = _gestaoStartTime.hour * 60 + _gestaoStartTime.minute;
+    final gestaoEndInMinutes = _gestaoEndTime.hour * 60 + _gestaoEndTime.minute;
     final endInMinutes = _endTime.hour * 60 + _endTime.minute;
 
-    if (timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes) {
-      _showError('Não é possível agendar durante o horário de almoço.');
+    if ((timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes) ||
+        (timeInMinutes >= gestaoStartInMinutes && timeInMinutes < gestaoEndInMinutes)) {
+      _showError('Não é possível agendar durante o horário de almoço ou gestão.');
       return;
     }
 
@@ -317,7 +355,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
         informacao10: plannerData['informacao10'],
       ));
       _showError('Informação salva com sucesso!');
-      await _loadPlanner(); // Atualiza o planner localmente
+      await _loadPlanner();
     } catch (e) {
       _showError('Erro ao salvar informação: $e');
     }
@@ -339,7 +377,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       await _authService.upsertHorarioTrabalho(horario);
       _showError('Horário de trabalho salvo com sucesso!');
       await _loadHorarioTrabalho();
-      await _loadPlanner(); // Atualiza o planner após mudar o horário
+      await _loadPlanner();
     } catch (e) {
       _showError('Erro ao salvar horário de trabalho: $e');
     }
@@ -354,7 +392,11 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
               ? _lunchStartTime
               : field == 'lunchEnd'
                   ? _lunchEndTime
-                  : _endTime,
+                  : field == 'gestaoStart'
+                      ? _gestaoStartTime
+                      : field == 'gestaoEnd'
+                          ? _gestaoEndTime
+                          : _endTime,
     );
     if (picked != null) {
       setState(() {
@@ -364,6 +406,10 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
           _lunchStartTime = picked;
         } else if (field == 'lunchEnd') {
           _lunchEndTime = picked;
+        } else if (field == 'gestaoStart') {
+          _gestaoStartTime = picked;
+        } else if (field == 'gestaoEnd') {
+          _gestaoEndTime = picked;
         } else if (field == 'end') {
           _endTime = picked;
         }
@@ -382,14 +428,21 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     int lunchEndHour = _lunchEndTime.hour;
     if (_lunchEndTime.minute > 0) lunchEndHour++;
 
+    int gestaoStartHour = _gestaoStartTime.hour;
+    int gestaoEndHour = _gestaoEndTime.hour;
+    if (_gestaoEndTime.minute > 0) gestaoEndHour++;
+
     List<TimeOfDay> hours = [];
     for (int h = startHour; h <= endHour; h++) {
       final time = TimeOfDay(hour: h, minute: 0);
       final timeInMinutes = h * 60;
       final lunchStartInMinutes = _lunchStartTime.hour * 60 + _lunchStartTime.minute;
       final lunchEndInMinutes = _lunchEndTime.hour * 60 + _lunchEndTime.minute;
+      final gestaoStartInMinutes = _gestaoStartTime.hour * 60 + _gestaoStartTime.minute;
+      final gestaoEndInMinutes = _gestaoEndTime.hour * 60 + _gestaoEndTime.minute;
 
-      if (timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes) {
+      if ((timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes) ||
+          (timeInMinutes >= gestaoStartInMinutes && timeInMinutes < gestaoEndInMinutes)) {
         continue;
       }
 
@@ -433,8 +486,81 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       context,
       MaterialPageRoute(builder: (context) => PainelScreen(usuarioLogado: widget.usuario)),
     ).then((_) async {
-      await _loadInitialData(); // Recarrega dados ao voltar
+      await _loadInitialData();
     });
+  }
+
+  Future<void> _selectPeriod() async {
+    final DateTime? startPicked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2025),
+      lastDate: DateTime(2026),
+    );
+    if (startPicked != null) {
+      final DateTime? endPicked = await showDatePicker(
+        context: context,
+        initialDate: startPicked.add(const Duration(days: 1)),
+        firstDate: startPicked,
+        lastDate: DateTime(2026),
+      );
+      if (endPicked != null) {
+        final infoController = TextEditingController();
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Adicionar Período de Indisponibilidade'),
+            content: TextField(
+              controller: infoController,
+              decoration: const InputDecoration(labelText: 'Informação (ex.: Férias)'),
+              maxLength: 20,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancelar'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  _customInfo = infoController.text;
+                  _startDate = startPicked;
+                  _endDate = endPicked;
+                  await _savePeriod();
+                  Navigator.pop(context);
+                },
+                child: const Text('Salvar'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _savePeriod() async {
+    if (_startDate != null && _endDate != null && _customInfo.isNotEmpty) {
+      try {
+        final period = UserPeriod(
+          id: 0,
+          usuarioId: _usuario.id,
+          startDate: _startDate!,
+          endDate: _endDate!,
+          info: _customInfo,
+        );
+        await _authService.saveUserPeriod(period);
+        _showError('Período salvo com sucesso!');
+        setState(() {
+          _userPeriods.add(period);
+          _startDate = null;
+          _endDate = null;
+          _customInfo = '';
+        });
+      } catch (e) {
+        _showError('Erro ao salvar período: $e');
+      }
+    } else {
+      _showError('Preencha todos os campos.');
+    }
   }
 
   @override
@@ -501,6 +627,21 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                 style: const TextStyle(
                   fontSize: 18,
                   color: Colors.white70,
+                ),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _selectPeriod,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blueAccent,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                child: const Text(
+                  'Adicionar Período de Indisponibilidade',
+                  style: TextStyle(color: Colors.white),
                 ),
               ),
               const SizedBox(height: 40),
@@ -598,14 +739,14 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                   GestureDetector(
                     onTap: () => _selectTime(context, 'lunchStart'),
                     child: Text(
-                      'Almoço: ${_lunchStartTime.format(context)}',
+                      'Almoço Início: ${_lunchStartTime.format(context)}',
                       style: const TextStyle(color: Colors.white),
                     ),
                   ),
                   GestureDetector(
                     onTap: () => _selectTime(context, 'lunchEnd'),
                     child: Text(
-                      'Fim Almoço: ${_lunchEndTime.format(context)}',
+                      'Almoço Fim: ${_lunchEndTime.format(context)}',
                       style: const TextStyle(color: Colors.white),
                     ),
                   ),
@@ -613,6 +754,26 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                     onTap: () => _selectTime(context, 'end'),
                     child: Text(
                       'Fim Expediente: ${_endTime.format(context)}',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  GestureDetector(
+                    onTap: () => _selectTime(context, 'gestaoStart'),
+                    child: Text(
+                      'Gestão Início: ${_gestaoStartTime.format(context)}',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => _selectTime(context, 'gestaoEnd'),
+                    child: Text(
+                      'Gestão Fim: ${_gestaoEndTime.format(context)}',
                       style: const TextStyle(color: Colors.white),
                     ),
                   ),
@@ -638,17 +799,22 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                         runSpacing: 2.0,
                         children: availableHours.map((time) {
                           final informacao = _getInformacaoForTime(time);
+                          final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
+                          final isUnavailable = _isUserUnavailable(date);
+                          final periodInfo = _getPeriodInfoForTime(time);
                           final timeInMinutes = time.hour * 60;
                           final isPastHour = DateFormat('yyyy-MM-dd').format(now) == DateFormat('yyyy-MM-dd').format(_selectedDate) &&
                               timeInMinutes <= currentTimeInMinutes;
 
                           return GestureDetector(
-                            onTap: isPastHour
+                            onTap: (isPastHour || isUnavailable)
                                 ? null
                                 : () {
-                                    if (timeInMinutes >= (_lunchStartTime.hour * 60 + _lunchStartTime.minute) &&
-                                        timeInMinutes < (_lunchEndTime.hour * 60 + _lunchEndTime.minute)) {
-                                      _showError('Não é possível agendar durante o horário de almoço.');
+                                    if ((timeInMinutes >= (_lunchStartTime.hour * 60 + _lunchStartTime.minute) &&
+                                            timeInMinutes < (_lunchEndTime.hour * 60 + _lunchEndTime.minute)) ||
+                                        (timeInMinutes >= (_gestaoStartTime.hour * 60 + _gestaoStartTime.minute) &&
+                                            timeInMinutes < (_gestaoEndTime.hour * 60 + _gestaoEndTime.minute))) {
+                                      _showError('Não é possível agendar durante o horário de almoço ou gestão.');
                                       return;
                                     }
                                     showDialog(
@@ -695,18 +861,22 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Icon(
-                                      informacao != null ? Icons.check : Icons.add,
-                                      color: informacao != null ? Colors.white : Colors.black,
+                                      isUnavailable
+                                          ? Icons.lock
+                                          : (informacao != null ? Icons.check : Icons.add),
+                                      color: isUnavailable
+                                          ? Colors.white
+                                          : (informacao != null ? Colors.white : Colors.black),
                                       size: 16,
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
                                       '${time.hour.toString().padLeft(2, '0')}:00',
                                       style: TextStyle(
-                                        color: informacao != null ? Colors.white : Colors.white,
+                                        color: isUnavailable ? Colors.white : (informacao != null ? Colors.white : Colors.white),
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
-                                        shadows: informacao != null
+                                        shadows: isUnavailable || informacao != null
                                             ? [
                                                 const Shadow(
                                                   color: Colors.black26,
@@ -718,7 +888,13 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                       ),
                                       textAlign: TextAlign.center,
                                     ),
-                                    if (informacao != null)
+                                    if (isUnavailable && periodInfo != null)
+                                      Text(
+                                        periodInfo,
+                                        style: const TextStyle(color: Colors.white70, fontSize: 10),
+                                        textAlign: TextAlign.center,
+                                      )
+                                    else if (informacao != null)
                                       Text(
                                         informacao,
                                         style: const TextStyle(color: Colors.white70, fontSize: 10),

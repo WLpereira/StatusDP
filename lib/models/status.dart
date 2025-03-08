@@ -13,4 +13,11 @@ class Status {
       status: json['status'] as String,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'status': status,
+    };
+  }
 }

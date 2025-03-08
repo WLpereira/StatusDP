@@ -3,6 +3,7 @@ import '../models/usuario.dart';
 import '../models/status.dart';
 import '../models/planner.dart';
 import '../models/horario_trabalho.dart';
+import '../models/user_period.dart';
 
 class AuthService {
   final SupabaseClient supabase = Supabase.instance.client;
@@ -58,7 +59,6 @@ class AuthService {
   Future<List<Status>> getStatuses() async {
     try {
       final response = await supabase.from('status_').select();
-
       return (response as List).map((json) => Status.fromJson(json)).toList();
     } catch (e) {
       throw Exception('Erro ao buscar status: $e');
@@ -131,6 +131,8 @@ class AuthService {
         'horariofimtrabalho': usuario.horariofimtrabalho,
         'horarioalmocoinicio': usuario.horarioalmocoinicio,
         'horarioalmocofim': usuario.horarioalmocofim,
+        'horariogestaoinicio': usuario.horariogestaoinicio,
+        'horariogestaofim': usuario.horariogestaofim,
       });
     } catch (e) {
       throw Exception('Erro ao criar usuário: $e');
@@ -149,6 +151,8 @@ class AuthService {
         'horariofimtrabalho': usuario.horariofimtrabalho,
         'horarioalmocoinicio': usuario.horarioalmocoinicio,
         'horarioalmocofim': usuario.horarioalmocofim,
+        'horariogestaoinicio': usuario.horariogestaoinicio,
+        'horariogestaofim': usuario.horariogestaofim,
       }).eq('id', usuario.id);
     } catch (e) {
       throw Exception('Erro ao atualizar usuário: $e');
@@ -190,6 +194,36 @@ class AuthService {
       return (response as List).map((json) => HorarioTrabalho.fromJson(json)).toList();
     } catch (e) {
       throw Exception('Erro ao buscar horários de trabalho: $e');
+    }
+  }
+
+  Future<void> saveUserPeriod(UserPeriod period) async {
+    try {
+      await supabase.from('user_periods').insert(period.toJson());
+    } catch (e) {
+      throw Exception('Erro ao salvar período: $e');
+    }
+  }
+
+  Future<List<UserPeriod>> getUserPeriods(int usuarioId) async {
+    try {
+      final response = await supabase
+          .from('user_periods')
+          .select()
+          .eq('usuarioid', usuarioId);
+
+      return (response as List).map((json) => UserPeriod.fromJson(json)).toList();
+    } catch (e) {
+      throw Exception('Erro ao buscar períodos: $e');
+    }
+  }
+
+  Future<List<UserPeriod>> getAllUserPeriods() async {
+    try {
+      final response = await supabase.from('user_periods').select();
+      return (response as List).map((json) => UserPeriod.fromJson(json)).toList();
+    } catch (e) {
+      throw Exception('Erro ao buscar todos os períodos: $e');
     }
   }
 }

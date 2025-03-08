@@ -1,4 +1,4 @@
-  name: status_dp_app
+  name: planner_dp
   description: Status DP App
   publish_to: 'none'
   version: 1.0.0+1

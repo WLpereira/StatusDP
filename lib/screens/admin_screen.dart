@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import '../models/usuario.dart';
 import '../models/status.dart';
+import '../models/user_period.dart';
 import '../services/auth_service.dart';
-import 'login_screen.dart';
-import 'painel_screen.dart';
+import 'package:intl/intl.dart';
 
 class AdminScreen extends StatefulWidget {
-  final Usuario usuario;
-
-  const AdminScreen({super.key, required this.usuario});
+  const AdminScreen({super.key, required Usuario usuario});
 
   @override
   State<AdminScreen> createState() => _AdminScreenState();
@@ -16,15 +14,14 @@ class AdminScreen extends StatefulWidget {
 
 class _AdminScreenState extends State<AdminScreen> {
   final AuthService _authService = AuthService();
-  late Usuario _usuario;
   List<Usuario> _usuarios = [];
   List<Status> _statuses = [];
+  List<UserPeriod> _userPeriods = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _usuario = widget.usuario;
     _loadInitialData();
   }
 
@@ -36,6 +33,10 @@ class _AdminScreenState extends State<AdminScreen> {
     try {
       await _loadUsuarios();
       await _loadStatuses();
+      final userPeriods = await _authService.getAllUserPeriods();
+      setState(() {
+        _userPeriods = userPeriods;
+      });
     } catch (e) {
       _showError('Erro ao carregar dados: $e');
     } finally {
@@ -52,7 +53,7 @@ class _AdminScreenState extends State<AdminScreen> {
         _usuarios = usuarios;
       });
     } catch (e) {
-      _showError('Erro ao carregar usuários: $e');
+      throw Exception('Erro ao carregar usuários: $e');
     }
   }
 
@@ -63,7 +64,7 @@ class _AdminScreenState extends State<AdminScreen> {
         _statuses = statuses;
       });
     } catch (e) {
-      _showError('Erro ao carregar status: $e');
+      throw Exception('Erro ao carregar status: $e');
     }
   }
 
@@ -79,21 +80,24 @@ class _AdminScreenState extends State<AdminScreen> {
   }
 
   Future<void> _addOrEditUsuario({Usuario? usuario}) async {
-    final emailController = TextEditingController(text: usuario?.email ?? '');
-    final nomeController = TextEditingController(text: usuario?.nome ?? '');
-    final setorController = TextEditingController(text: usuario?.setor ?? '');
-    final senhaController = TextEditingController(text: usuario?.senha ?? '');
-    final horarioInicioController = TextEditingController(text: usuario?.horarioiniciotrabalho ?? '08:30');
-    final horarioFimController = TextEditingController(text: usuario?.horariofimtrabalho ?? '18:00');
-    final horarioAlmocoInicioController = TextEditingController(text: usuario?.horarioalmocoinicio ?? '12:00');
-    final horarioAlmocoFimController = TextEditingController(text: usuario?.horarioalmocofim ?? '13:30');
-    String? selectedStatus = usuario?.status ?? 'DISPONIVEL';
+    final isEditing = usuario != null;
+    final emailController = TextEditingController(text: isEditing ? usuario.email : '');
+    final nomeController = TextEditingController(text: isEditing ? usuario.nome : '');
+    final setorController = TextEditingController(text: isEditing ? usuario.setor : '');
+    final senhaController = TextEditingController(text: isEditing ? usuario.senha : '');
+    final statusController = TextEditingController(text: isEditing ? usuario.status : '');
+    final inicioController = TextEditingController(text: isEditing ? usuario.horarioiniciotrabalho : '');
+    final fimController = TextEditingController(text: isEditing ? usuario.horariofimtrabalho : '');
+    final almocoInicioController = TextEditingController(text: isEditing ? usuario.horarioalmocoinicio : '');
+    final almocoFimController = TextEditingController(text: isEditing ? usuario.horarioalmocofim : '');
+    final gestaoInicioController = TextEditingController(text: isEditing ? usuario.horariogestaoinicio : '');
+    final gestaoFimController = TextEditingController(text: isEditing ? usuario.horariogestaofim : '');
 
-    await showDialog(
+    showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text(usuario == null ? 'Novo Usuário' : 'Editar Usuário'),
+          title: Text(isEditing ? 'Editar Usuário' : 'Adicionar Usuário'),
           content: SingleChildScrollView(
             child: Column(
               children: [
@@ -115,35 +119,32 @@ class _AdminScreenState extends State<AdminScreen> {
                   obscureText: true,
                 ),
                 TextField(
-                  controller: horarioInicioController,
-                  decoration: const InputDecoration(labelText: 'Horário Início (HH:MM)'),
+                  controller: statusController,
+                  decoration: const InputDecoration(labelText: 'Status'),
                 ),
                 TextField(
-                  controller: horarioFimController,
-                  decoration: const InputDecoration(labelText: 'Horário Fim (HH:MM)'),
+                  controller: inicioController,
+                  decoration: const InputDecoration(labelText: 'Horário Início Trabalho (HH:MM)'),
                 ),
                 TextField(
-                  controller: horarioAlmocoInicioController,
-                  decoration: const InputDecoration(labelText: 'Horário Almoço Início (HH:MM)'),
+                  controller: fimController,
+                  decoration: const InputDecoration(labelText: 'Horário Fim Trabalho (HH:MM)'),
                 ),
                 TextField(
-                  controller: horarioAlmocoFimController,
-                  decoration: const InputDecoration(labelText: 'Horário Almoço Fim (HH:MM)'),
+                  controller: almocoInicioController,
+                  decoration: const InputDecoration(labelText: 'Horário Início Almoço (HH:MM)'),
                 ),
-                DropdownButton<String>(
-                  value: selectedStatus,
-                  items: _statuses.map((status) {
-                    return DropdownMenuItem<String>(
-                      value: status.status,
-                      child: Text(status.status),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      selectedStatus = value;
-                    });
-                  },
-                  hint: const Text('Selecione o Status'),
+                TextField(
+                  controller: almocoFimController,
+                  decoration: const InputDecoration(labelText: 'Horário Fim Almoço (HH:MM)'),
+                ),
+                TextField(
+                  controller: gestaoInicioController,
+                  decoration: const InputDecoration(labelText: 'Horário Início Gestão (HH:MM)'),
+                ),
+                TextField(
+                  controller: gestaoFimController,
+                  decoration: const InputDecoration(labelText: 'Horário Fim Gestão (HH:MM)'),
                 ),
               ],
             ),
@@ -155,30 +156,33 @@ class _AdminScreenState extends State<AdminScreen> {
             ),
             TextButton(
               onPressed: () async {
-                final newUsuario = Usuario(
-                  id: usuario?.id ?? 0,
-                  email: emailController.text,
-                  nome: nomeController.text,
-                  setor: setorController.text,
-                  senha: senhaController.text,
-                  status: selectedStatus,
-                  horarioiniciotrabalho: horarioInicioController.text,
-                  horariofimtrabalho: horarioFimController.text,
-                  horarioalmocoinicio: horarioAlmocoInicioController.text,
-                  horarioalmocofim: horarioAlmocoFimController.text,
-                );
                 try {
-                  if (usuario == null) {
-                    await _authService.createUsuario(newUsuario);
-                    _showError('Usuário cadastrado com sucesso!');
-                  } else {
+                  final newUsuario = Usuario(
+                    id: isEditing ? usuario.id : 0,
+                    email: emailController.text,
+                    senha: senhaController.text,
+                    nome: nomeController.text.isEmpty ? null : nomeController.text,
+                    setor: setorController.text.isEmpty ? null : setorController.text,
+                    status: statusController.text.isEmpty ? null : statusController.text,
+                    horarioiniciotrabalho: inicioController.text.isEmpty ? null : inicioController.text,
+                    horariofimtrabalho: fimController.text.isEmpty ? null : fimController.text,
+                    horarioalmocoinicio: almocoInicioController.text.isEmpty ? null : almocoInicioController.text,
+                    horarioalmocofim: almocoFimController.text.isEmpty ? null : almocoFimController.text,
+                    horariogestaoinicio: gestaoInicioController.text.isEmpty ? null : gestaoInicioController.text,
+                    horariogestaofim: gestaoFimController.text.isEmpty ? null : gestaoFimController.text,
+                  );
+
+                  if (isEditing) {
                     await _authService.updateUsuario(newUsuario);
                     _showError('Usuário atualizado com sucesso!');
+                  } else {
+                    await _authService.createUsuario(newUsuario);
+                    _showError('Usuário criado com sucesso!');
                   }
                   await _loadUsuarios();
                   Navigator.pop(context);
                 } catch (e) {
-                  _showError('Erro ao salvar usuário: $e');
+                  _showError('Erro ao ${isEditing ? "atualizar" : "criar"} usuário: $e');
                 }
               },
               child: const Text('Salvar'),
@@ -190,13 +194,14 @@ class _AdminScreenState extends State<AdminScreen> {
   }
 
   Future<void> _addOrEditStatus({Status? status}) async {
-    final statusController = TextEditingController(text: status?.status ?? '');
+    final isEditing = status != null;
+    final statusController = TextEditingController(text: isEditing ? status.status : '');
 
-    await showDialog(
+    showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text(status == null ? 'Novo Status' : 'Editar Status'),
+          title: Text(isEditing ? 'Editar Status' : 'Adicionar Status'),
           content: TextField(
             controller: statusController,
             decoration: const InputDecoration(labelText: 'Status'),
@@ -208,22 +213,23 @@ class _AdminScreenState extends State<AdminScreen> {
             ),
             TextButton(
               onPressed: () async {
-                final newStatus = Status(
-                  id: status?.id ?? 0,
-                  status: statusController.text,
-                );
                 try {
-                  if (status == null) {
-                    await _authService.createStatus(newStatus);
-                    _showError('Status cadastrado com sucesso!');
-                  } else {
+                  final newStatus = Status(
+                    id: isEditing ? status.id : 0,
+                    status: statusController.text,
+                  );
+
+                  if (isEditing) {
                     await _authService.updateStatus(newStatus);
                     _showError('Status atualizado com sucesso!');
+                  } else {
+                    await _authService.createStatus(newStatus);
+                    _showError('Status criado com sucesso!');
                   }
                   await _loadStatuses();
                   Navigator.pop(context);
                 } catch (e) {
-                  _showError('Erro ao salvar status: $e');
+                  _showError('Erro ao ${isEditing ? "atualizar" : "criar"} status: $e');
                 }
               },
               child: const Text('Salvar'),
@@ -234,10 +240,41 @@ class _AdminScreenState extends State<AdminScreen> {
     );
   }
 
-  void _goToPainel() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => PainelScreen(usuarioLogado: widget.usuario)),
+  bool _isUserUnavailable(int userId, DateTime date) {
+    return _userPeriods.any((period) =>
+        period.usuarioId == userId &&
+        date.isAfter(period.startDate.subtract(const Duration(days: 1))) &&
+        date.isBefore(period.endDate.add(const Duration(days: 1))));
+  }
+
+  Future<void> _requestScheduling(Usuario user, DateTime date) async {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final controller = TextEditingController();
+        return AlertDialog(
+          title: Text('Solicitar Agendamento para ${user.nome ?? user.email} em ${DateFormat('dd/MM/yyyy').format(date)}'),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(labelText: 'Motivo da Solicitação'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () async {
+                // Aqui você pode implementar a lógica para salvar a solicitação no backend
+                // Por exemplo, criar uma nova tabela 'scheduling_requests' no Supabase
+                _showError('Solicitação enviada com sucesso!');
+                Navigator.pop(context);
+              },
+              child: const Text('Enviar'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -288,16 +325,26 @@ class _AdminScreenState extends State<AdminScreen> {
               const SizedBox(height: 40),
 
               // Seção de Usuários
-              const Text(
-                'Gerenciar Usuários',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Gerenciar Usuários',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add, color: Colors.white),
+                    onPressed: () => _addOrEditUsuario(),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               ..._usuarios.map((usuario) {
+                final periods = _userPeriods.where((p) => p.usuarioId == usuario.id).toList();
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4.0),
                   child: Container(
@@ -307,56 +354,61 @@ class _AdminScreenState extends State<AdminScreen> {
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: Colors.white.withOpacity(0.3)),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '${usuario.nome ?? usuario.email} (${usuario.setor ?? "Sem setor"})',
-                          style: const TextStyle(color: Colors.white),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '${usuario.nome ?? usuario.email} (${usuario.setor ?? "Sem setor"})',
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: Colors.white),
+                              onPressed: () => _addOrEditUsuario(usuario: usuario),
+                            ),
+                          ],
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.white),
-                          onPressed: () => _addOrEditUsuario(usuario: usuario),
-                        ),
+                        if (periods.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Períodos de Indisponibilidade:',
+                            style: TextStyle(color: Colors.white70, fontSize: 12),
+                          ),
+                          ...periods.map((period) => GestureDetector(
+                                onTap: () => _requestScheduling(usuario, period.startDate),
+                                child: Text(
+                                  '${DateFormat('dd/MM/yyyy').format(period.startDate)} - ${DateFormat('dd/MM/yyyy').format(period.endDate)}: ${period.info}',
+                                  style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                                ),
+                              )),
+                        ],
                       ],
                     ),
                   ),
                 );
               }),
-              const SizedBox(height: 16),
-              Center(
-                child: ElevatedButton(
-                  onPressed: () => _addOrEditUsuario(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    elevation: 10,
-                    shadowColor: Colors.blueAccent.withOpacity(0.5),
-                  ),
-                  child: const Text(
-                    'Adicionar Usuário',
+
+              const SizedBox(height: 40),
+
+              // Seção de Status
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Gerenciar Status',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
                   ),
-                ),
-              ),
-
-              const SizedBox(height: 40),
-
-              // Seção de Status
-              const Text(
-                'Gerenciar Status',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+                  IconButton(
+                    icon: const Icon(Icons.add, color: Colors.white),
+                    onPressed: () => _addOrEditStatus(),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               ..._statuses.map((status) {
@@ -385,21 +437,25 @@ class _AdminScreenState extends State<AdminScreen> {
                   ),
                 );
               }),
-              const SizedBox(height: 16),
+
+              const SizedBox(height: 20),
+
               Center(
                 child: ElevatedButton(
-                  onPressed: () => _addOrEditStatus(),
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
+                    backgroundColor: Colors.redAccent,
                     padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
                     ),
                     elevation: 10,
-                    shadowColor: Colors.blueAccent.withOpacity(0.5),
+                    shadowColor: Colors.redAccent.withOpacity(0.5),
                   ),
                   child: const Text(
-                    'Adicionar Status',
+                    'Sair',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -408,61 +464,6 @@ class _AdminScreenState extends State<AdminScreen> {
                   ),
                 ),
               ),
-
-              const SizedBox(height: 40),
-
-              // Botão de Painel e Sair
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  ElevatedButton(
-                    onPressed: _goToPainel,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      elevation: 10,
-                      shadowColor: Colors.green.withOpacity(0.5),
-                    ),
-                    child: const Text(
-                      'Painel',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (context) => const LoginScreen()),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      elevation: 10,
-                      shadowColor: Colors.redAccent.withOpacity(0.5),
-                    ),
-                    child: const Text(
-                      'Sair',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
             ],
           ),
         ),
