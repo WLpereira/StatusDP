@@ -6,48 +6,47 @@ import '../models/horario_trabalho.dart';
 import '../models/user_period.dart';
 
 class AuthService {
-  final SupabaseClient supabase = Supabase.instance.client;
+  // Removida a inicialização direta do SupabaseClient
+  // Agora usaremos Supabase.instance.client diretamente nos métodos
 
   Future<Usuario?> login(String email, String password) async {
     try {
-      final response = await supabase
+      final response = await Supabase.instance.client
           .from('usuarios')
           .select()
           .eq('email', email)
           .eq('senha', password)
           .single();
 
-      if (response.isEmpty) {
-        return null;
-      }
-
       return Usuario.fromJson(response);
     } catch (e) {
+      if (e.toString().contains('not found')) {
+        return null; // Nenhum usuário encontrado
+      }
       throw Exception('Erro ao fazer login: $e');
     }
   }
 
   Future<Usuario?> getUserData(String email) async {
     try {
-      final response = await supabase
+      final response = await Supabase.instance.client
           .from('usuarios')
           .select()
           .eq('email', email)
           .single();
 
-      if (response.isEmpty) {
-        return null;
-      }
-
       return Usuario.fromJson(response);
     } catch (e) {
+      if (e.toString().contains('not found')) {
+        return null;
+      }
       throw Exception('Erro ao buscar dados do usuário: $e');
     }
   }
 
   Future<void> updateUserStatus(int userId, String status) async {
     try {
-      await supabase
+      await Supabase.instance.client
           .from('usuarios')
           .update({'status': status})
           .eq('id', userId);
@@ -56,9 +55,20 @@ class AuthService {
     }
   }
 
+Future<void> deleteUserPeriod(int periodId) async {
+    try {
+      await Supabase.instance.client
+          .from('user_periods')
+          .delete()
+          .eq('id', periodId);
+    } catch (e) {
+      throw Exception('Erro ao remover período: $e');
+    }
+  }
+
   Future<List<Status>> getStatuses() async {
     try {
-      final response = await supabase.from('status_').select();
+      final response = await Supabase.instance.client.from('status_').select();
       return (response as List).map((json) => Status.fromJson(json)).toList();
     } catch (e) {
       throw Exception('Erro ao buscar status: $e');
@@ -67,7 +77,7 @@ class AuthService {
 
   Future<List<Planner>> getPlanner(int usuarioId, DateTime date) async {
     try {
-      final response = await supabase
+      final response = await Supabase.instance.client
           .from('planner')
           .select()
           .eq('usuarioid', usuarioId)
@@ -81,7 +91,7 @@ class AuthService {
 
   Future<List<HorarioTrabalho>> getHorarioTrabalho(int usuarioId, int diaSemana) async {
     try {
-      final response = await supabase
+      final response = await Supabase.instance.client
           .from('horariotrabalho')
           .select()
           .eq('usuarioid', usuarioId)
@@ -95,7 +105,7 @@ class AuthService {
 
   Future<void> upsertPlanner(Planner planner) async {
     try {
-      await supabase.from('planner').upsert(planner.toJson());
+      await Supabase.instance.client.from('planner').upsert(planner.toJson());
     } catch (e) {
       throw Exception('Erro ao salvar planner: $e');
     }
@@ -103,7 +113,7 @@ class AuthService {
 
   Future<void> upsertHorarioTrabalho(HorarioTrabalho horario) async {
     try {
-      await supabase.from('horariotrabalho').upsert(horario.toJson());
+      await Supabase.instance.client.from('horariotrabalho').upsert(horario.toJson());
     } catch (e) {
       throw Exception('Erro ao salvar horário de trabalho: $e');
     }
@@ -112,7 +122,7 @@ class AuthService {
   // Métodos para AdminScreen
   Future<List<Usuario>> getAllUsuarios() async {
     try {
-      final response = await supabase.from('usuarios').select();
+      final response = await Supabase.instance.client.from('usuarios').select();
       return (response as List).map((json) => Usuario.fromJson(json)).toList();
     } catch (e) {
       throw Exception('Erro ao buscar usuários: $e');
@@ -121,7 +131,7 @@ class AuthService {
 
   Future<void> createUsuario(Usuario usuario) async {
     try {
-      await supabase.from('usuarios').insert({
+      await Supabase.instance.client.from('usuarios').insert({
         'email': usuario.email,
         'nome': usuario.nome,
         'setor': usuario.setor,
@@ -141,7 +151,7 @@ class AuthService {
 
   Future<void> updateUsuario(Usuario usuario) async {
     try {
-      await supabase.from('usuarios').update({
+      await Supabase.instance.client.from('usuarios').update({
         'email': usuario.email,
         'nome': usuario.nome,
         'setor': usuario.setor,
@@ -161,7 +171,7 @@ class AuthService {
 
   Future<void> createStatus(Status status) async {
     try {
-      await supabase.from('status_').insert({
+      await Supabase.instance.client.from('status_').insert({
         'status': status.status,
       });
     } catch (e) {
@@ -171,7 +181,7 @@ class AuthService {
 
   Future<void> updateStatus(Status status) async {
     try {
-      await supabase.from('status_').update({
+      await Supabase.instance.client.from('status_').update({
         'status': status.status,
       }).eq('id', status.id);
     } catch (e) {
@@ -181,7 +191,7 @@ class AuthService {
 
   Future<List<Planner>> getAllPlanners() async {
     try {
-      final response = await supabase.from('planner').select();
+      final response = await Supabase.instance.client.from('planner').select();
       return (response as List).map((json) => Planner.fromJson(json)).toList();
     } catch (e) {
       throw Exception('Erro ao buscar planners: $e');
@@ -190,7 +200,7 @@ class AuthService {
 
   Future<List<HorarioTrabalho>> getAllHorariosTrabalho() async {
     try {
-      final response = await supabase.from('horariotrabalho').select();
+      final response = await Supabase.instance.client.from('horariotrabalho').select();
       return (response as List).map((json) => HorarioTrabalho.fromJson(json)).toList();
     } catch (e) {
       throw Exception('Erro ao buscar horários de trabalho: $e');
@@ -199,7 +209,7 @@ class AuthService {
 
   Future<void> saveUserPeriod(UserPeriod period) async {
     try {
-      await supabase.from('user_periods').insert(period.toJson());
+      await Supabase.instance.client.from('user_periods').insert(period.toJson());
     } catch (e) {
       throw Exception('Erro ao salvar período: $e');
     }
@@ -207,7 +217,7 @@ class AuthService {
 
   Future<List<UserPeriod>> getUserPeriods(int usuarioId) async {
     try {
-      final response = await supabase
+      final response = await Supabase.instance.client
           .from('user_periods')
           .select()
           .eq('usuarioid', usuarioId);
@@ -220,7 +230,7 @@ class AuthService {
 
   Future<List<UserPeriod>> getAllUserPeriods() async {
     try {
-      final response = await supabase.from('user_periods').select();
+      final response = await Supabase.instance.client.from('user_periods').select();
       return (response as List).map((json) => UserPeriod.fromJson(json)).toList();
     } catch (e) {
       throw Exception('Erro ao buscar todos os períodos: $e');

@@ -37,10 +37,6 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
   TimeOfDay _gestaoStartTime = const TimeOfDay(hour: 14, minute: 0);
   TimeOfDay _gestaoEndTime = const TimeOfDay(hour: 15, minute: 0);
 
-  DateTime? _startDate;
-  DateTime? _endDate;
-  String _customInfo = '';
-
   @override
   void initState() {
     super.initState();
@@ -189,17 +185,17 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     return null;
   }
 
-String? _getPeriodInfoForTime(TimeOfDay time) {
-  final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
-  final period = _userPeriods.cast<UserPeriod?>().firstWhere(
-        (p) => p != null && date.isAfter(p.startDate.subtract(const Duration(days: 1))) && date.isBefore(p.endDate.add(const Duration(days: 1))),
-        orElse: () => null,
-      );
-  if (period != null) {
-    return '${period.info} (${DateFormat('dd/MM/yyyy').format(period.startDate)} - ${DateFormat('dd/MM/yyyy').format(period.endDate)})';
+  String? _getPeriodInfoForTime(TimeOfDay time) {
+    final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
+    final period = _userPeriods.cast<UserPeriod?>().firstWhere(
+          (p) => p != null && date.isAfter(p.startDate.subtract(const Duration(days: 1))) && date.isBefore(p.endDate.add(const Duration(days: 1))),
+          orElse: () => null,
+        );
+    if (period != null) {
+      return '${period.info} (${DateFormat('dd/MM/yyyy').format(period.startDate)} - ${DateFormat('dd/MM/yyyy').format(period.endDate)})';
+    }
+    return null;
   }
-  return null;
-}
 
   bool _isUserUnavailable(DateTime date) {
     return _userPeriods.any((period) =>
@@ -505,6 +501,15 @@ String? _getPeriodInfoForTime(TimeOfDay time) {
         lastDate: DateTime(2026),
       );
       if (endPicked != null) {
+        // Verifica se já existe um período para o dia selecionado
+        final hasOverlap = _userPeriods.any((period) =>
+            startPicked.isBefore(period.endDate.add(const Duration(days: 1))) &&
+            endPicked.isAfter(period.startDate.subtract(const Duration(days: 1))));
+        if (hasOverlap) {
+          _showError('Já existe um período de indisponibilidade agendado que abrange esses dias.');
+          return;
+        }
+
         final infoController = TextEditingController();
         showDialog(
           context: context,
@@ -522,10 +527,11 @@ String? _getPeriodInfoForTime(TimeOfDay time) {
               ),
               TextButton(
                 onPressed: () async {
-                  _customInfo = infoController.text;
-                  _startDate = startPicked;
-                  _endDate = endPicked;
-                  await _savePeriod();
+                  if (infoController.text.isEmpty) {
+                    _showError('Por favor, insira uma informação para o período.');
+                    return;
+                  }
+                  await _savePeriod(startPicked, endPicked, infoController.text);
                   Navigator.pop(context);
                 },
                 child: const Text('Salvar'),
@@ -537,29 +543,36 @@ String? _getPeriodInfoForTime(TimeOfDay time) {
     }
   }
 
-  Future<void> _savePeriod() async {
-    if (_startDate != null && _endDate != null && _customInfo.isNotEmpty) {
-      try {
-        final period = UserPeriod(
-          id: 0,
-          usuarioId: _usuario.id,
-          startDate: _startDate!,
-          endDate: _endDate!,
-          info: _customInfo,
-        );
-        await _authService.saveUserPeriod(period);
-        _showError('Período salvo com sucesso!');
-        setState(() {
-          _userPeriods.add(period);
-          _startDate = null;
-          _endDate = null;
-          _customInfo = '';
-        });
-      } catch (e) {
-        _showError('Erro ao salvar período: $e');
-      }
-    } else {
-      _showError('Preencha todos os campos.');
+  Future<void> _savePeriod(DateTime startDate, DateTime endDate, String info) async {
+    try {
+      final period = UserPeriod(
+        id: 0, // O ID será gerado automaticamente pelo Supabase
+        usuarioId: _usuario.id,
+        startDate: startDate,
+        endDate: endDate,
+        info: info,
+      );
+      await _authService.saveUserPeriod(period);
+      _showError('Período salvo com sucesso!');
+      final updatedPeriods = await _authService.getUserPeriods(_usuario.id);
+      setState(() {
+        _userPeriods = updatedPeriods;
+      });
+    } catch (e) {
+      _showError('Erro ao salvar período: $e');
+    }
+  }
+
+  Future<void> _removePeriod(int periodId) async {
+    try {
+      await _authService.deleteUserPeriod(periodId);
+      _showError('Período removido com sucesso!');
+      final updatedPeriods = await _authService.getUserPeriods(_usuario.id);
+      setState(() {
+        _userPeriods = updatedPeriods;
+      });
+    } catch (e) {
+      _showError('Erro ao remover período: $e');
     }
   }
 
@@ -644,7 +657,29 @@ String? _getPeriodInfoForTime(TimeOfDay time) {
                   style: TextStyle(color: Colors.white),
                 ),
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 20),
+              if (_userPeriods.isNotEmpty) ...[
+                const Text(
+                  'Períodos de Indisponibilidade:',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ..._userPeriods.map((period) => ListTile(
+                      title: Text(
+                        '${DateFormat('dd/MM/yyyy').format(period.startDate)} - ${DateFormat('dd/MM/yyyy').format(period.endDate)}: ${period.info}',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () => _removePeriod(period.id),
+                      ),
+                    )),
+                const SizedBox(height: 20),
+              ],
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
