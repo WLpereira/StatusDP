@@ -47,7 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         }
       } else {
-        _showError('Email ou senha incorretos.');
+        _showError('Usuário ou senha está errado.');
       }
     } catch (e) {
       _showError('Erro ao fazer login: $e');

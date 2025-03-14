@@ -6,9 +6,6 @@ import '../models/horario_trabalho.dart';
 import '../models/user_period.dart';
 
 class AuthService {
-  // Removida a inicialização direta do SupabaseClient
-  // Agora usaremos Supabase.instance.client diretamente nos métodos
-
   Future<Usuario?> login(String email, String password) async {
     try {
       final response = await Supabase.instance.client
@@ -16,9 +13,13 @@ class AuthService {
           .select()
           .eq('email', email)
           .eq('senha', password)
-          .single();
+          .limit(1); // Limita a 1 resultado para simular comportamento de .single()
 
-      return Usuario.fromJson(response);
+      if (response.isEmpty) {
+        return null; // Nenhum usuário encontrado
+      }
+
+      return Usuario.fromJson(response.first); // Retorna o primeiro (e único) resultado
     } catch (e) {
       if (e.toString().contains('not found')) {
         return null; // Nenhum usuário encontrado
@@ -33,9 +34,13 @@ class AuthService {
           .from('usuarios')
           .select()
           .eq('email', email)
-          .single();
+          .limit(1); // Ajustado para .limit(1) para consistência
 
-      return Usuario.fromJson(response);
+      if (response.isEmpty) {
+        return null;
+      }
+
+      return Usuario.fromJson(response.first);
     } catch (e) {
       if (e.toString().contains('not found')) {
         return null;
@@ -55,7 +60,7 @@ class AuthService {
     }
   }
 
-Future<void> deleteUserPeriod(int periodId) async {
+  Future<void> deleteUserPeriod(int periodId) async {
     try {
       await Supabase.instance.client
           .from('user_periods')
@@ -119,7 +124,6 @@ Future<void> deleteUserPeriod(int periodId) async {
     }
   }
 
-  // Métodos para AdminScreen
   Future<List<Usuario>> getAllUsuarios() async {
     try {
       final response = await Supabase.instance.client.from('usuarios').select();
