@@ -501,7 +501,6 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
         lastDate: DateTime(2026),
       );
       if (endPicked != null) {
-        // Verifica se já existe um período para o dia selecionado
         final hasOverlap = _userPeriods.any((period) =>
             startPicked.isBefore(period.endDate.add(const Duration(days: 1))) &&
             endPicked.isAfter(period.startDate.subtract(const Duration(days: 1))));
@@ -546,7 +545,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
   Future<void> _savePeriod(DateTime startDate, DateTime endDate, String info) async {
     try {
       final period = UserPeriod(
-        id: 0, // O ID será gerado automaticamente pelo Supabase
+        id: 0,
         usuarioId: _usuario.id,
         startDate: startDate,
         endDate: endDate,
@@ -606,476 +605,491 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
           ),
         ),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Icon(
-                    Icons.person_outline,
-                    size: 100,
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Icon(
+                      Icons.person_outline,
+                      size: 100,
+                      color: Colors.white,
+                    ),
+                    Icon(
+                      _getStatusIcon(_selectedStatus),
+                      size: 40,
+                      color: _getStatusColor(_selectedStatus),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Bem-vindo, ${_usuario.nome ?? _usuario.email}',
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
-                  Icon(
-                    _getStatusIcon(_selectedStatus),
-                    size: 40,
-                    color: _getStatusColor(_selectedStatus),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Setor: ${_usuario.setor ?? "Não especificado"}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    color: Colors.white70,
                   ),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: _selectPeriod,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  child: const Text(
+                    'Adicionar Período de Indisponibilidade',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                if (_userPeriods.isNotEmpty) ...[
+                  const Text(
+                    'Períodos de Indisponibilidade:',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 200,
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: _userPeriods.length,
+                      itemBuilder: (context, index) {
+                        final period = _userPeriods[index];
+                        return ListTile(
+                          title: Text(
+                            '${DateFormat('dd/MM/yyyy').format(period.startDate)} - ${DateFormat('dd/MM/yyyy').format(period.endDate)}: ${period.info}',
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () => _removePeriod(period.id),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 20),
                 ],
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Bem-vindo, ${_usuario.nome ?? _usuario.email}',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Planner para ${DateFormat('dd/MM/yyyy').format(_selectedDate)}',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        final DateTime? picked = await showDatePicker(
+                          context: context,
+                          initialDate: _selectedDate,
+                          firstDate: DateTime(2025),
+                          lastDate: DateTime(2026),
+                        );
+                        if (picked != null && picked != _selectedDate) {
+                          setState(() {
+                            _selectedDate = picked;
+                          });
+                          await _loadPlanner();
+                          await _loadHorarioTrabalho();
+                        }
+                      },
+                      child: const Text(
+                        'Selecionar Data',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Setor: ${_usuario.setor ?? "Não especificado"}',
-                style: const TextStyle(
-                  fontSize: 18,
-                  color: Colors.white70,
-                ),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _selectPeriod,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                ),
-                child: const Text(
-                  'Adicionar Período de Indisponibilidade',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-              const SizedBox(height: 20),
-              if (_userPeriods.isNotEmpty) ...[
-                const Text(
-                  'Períodos de Indisponibilidade:',
-                  style: TextStyle(
+                const SizedBox(height: 8),
+                ..._planner.map((p) {
+                  final status = _statuses.firstWhere(
+                    (s) => s.id == p.statusId,
+                    orElse: () => Status(id: 1, status: 'DISPONIVEL'),
+                  );
+                  List<String> entries = [];
+                  if (p.horario1 != null) entries.add('${p.horario1}${p.informacao1 != null ? ": ${p.informacao1}" : ""}');
+                  if (p.horario2 != null) entries.add('${p.horario2}${p.informacao2 != null ? ": ${p.informacao2}" : ""}');
+                  if (p.horario3 != null) entries.add('${p.horario3}${p.informacao3 != null ? ": ${p.informacao3}" : ""}');
+                  if (p.horario4 != null) entries.add('${p.horario4}${p.informacao4 != null ? ": ${p.informacao4}" : ""}');
+                  if (p.horario5 != null) entries.add('${p.horario5}${p.informacao5 != null ? ": ${p.informacao5}" : ""}');
+                  if (p.horario6 != null) entries.add('${p.horario6}${p.informacao6 != null ? ": ${p.informacao6}" : ""}');
+                  if (p.horario7 != null) entries.add('${p.horario7}${p.informacao7 != null ? ": ${p.informacao7}" : ""}');
+                  if (p.horario8 != null) entries.add('${p.horario8}${p.informacao8 != null ? ": ${p.informacao8}" : ""}');
+                  if (p.horario9 != null) entries.add('${p.horario9}${p.informacao9 != null ? ": ${p.informacao9}" : ""}');
+                  if (p.horario10 != null) entries.add('${p.horario10}${p.informacao10 != null ? ": ${p.informacao10}" : ""}');
+
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.white.withOpacity(0.3)),
+                      ),
+                      padding: const EdgeInsets.all(10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: entries.map((entry) => Text(
+                              entry,
+                              style: const TextStyle(color: Colors.white),
+                            )).toList(),
+                      ),
+                    ),
+                  );
+                }),
+                const SizedBox(height: 16),
+                Text(
+                  'Horário de Trabalho (Dia ${_selectedDate.weekday})',
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 8),
-                ..._userPeriods.map((period) => ListTile(
-                      title: Text(
-                        '${DateFormat('dd/MM/yyyy').format(period.startDate)} - ${DateFormat('dd/MM/yyyy').format(period.endDate)}: ${period.info}',
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    GestureDetector(
+                      onTap: () => _selectTime(context, 'start'),
+                      child: Text(
+                        'Início: ${_startTime.format(context)}',
                         style: const TextStyle(color: Colors.white),
                       ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () => _removePeriod(period.id),
+                    ),
+                    GestureDetector(
+                      onTap: () => _selectTime(context, 'lunchStart'),
+                      child: Text(
+                        'Almoço Início: ${_lunchStartTime.format(context)}',
+                        style: const TextStyle(color: Colors.white),
                       ),
-                    )),
-                const SizedBox(height: 20),
-              ],
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Planner para ${DateFormat('dd/MM/yyyy').format(_selectedDate)}',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
                     ),
-                  ),
-                  TextButton(
-                    onPressed: () async {
-                      final DateTime? picked = await showDatePicker(
-                        context: context,
-                        initialDate: _selectedDate,
-                        firstDate: DateTime(2025),
-                        lastDate: DateTime(2026),
-                      );
-                      if (picked != null && picked != _selectedDate) {
-                        setState(() {
-                          _selectedDate = picked;
-                        });
-                        await _loadPlanner();
-                        await _loadHorarioTrabalho();
-                      }
-                    },
-                    child: const Text(
-                      'Selecionar Data',
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              ..._planner.map((p) {
-                final status = _statuses.firstWhere(
-                  (s) => s.id == p.statusId,
-                  orElse: () => Status(id: 1, status: 'DISPONIVEL'),
-                );
-                List<String> entries = [];
-                if (p.horario1 != null) entries.add('${p.horario1}${p.informacao1 != null ? ": ${p.informacao1}" : ""}');
-                if (p.horario2 != null) entries.add('${p.horario2}${p.informacao2 != null ? ": ${p.informacao2}" : ""}');
-                if (p.horario3 != null) entries.add('${p.horario3}${p.informacao3 != null ? ": ${p.informacao3}" : ""}');
-                if (p.horario4 != null) entries.add('${p.horario4}${p.informacao4 != null ? ": ${p.informacao4}" : ""}');
-                if (p.horario5 != null) entries.add('${p.horario5}${p.informacao5 != null ? ": ${p.informacao5}" : ""}');
-                if (p.horario6 != null) entries.add('${p.horario6}${p.informacao6 != null ? ": ${p.informacao6}" : ""}');
-                if (p.horario7 != null) entries.add('${p.horario7}${p.informacao7 != null ? ": ${p.informacao7}" : ""}');
-                if (p.horario8 != null) entries.add('${p.horario8}${p.informacao8 != null ? ": ${p.informacao8}" : ""}');
-                if (p.horario9 != null) entries.add('${p.horario9}${p.informacao9 != null ? ": ${p.informacao9}" : ""}');
-                if (p.horario10 != null) entries.add('${p.horario10}${p.informacao10 != null ? ": ${p.informacao10}" : ""}');
-
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.white.withOpacity(0.3)),
-                    ),
-                    padding: const EdgeInsets.all(10),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: entries.map((entry) => Text(
-                            entry,
-                            style: const TextStyle(color: Colors.white),
-                          )).toList(),
-                    ),
-                  ),
-                );
-              }),
-              const SizedBox(height: 16),
-              Text(
-                'Horário de Trabalho (Dia ${_selectedDate.weekday})',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  GestureDetector(
-                    onTap: () => _selectTime(context, 'start'),
-                    child: Text(
-                      'Início: ${_startTime.format(context)}',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => _selectTime(context, 'lunchStart'),
-                    child: Text(
-                      'Almoço Início: ${_lunchStartTime.format(context)}',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => _selectTime(context, 'lunchEnd'),
-                    child: Text(
-                      'Almoço Fim: ${_lunchEndTime.format(context)}',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => _selectTime(context, 'end'),
-                    child: Text(
-                      'Fim Expediente: ${_endTime.format(context)}',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  GestureDetector(
-                    onTap: () => _selectTime(context, 'gestaoStart'),
-                    child: Text(
-                      'Gestão Início: ${_gestaoStartTime.format(context)}',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => _selectTime(context, 'gestaoEnd'),
-                    child: Text(
-                      'Gestão Fim: ${_gestaoEndTime.format(context)}',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Column(
-                  children: [
-                    if (availableHours.isEmpty)
-                      const Text(
-                        'Nenhum horário disponível. Verifique os horários de trabalho.',
-                        style: TextStyle(color: Colors.white70),
-                      )
-                    else
-                      Wrap(
-                        spacing: 2.0,
-                        runSpacing: 2.0,
-                        children: availableHours.map((time) {
-                          final informacao = _getInformacaoForTime(time);
-                          final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
-                          final isUnavailable = _isUserUnavailable(date);
-                          final periodInfo = _getPeriodInfoForTime(time);
-                          final timeInMinutes = time.hour * 60;
-                          final isPastHour = DateFormat('yyyy-MM-dd').format(now) == DateFormat('yyyy-MM-dd').format(_selectedDate) &&
-                              timeInMinutes <= currentTimeInMinutes;
-
-                          return GestureDetector(
-                            onTap: (isPastHour || isUnavailable)
-                                ? null
-                                : () {
-                                    if ((timeInMinutes >= (_lunchStartTime.hour * 60 + _lunchStartTime.minute) &&
-                                            timeInMinutes < (_lunchEndTime.hour * 60 + _lunchEndTime.minute)) ||
-                                        (timeInMinutes >= (_gestaoStartTime.hour * 60 + _gestaoStartTime.minute) &&
-                                            timeInMinutes < (_gestaoEndTime.hour * 60 + _gestaoEndTime.minute))) {
-                                      _showError('Não é possível agendar durante o horário de almoço ou gestão.');
-                                      return;
-                                    }
-                                    showDialog(
-                                      context: context,
-                                      builder: (context) {
-                                        final controller = TextEditingController(text: informacao ?? '');
-                                        return AlertDialog(
-                                          title: Text('Editar ${time.hour.toString().padLeft(2, '0')}:00'),
-                                          content: TextField(
-                                            controller: controller,
-                                            maxLength: 10,
-                                            decoration: const InputDecoration(
-                                              labelText: 'Informação (máx. 10 caracteres)',
-                                            ),
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () => Navigator.pop(context),
-                                              child: const Text('Cancelar'),
-                                            ),
-                                            TextButton(
-                                              onPressed: () async {
-                                                await _saveOrUpdatePlanner(time, controller.text.isEmpty ? null : controller.text);
-                                                Navigator.pop(context);
-                                              },
-                                              child: const Text('Salvar'),
-                                            ),
-                                          ],
-                                        );
-                                      },
-                                    );
-                                  },
-                            child: Container(
-                              width: (MediaQuery.of(context).size.width - 40) / 5 - 2,
-                              height: 70,
-                              decoration: BoxDecoration(
-                                color: _getColorForGrid(time),
-                                borderRadius: BorderRadius.circular(5),
-                                border: Border.all(color: Colors.white.withOpacity(0.3)),
-                              ),
-                              padding: const EdgeInsets.all(8),
-                              child: Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      isUnavailable
-                                          ? Icons.lock
-                                          : (informacao != null ? Icons.check : Icons.add),
-                                      color: isUnavailable
-                                          ? Colors.white
-                                          : (informacao != null ? Colors.white : Colors.black),
-                                      size: 16,
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      '${time.hour.toString().padLeft(2, '0')}:00',
-                                      style: TextStyle(
-                                        color: isUnavailable ? Colors.white : (informacao != null ? Colors.white : Colors.white),
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        shadows: isUnavailable || informacao != null
-                                            ? [
-                                                const Shadow(
-                                                  color: Colors.black26,
-                                                  offset: Offset(1.0, 1.0),
-                                                  blurRadius: 2.0,
-                                                ),
-                                              ]
-                                            : null,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                    if (isUnavailable && periodInfo != null)
-                                      Text(
-                                        periodInfo,
-                                        style: const TextStyle(color: Colors.white70, fontSize: 10),
-                                        textAlign: TextAlign.center,
-                                      )
-                                    else if (informacao != null)
-                                      Text(
-                                        informacao,
-                                        style: const TextStyle(color: Colors.white70, fontSize: 10),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
+                    GestureDetector(
+                      onTap: () => _selectTime(context, 'lunchEnd'),
+                      child: Text(
+                        'Almoço Fim: ${_lunchEndTime.format(context)}',
+                        style: const TextStyle(color: Colors.white),
                       ),
+                    ),
+                    GestureDetector(
+                      onTap: () => _selectTime(context, 'end'),
+                      child: Text(
+                        'Fim Expediente: ${_endTime.format(context)}',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.white.withOpacity(0.3)),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    GestureDetector(
+                      onTap: () => _selectTime(context, 'gestaoStart'),
+                      child: Text(
+                        'Gestão Início: ${_gestaoStartTime.format(context)}',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => _selectTime(context, 'gestaoEnd'),
+                      child: Text(
+                        'Gestão Fim: ${_gestaoEndTime.format(context)}',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
                 ),
-                child: DropdownButton<String>(
-                  value: _isValidStatus(_selectedStatus) ? _selectedStatus : null,
-                  hint: const Text(
-                    'Alterar Status',
-                    style: TextStyle(color: Colors.white70),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  dropdownColor: Colors.white.withOpacity(0.1),
-                  style: const TextStyle(color: Colors.white),
-                  underline: const SizedBox(),
-                  onChanged: (String? newValue) {
-                    if (newValue != null && _isValidStatus(newValue)) {
-                      setState(() {
-                        _selectedStatus = newValue;
-                      });
-                    }
-                  },
-                  items: _statuses.map((status) {
-                    return DropdownMenuItem<String>(
-                      value: status.status,
-                      child: Text(status.status),
-                    );
-                  }).toSet().toList(),
+                  child: Column(
+                    children: [
+                      if (availableHours.isEmpty)
+                        const Text(
+                          'Nenhum horário disponível. Verifique os horários de trabalho.',
+                          style: TextStyle(color: Colors.white70),
+                        )
+                      else
+                        SizedBox(
+                          width: double.infinity,
+                          child: Wrap(
+                            spacing: 2.0,
+                            runSpacing: 2.0,
+                            children: availableHours.map((time) {
+                              final informacao = _getInformacaoForTime(time);
+                              final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
+                              final isUnavailable = _isUserUnavailable(date);
+                              final periodInfo = _getPeriodInfoForTime(time);
+                              final timeInMinutes = time.hour * 60;
+                              final isPastHour = DateFormat('yyyy-MM-dd').format(now) == DateFormat('yyyy-MM-dd').format(_selectedDate) &&
+                                  timeInMinutes <= currentTimeInMinutes;
+
+                              return GestureDetector(
+                                onTap: (isPastHour || isUnavailable)
+                                    ? null
+                                    : () {
+                                        if ((timeInMinutes >= (_lunchStartTime.hour * 60 + _lunchStartTime.minute) &&
+                                                timeInMinutes < (_lunchEndTime.hour * 60 + _lunchEndTime.minute)) ||
+                                            (timeInMinutes >= (_gestaoStartTime.hour * 60 + _gestaoStartTime.minute) &&
+                                                timeInMinutes < (_gestaoEndTime.hour * 60 + _gestaoEndTime.minute))) {
+                                          _showError('Não é possível agendar durante o horário de almoço ou gestão.');
+                                          return;
+                                        }
+                                        showDialog(
+                                          context: context,
+                                          builder: (context) {
+                                            final controller = TextEditingController(text: informacao ?? '');
+                                            return AlertDialog(
+                                              title: Text('Editar ${time.hour.toString().padLeft(2, '0')}:00'),
+                                              content: TextField(
+                                                controller: controller,
+                                                maxLength: 10,
+                                                decoration: const InputDecoration(
+                                                  labelText: 'Informação (máx. 10 caracteres)',
+                                                ),
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () => Navigator.pop(context),
+                                                  child: const Text('Cancelar'),
+                                                ),
+                                                TextButton(
+                                                  onPressed: () async {
+                                                    await _saveOrUpdatePlanner(time, controller.text.isEmpty ? null : controller.text);
+                                                    Navigator.pop(context);
+                                                  },
+                                                  child: const Text('Salvar'),
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        );
+                                      },
+                                child: Container(
+                                  width: (MediaQuery.of(context).size.width - 40) / 5 - 2,
+                                  height: 70,
+                                  decoration: BoxDecoration(
+                                    color: _getColorForGrid(time),
+                                    borderRadius: BorderRadius.circular(5),
+                                    border: Border.all(color: Colors.white.withOpacity(0.3)),
+                                  ),
+                                  padding: const EdgeInsets.all(8),
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          isUnavailable
+                                              ? Icons.lock
+                                              : (informacao != null ? Icons.check : Icons.add),
+                                          color: isUnavailable
+                                              ? Colors.white
+                                              : (informacao != null ? Colors.white : Colors.black),
+                                          size: 16,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          '${time.hour.toString().padLeft(2, '0')}:00',
+                                          style: TextStyle(
+                                            color: isUnavailable ? Colors.white : (informacao != null ? Colors.white : Colors.white),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            shadows: isUnavailable || informacao != null
+                                                ? [
+                                                    const Shadow(
+                                                      color: Colors.black26,
+                                                      offset: Offset(1.0, 1.0),
+                                                      blurRadius: 2.0,
+                                                    ),
+                                                  ]
+                                                : null,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                        if (isUnavailable && periodInfo != null)
+                                          Text(
+                                            periodInfo,
+                                            style: const TextStyle(color: Colors.white70, fontSize: 10),
+                                            textAlign: TextAlign.center,
+                                          )
+                                        else if (informacao != null)
+                                          Text(
+                                            informacao,
+                                            style: const TextStyle(color: Colors.white70, fontSize: 10),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  ElevatedButton(
-                    onPressed: _saveOrUpdateStatus,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueAccent,
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      elevation: 10,
-                      shadowColor: Colors.blueAccent.withOpacity(0.5),
-                    ),
-                    child: const Text(
-                      'Salvar Status',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.white.withOpacity(0.3)),
                   ),
-                  ElevatedButton(
-                    onPressed: _updateHorarioTrabalho,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      elevation: 10,
-                      shadowColor: Colors.green.withOpacity(0.5),
+                  child: DropdownButton<String>(
+                    value: _isValidStatus(_selectedStatus) ? _selectedStatus : null,
+                    hint: const Text(
+                      'Alterar Status',
+                      style: TextStyle(color: Colors.white70),
                     ),
-                    child: const Text(
-                      'Salvar Horários',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  ElevatedButton(
-                    onPressed: _goToPainel,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      elevation: 10,
-                      shadowColor: Colors.green.withOpacity(0.5),
-                    ),
-                    child: const Text(
-                      'Painel',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (context) => const LoginScreen()),
-                      );
+                    dropdownColor: Colors.white.withOpacity(0.1),
+                    style: const TextStyle(color: Colors.white),
+                    underline: const SizedBox(),
+                    onChanged: (String? newValue) {
+                      if (newValue != null && _isValidStatus(newValue)) {
+                        setState(() {
+                          _selectedStatus = newValue;
+                        });
+                      }
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      elevation: 10,
-                      shadowColor: Colors.redAccent.withOpacity(0.5),
-                    ),
-                    child: const Text(
-                      'Sair',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
+                    items: _statuses.map((status) {
+                      return DropdownMenuItem<String>(
+                        value: status.status,
+                        child: Text(status.status),
+                      );
+                    }).toSet().toList(),
                   ),
-                ],
-              ),
-              const SizedBox(height: 20),
-            ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    ElevatedButton(
+                      onPressed: _saveOrUpdateStatus,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blueAccent,
+                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        elevation: 10,
+                        shadowColor: Colors.blueAccent.withOpacity(0.5),
+                      ),
+                      child: const Text(
+                        'Salvar Status',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: _updateHorarioTrabalho,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        elevation: 10,
+                        shadowColor: Colors.green.withOpacity(0.5),
+                      ),
+                      child: const Text(
+                        'Salvar Horários',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    ElevatedButton(
+                      onPressed: _goToPainel,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        elevation: 10,
+                        shadowColor: Colors.green.withOpacity(0.5),
+                      ),
+                      child: const Text(
+                        'Painel',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(builder: (context) => const LoginScreen()),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        elevation: 10,
+                        shadowColor: Colors.redAccent.withOpacity(0.5),
+                      ),
+                      child: const Text(
+                        'Sair',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
           ),
         ),
       ),

@@ -116,9 +116,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   style: const TextStyle(color: Colors.white),
                   keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next, // Define a ação do teclado para "próximo"
+                  textInputAction: TextInputAction.next,
                   onSubmitted: (_) {
-                    // Move o foco para o campo de senha ao pressionar Enter
                     FocusScope.of(context).nextFocus();
                   },
                 ),
@@ -137,9 +136,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   style: const TextStyle(color: Colors.white),
                   obscureText: true,
-                  textInputAction: TextInputAction.done, // Define a ação do teclado para "concluído"
+                  textInputAction: TextInputAction.done,
                   onSubmitted: (_) {
-                    // Chama a função de login ao pressionar Enter no campo de senha
                     if (!_isLoading) {
                       _login();
                     }
