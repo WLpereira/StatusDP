@@ -4,6 +4,7 @@ import '../models/status.dart';
 import '../models/planner.dart';
 import '../models/horario_trabalho.dart';
 import '../models/user_period.dart';
+import 'package:intl/intl.dart';
 
 class AuthService {
   Future<Usuario?> login(String email, String password) async {
@@ -13,16 +14,16 @@ class AuthService {
           .select()
           .eq('email', email)
           .eq('senha', password)
-          .limit(1); // Limita a 1 resultado para simular comportamento de .single()
+          .limit(1);
 
       if (response.isEmpty) {
-        return null; // Nenhum usuário encontrado
+        return null;
       }
 
-      return Usuario.fromJson(response.first); // Retorna o primeiro (e único) resultado
+      return Usuario.fromJson(response.first);
     } catch (e) {
       if (e.toString().contains('not found')) {
-        return null; // Nenhum usuário encontrado
+        return null;
       }
       throw Exception('Erro ao fazer login: $e');
     }
@@ -34,7 +35,7 @@ class AuthService {
           .from('usuarios')
           .select()
           .eq('email', email)
-          .limit(1); // Ajustado para .limit(1) para consistência
+          .limit(1);
 
       if (response.isEmpty) {
         return null;
@@ -238,6 +239,35 @@ class AuthService {
       return (response as List).map((json) => UserPeriod.fromJson(json)).toList();
     } catch (e) {
       throw Exception('Erro ao buscar todos os períodos: $e');
+    }
+  }
+
+  // Novo método para adicionar um período de indisponibilidade com verificação de sobreposição
+  Future<void> addUserPeriod(UserPeriod newPeriod) async {
+    try {
+      // Obtém todos os períodos de indisponibilidade existentes para o usuário
+      final existingPeriods = await getUserPeriods(newPeriod.usuarioId);
+
+      // Normaliza as datas do novo período
+      final newStart = DateTime(newPeriod.startDate.year, newPeriod.startDate.month, newPeriod.startDate.day);
+      final newEnd = DateTime(newPeriod.endDate.year, newPeriod.endDate.month, newPeriod.endDate.day);
+
+      // Verifica se há sobreposição com períodos existentes
+      for (var period in existingPeriods) {
+        final periodStart = DateTime(period.startDate.year, period.startDate.month, period.startDate.day);
+        final periodEnd = DateTime(period.endDate.year, period.endDate.month, period.endDate.day);
+
+        // Verifica se há sobreposição de datas
+        if (!(newEnd.isBefore(periodStart) || newStart.isAfter(periodEnd))) {
+          throw Exception(
+              'Não é possível cadastrar: o período se sobrepõe a um período existente (${DateFormat('dd/MM/yyyy').format(period.startDate)}-${DateFormat('dd/MM/yyyy').format(period.endDate)}).');
+        }
+      }
+
+      // Se não houver sobreposição, salva o novo período
+      await saveUserPeriod(newPeriod);
+    } catch (e) {
+      throw Exception('Erro ao adicionar período de indisponibilidade: $e');
     }
   }
 }

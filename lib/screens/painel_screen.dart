@@ -350,23 +350,38 @@ class _PainelScreenState extends State<PainelScreen> {
   }
 
   bool _isUserUnavailable(int userId, DateTime date) {
-    return _userPeriods.any((period) =>
-        period.usuarioId == userId &&
-        date.isAfter(period.startDate.subtract(const Duration(days: 1))) &&
-        date.isBefore(period.endDate.add(const Duration(days: 1))));
+    for (var period in _userPeriods) {
+      if (period.usuarioId == userId) {
+        final periodStart = DateTime(period.startDate.year, period.startDate.month, period.startDate.day);
+        final periodEnd = DateTime(period.endDate.year, period.endDate.month, period.endDate.day);
+        final checkDate = DateTime(date.year, date.month, date.day);
+
+        if (checkDate.isAfter(periodStart.subtract(const Duration(days: 1))) &&
+            checkDate.isBefore(periodEnd.add(const Duration(days: 1)))) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
-String? _getPeriodInfoForUser(int userId, TimeOfDay time) {
-  final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
-  final period = _userPeriods.cast<UserPeriod?>().firstWhere(
-        (p) => p != null && p.usuarioId == userId && date.isAfter(p.startDate.subtract(const Duration(days: 1))) && date.isBefore(p.endDate.add(const Duration(days: 1))),
-        orElse: () => null,
-      );
-  if (period != null) {
-    return '${period.info} (${DateFormat('dd/MM/yyyy').format(period.startDate)} - ${DateFormat('dd/MM/yyyy').format(period.endDate)})';
+  String? _getPeriodInfoForUser(int userId, TimeOfDay time) {
+    final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
+    final checkDate = DateTime(date.year, date.month, date.day);
+
+    for (var period in _userPeriods) {
+      if (period.usuarioId == userId) {
+        final periodStart = DateTime(period.startDate.year, period.startDate.month, period.startDate.day);
+        final periodEnd = DateTime(period.endDate.year, period.endDate.month, period.endDate.day);
+
+        if (checkDate.isAfter(periodStart.subtract(const Duration(days: 1))) &&
+            checkDate.isBefore(periodEnd.add(const Duration(days: 1)))) {
+          return '${period.info} (${DateFormat('dd/MM').format(period.startDate)}-${DateFormat('dd/MM').format(period.endDate)})';
+        }
+      }
+    }
+    return null;
   }
-  return null;
-}
 
   @override
   Widget build(BuildContext context) {
@@ -439,7 +454,7 @@ String? _getPeriodInfoForUser(int userId, TimeOfDay time) {
                 },
                 child: const Text(
                   'Selecionar Data',
-                  style: TextStyle(color: Colors.white70),
+                  style: TextStyle(color: Color.fromARGB(179, 162, 215, 0)),
                 ),
               ),
               const SizedBox(height: 20),
@@ -473,6 +488,12 @@ String? _getPeriodInfoForUser(int userId, TimeOfDay time) {
                         );
                         final availableHours = _getAvailableHours(user);
 
+                        final screenWidth = MediaQuery.of(context).size.width;
+                        const leadingWidth = 40.0;
+                        const paddingAndMargins = 32.0;
+                        const nameAndStatusWidth = 200.0;
+                        final trailingWidth = screenWidth - leadingWidth - nameAndStatusWidth - paddingAndMargins;
+
                         return Card(
                           color: Colors.white.withOpacity(0.1),
                           margin: const EdgeInsets.symmetric(vertical: 4.0),
@@ -492,56 +513,66 @@ String? _getPeriodInfoForUser(int userId, TimeOfDay time) {
                               'Status: ${status.status}',
                               style: TextStyle(color: _getStatusColor(status.status)),
                             ),
-                            trailing: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: availableHours.map((time) {
-                                  final informacao = _getInformacaoForUser(user.id, time);
-                                  final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
-                                  final isUnavailable = _isUserUnavailable(user.id, date);
-                                  final periodInfo = _getPeriodInfoForUser(user.id, time);
-                                  final timeInMinutes = time.hour * 60;
-                                  final isPastHour = DateFormat('yyyy-MM-dd').format(now) == DateFormat('yyyy-MM-dd').format(_selectedDate) &&
-                                      timeInMinutes <= currentTimeInMinutes;
-                                  final canEdit = isAdmin || (widget.usuarioLogado.setor == 'ADM' && widget.usuarioLogado.id == user.id);
+                            trailing: SizedBox(
+                              width: trailingWidth,
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: availableHours.map((time) {
+                                    final informacao = _getInformacaoForUser(user.id, time);
+                                    final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
+                                    final isUnavailable = _isUserUnavailable(user.id, date);
+                                    final periodInfo = _getPeriodInfoForUser(user.id, time);
+                                    final timeInMinutes = time.hour * 60;
+                                    final isPastHour = DateFormat('yyyy-MM-dd').format(now) == DateFormat('yyyy-MM-dd').format(_selectedDate) &&
+                                        timeInMinutes <= currentTimeInMinutes;
+                                    final canEdit = isAdmin || (widget.usuarioLogado.setor == 'ADM' && widget.usuarioLogado.id == user.id);
 
-                                  return GestureDetector(
-                                    onTap: (canEdit && !isPastHour && !isUnavailable)
-                                        ? () => _editPlanner(user.id, time)
-                                        : null,
-                                    child: Container(
-                                      margin: const EdgeInsets.only(left: 4.0),
-                                      padding: const EdgeInsets.all(4.0),
-                                      decoration: BoxDecoration(
-                                        color: isUnavailable
-                                            ? Colors.red.withOpacity(0.5)
-                                            : (informacao != null ? Colors.greenAccent : Colors.grey.withOpacity(0.5)),
-                                        borderRadius: BorderRadius.circular(5),
-                                      ),
-                                      child: Column(
-                                        children: [
-                                          Text(
-                                            '${time.hour.toString().padLeft(2, '0')}:00',
-                                            style: const TextStyle(color: Colors.white, fontSize: 12),
-                                          ),
-                                          if (isUnavailable && periodInfo != null)
+                                    return GestureDetector(
+                                      onTap: (canEdit && !isPastHour && !isUnavailable)
+                                          ? () => _editPlanner(user.id, time)
+                                          : null,
+                                      child: Container(
+                                        width: 80.0,
+                                        margin: const EdgeInsets.only(left: 4.0),
+                                        padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4.0),
+                                        decoration: BoxDecoration(
+                                          color: isUnavailable
+                                              ? Colors.red.withOpacity(0.5)
+                                              : (informacao != null ? Colors.greenAccent : Colors.grey.withOpacity(0.5)),
+                                          borderRadius: BorderRadius.circular(5),
+                                        ),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
                                             Text(
-                                              periodInfo,
-                                              style: const TextStyle(color: Colors.white70, fontSize: 10),
-                                              textAlign: TextAlign.center,
-                                            )
-                                          else if (informacao != null)
-                                            Text(
-                                              informacao,
-                                              style: const TextStyle(color: Colors.white70, fontSize: 10),
+                                              '${time.hour.toString().padLeft(2, '0')}:00',
+                                              style: const TextStyle(color: Colors.white, fontSize: 12),
                                               textAlign: TextAlign.center,
                                             ),
-                                        ],
+                                            if (isUnavailable && periodInfo != null)
+                                              Text(
+                                                periodInfo,
+                                                style: const TextStyle(color: Colors.white70, fontSize: 10),
+                                                textAlign: TextAlign.center,
+                                                overflow: TextOverflow.ellipsis,
+                                                maxLines: 1,
+                                              )
+                                            else if (informacao != null)
+                                              Text(
+                                                informacao,
+                                                style: const TextStyle(color: Colors.white70, fontSize: 10),
+                                                textAlign: TextAlign.center,
+                                                overflow: TextOverflow.ellipsis,
+                                                maxLines: 1,
+                                              ),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                  );
-                                }).toList(),
+                                    );
+                                  }).toList(),
+                                ),
                               ),
                             ),
                           ),
