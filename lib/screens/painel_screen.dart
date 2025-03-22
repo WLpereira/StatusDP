@@ -213,13 +213,20 @@ class _PainelScreenState extends State<PainelScreen> {
     final timeString = '${time.hour.toString().padLeft(2, '0')}:00';
     final date = _selectedDate;
 
+    // Data e hora atuais
     final now = DateTime.now();
+    final currentDateStr = DateFormat('yyyy-MM-dd').format(now);
+    final selectedDateStr = DateFormat('yyyy-MM-dd').format(date);
     final currentTimeInMinutes = now.hour * 60 + now.minute;
-    if (DateFormat('yyyy-MM-dd').format(now) == DateFormat('yyyy-MM-dd').format(date) &&
-        (time.hour * 60) <= currentTimeInMinutes) {
-      _showMessage('Não é possível agendar horários passados.', isError: true);
+    final selectedTimeInMinutes = time.hour * 60;
+
+    // Verificar se é o dia atual e se o horário já passou
+    if (currentDateStr == selectedDateStr && selectedTimeInMinutes <= currentTimeInMinutes) {
+      _showMessage('Não é possível agendar horários passados no dia atual.', isError: true);
       return;
     }
+
+    // Para datas futuras, qualquer horário é permitido, então não há restrição adicional
 
     showDialog(
       context: context,
