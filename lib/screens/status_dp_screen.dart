@@ -144,7 +144,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor: Colors.grey[800],
+          backgroundColor: const Color.fromARGB(255, 234, 106, 1),
         ),
       );
     }
@@ -154,7 +154,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     final informacao = _getInformacaoForTime(time);
     final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
     final isUnavailable = _isUserUnavailable(date);
-    return isUnavailable ? Colors.orangeAccent.withOpacity(0.8) : (informacao != null ? Colors.greenAccent : Colors.grey.withOpacity(0.5));
+    return isUnavailable ? Colors.orangeAccent.withOpacity(0.8) : (informacao != null ? Colors.greenAccent : const Color.fromARGB(255, 255, 255, 255).withOpacity(0.5));
   }
 
   String? _getInformacaoForTime(TimeOfDay time) {
@@ -570,7 +570,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
 
                     try {
                       final newPeriod = UserPeriod(
-                        id: 0,
+                        id: 0, // Mantemos como 0, mas o toJson não o incluirá no JSON
                         usuarioId: _usuario.id,
                         startDate: startDate!,
                         endDate: endDate!,

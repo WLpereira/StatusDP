@@ -24,12 +24,16 @@ class UserPeriod {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
+    final Map<String, dynamic> data = {
       'usuarioid': usuarioId,
       'start_date': startDate.toIso8601String().split('T')[0],
       'end_date': endDate.toIso8601String().split('T')[0],
       'info': info,
     };
+    // Só inclui o 'id' no JSON se ele não for 0 (ou seja, se for um registro existente)
+    if (id != 0) {
+      data['id'] = id;
+    }
+    return data;
   }
 }
