@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import '../models/usuario.dart';
-import '../models/planner.dart';
 import '../models/status.dart';
+import '../models/planner.dart';
 import '../models/horario_trabalho.dart';
 import '../models/user_period.dart';
 import '../services/auth_service.dart';
 import 'package:intl/intl.dart';
+import 'status_dp_screen.dart';
 
 class PainelScreen extends StatefulWidget {
   final Usuario usuarioLogado;
@@ -19,29 +20,16 @@ class PainelScreen extends StatefulWidget {
 class _PainelScreenState extends State<PainelScreen> {
   final AuthService _authService = AuthService();
   List<Usuario> _usuarios = [];
-  List<Planner> _planners = [];
   List<Status> _statuses = [];
-  Map<int, List<HorarioTrabalho>> _horariosTrabalho = {};
+  List<Planner> _planners = [];
+  List<HorarioTrabalho> _horariosTrabalho = [];
   List<UserPeriod> _userPeriods = [];
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = true;
 
-  final Map<String, Color> _sectorColors = {
-    'Suporte': Colors.green,
-    'ADM': Colors.blue,
-    'DEV': Colors.purple,
-    'Externo': Colors.orange,
-  };
-
   @override
   void initState() {
     super.initState();
-    _loadInitialData();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
     _loadInitialData();
   }
 
@@ -50,26 +38,13 @@ class _PainelScreenState extends State<PainelScreen> {
       _isLoading = true;
     });
     try {
-      final usuarios = await _authService.getAllUsuarios();
-      final planners = await _authService.getAllPlanners();
-      final statuses = await _authService.getStatuses();
-      final userPeriods = await _authService.getAllUserPeriods();
-
-      Map<int, List<HorarioTrabalho>> horariosTrabalho = {};
-      for (var usuario in usuarios) {
-        final horarios = await _authService.getHorarioTrabalho(usuario.id, _selectedDate.weekday);
-        horariosTrabalho[usuario.id] = horarios;
-      }
-
-      setState(() {
-        _usuarios = usuarios;
-        _planners = planners;
-        _statuses = statuses;
-        _horariosTrabalho = horariosTrabalho;
-        _userPeriods = userPeriods;
-      });
+      await _loadStatuses();
+      await _loadUsuarios();
+      await _loadPlanners();
+      await _loadHorariosTrabalho();
+      await _loadUserPeriods();
     } catch (e) {
-      _showError('Erro ao carregar dados: $e');
+      _showMessage('Erro ao carregar dados: $e', isError: true);
     } finally {
       setState(() {
         _isLoading = false;
@@ -77,43 +52,273 @@ class _PainelScreenState extends State<PainelScreen> {
     }
   }
 
-  void _showError(String message) {
+  Future<void> _loadStatuses() async {
+    try {
+      final statuses = await _authService.getStatuses();
+      setState(() {
+        _statuses = statuses;
+      });
+    } catch (e) {
+      _showMessage('Erro ao carregar status: $e', isError: true);
+    }
+  }
+
+  Future<void> _loadUsuarios() async {
+    try {
+      final usuarios = await _authService.getAllUsuarios();
+      setState(() {
+        _usuarios = usuarios;
+      });
+    } catch (e) {
+      _showMessage('Erro ao carregar usuários: $e', isError: true);
+    }
+  }
+
+  Future<void> _loadPlanners() async {
+    try {
+      final planners = await _authService.getAllPlanners();
+      setState(() {
+        _planners = planners;
+      });
+    } catch (e) {
+      _showMessage('Erro ao carregar planners: $e', isError: true);
+    }
+  }
+
+  Future<void> _loadHorariosTrabalho() async {
+    try {
+      final horarios = await _authService.getAllHorariosTrabalho();
+      setState(() {
+        _horariosTrabalho = horarios;
+      });
+    } catch (e) {
+      _showMessage('Erro ao carregar horários de trabalho: $e', isError: true);
+    }
+  }
+
+  Future<void> _loadUserPeriods() async {
+    try {
+      final periods = await _authService.getAllUserPeriods();
+      setState(() {
+        _userPeriods = periods;
+      });
+    } catch (e) {
+      _showMessage('Erro ao carregar períodos: $e', isError: true);
+    }
+  }
+
+  void _showMessage(String message, {bool isError = false}) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor: Colors.grey[800],
+          backgroundColor: isError ? Colors.red : Colors.green,
         ),
       );
     }
   }
 
-  String? _getInformacaoForUser(int userId, TimeOfDay time) {
+  List<Map<String, dynamic>> _getPlannerEntriesForUserAndDate(int usuarioId) {
     final planner = _planners.firstWhere(
-      (p) => p.usuarioId == userId && DateFormat('yyyy-MM-dd').format(p.data) == DateFormat('yyyy-MM-dd').format(_selectedDate),
-      orElse: () => Planner(
-        id: -1,
-        usuarioId: userId,
-        data: _selectedDate,
-        statusId: _statuses.isNotEmpty ? _statuses.firstWhere((s) => s.status == 'DISPONIVEL').id : 1,
+      (p) => p.usuarioId == usuarioId,
+      orElse: () => Planner(id: -1, usuarioId: usuarioId, statusId: 1),
+    );
+
+    final entries = planner.getEntries();
+    final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+
+    return entries
+        .asMap()
+        .entries
+        .where((entry) =>
+            entry.value['horario'] != null &&
+            entry.value['data'] != null &&
+            DateFormat('yyyy-MM-dd').format(entry.value['data'] as DateTime) == selectedDateStr)
+        .map((entry) => {
+              'index': entry.key,
+              'horario': entry.value['horario'],
+              'informacao': entry.value['informacao'],
+            })
+        .toList();
+  }
+
+  List<Map<String, dynamic>> _getAvailableHoursForUser(int usuarioId) {
+    final horario = _horariosTrabalho.firstWhere(
+      (h) => h.usuarioId == usuarioId && h.diaSemana == _selectedDate.weekday,
+      orElse: () {
+        final usuario = _usuarios.firstWhere((u) => u.id == usuarioId);
+        return HorarioTrabalho(
+          id: -1,
+          usuarioId: usuarioId,
+          diaSemana: _selectedDate.weekday,
+          horarioInicio: usuario.horarioiniciotrabalho ?? '06:00',
+          horarioFim: usuario.horariofimtrabalho ?? '18:00',
+          horarioAlmocoInicio: usuario.horarioalmocoinicio ?? '12:00',
+          horarioAlmocoFim: usuario.horarioalmocofim ?? '13:30',
+        );
+      },
+    );
+
+    final String startTimeStr = horario.horarioInicio ?? '06:00';
+    final String endTimeStr = horario.horarioFim ?? '18:00';
+    final String lunchStartTimeStr = horario.horarioAlmocoInicio ?? '12:00';
+    final String lunchEndTimeStr = horario.horarioAlmocoFim ?? '13:30';
+
+    final startTime = _parseTimeOfDay(startTimeStr);
+    final endTime = _parseTimeOfDay(endTimeStr);
+    final lunchStartTime = _parseTimeOfDay(lunchStartTimeStr);
+    final lunchEndTime = _parseTimeOfDay(lunchEndTimeStr);
+
+    int startHour = startTime.hour;
+    if (startTime.minute > 0) startHour++;
+
+    int endHour = endTime.hour;
+    if (endTime.minute > 0) endHour--;
+
+    int lunchStartHour = lunchStartTime.hour;
+    int lunchEndHour = lunchEndTime.hour;
+    if (lunchEndTime.minute > 0) lunchEndHour++;
+
+    List<Map<String, dynamic>> hours = [];
+    for (int h = startHour; h <= endHour; h++) {
+      final time = TimeOfDay(hour: h, minute: 0);
+      final timeInMinutes = h * 60;
+      final lunchStartInMinutes = lunchStartTime.hour * 60 + lunchStartTime.minute;
+      final lunchEndInMinutes = lunchEndTime.hour * 60 + lunchEndTime.minute;
+
+      if (timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes) {
+        continue;
+      }
+
+      final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, h);
+      final isUnavailable = _userPeriods.any((period) =>
+          period.usuarioId == usuarioId &&
+          date.isAfter(period.startDate.subtract(const Duration(days: 1))) &&
+          date.isBefore(period.endDate.add(const Duration(days: 1))));
+
+      hours.add({
+        'time': time,
+        'isUnavailable': isUnavailable,
+      });
+    }
+    return hours;
+  }
+
+  TimeOfDay _parseTimeOfDay(String time) {
+    final parts = time.split(':');
+    return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+  }
+
+  Future<void> _addOrUpdatePlanner(int usuarioId, TimeOfDay time) async {
+    final timeString = '${time.hour.toString().padLeft(2, '0')}:00';
+    final date = _selectedDate;
+
+    final now = DateTime.now();
+    final currentTimeInMinutes = now.hour * 60 + now.minute;
+    if (DateFormat('yyyy-MM-dd').format(now) == DateFormat('yyyy-MM-dd').format(date) &&
+        (time.hour * 60) <= currentTimeInMinutes) {
+      _showMessage('Não é possível agendar horários passados.', isError: true);
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        final controller = TextEditingController();
+        return AlertDialog(
+          title: Text('Adicionar Reserva em ${time.hour.toString().padLeft(2, '0')}:00'),
+          content: TextField(
+            controller: controller,
+            maxLength: 10,
+            decoration: const InputDecoration(
+              labelText: 'Informação da Reserva (máx. 10 caracteres)',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () async {
+                if (controller.text.isNotEmpty) {
+                  try {
+                    final planner = _planners.firstWhere(
+                      (p) => p.usuarioId == usuarioId,
+                      orElse: () => Planner(
+                        id: -1,
+                        usuarioId: usuarioId,
+                        statusId: _statuses.firstWhere((s) => s.status == 'DISPONIVEL').id,
+                      ),
+                    );
+
+                    await _authService.upsertPlanner(planner, timeString, date, controller.text);
+                    _showMessage('Reserva adicionada com sucesso!');
+                    await _loadPlanners();
+                    Navigator.pop(context);
+                  } catch (e) {
+                    String errorMessage = 'Erro ao adicionar reserva. Tente novamente.';
+                    if (e.toString().contains('Já existe uma reserva')) {
+                      errorMessage = e.toString().replaceFirst('Exception: ', '');
+                    } else if (e.toString().contains('PostgresException')) {
+                      errorMessage = 'Erro no banco de dados. Verifique os dados e tente novamente.';
+                    }
+                    _showMessage(errorMessage, isError: true);
+                  }
+                } else {
+                  _showMessage('Por favor, insira uma informação para a reserva.', isError: true);
+                }
+              },
+              child: const Text('Adicionar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _removePlannerEntry(int usuarioId, int index) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar Exclusão'),
+        content: const Text('Deseja realmente remover esta reserva?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Remover'),
+          ),
+        ],
       ),
     );
 
-    if (planner.id != -1) {
-      if (planner.horario1 == '${time.hour.toString().padLeft(2, '0')}:00') return planner.informacao1;
-      if (planner.horario2 == '${time.hour.toString().padLeft(2, '0')}:00') return planner.informacao2;
-      if (planner.horario3 == '${time.hour.toString().padLeft(2, '0')}:00') return planner.informacao3;
-      if (planner.horario4 == '${time.hour.toString().padLeft(2, '0')}:00') return planner.informacao4;
-      if (planner.horario5 == '${time.hour.toString().padLeft(2, '0')}:00') return planner.informacao5;
-      if (planner.horario6 == '${time.hour.toString().padLeft(2, '0')}:00') return planner.informacao6;
-      if (planner.horario7 == '${time.hour.toString().padLeft(2, '0')}:00') return planner.informacao7;
-      if (planner.horario8 == '${time.hour.toString().padLeft(2, '0')}:00') return planner.informacao8;
-      if (planner.horario9 == '${time.hour.toString().padLeft(2, '0')}:00') return planner.informacao9;
-      if (planner.horario10 == '${time.hour.toString().padLeft(2, '0')}:00') return planner.informacao10;
+    if (confirm != true) return;
+
+    try {
+      final planner = _planners.firstWhere(
+        (p) => p.usuarioId == usuarioId,
+        orElse: () => Planner(
+          id: -1,
+          usuarioId: usuarioId,
+          statusId: _statuses.firstWhere((s) => s.status == 'DISPONIVEL').id,
+        ),
+      );
+
+      if (planner.id != -1) {
+        await _authService.deletePlannerEntry(planner, index);
+        _showMessage('Reserva removida com sucesso!');
+        await _loadPlanners();
+      }
+    } catch (e) {
+      _showMessage('Erro ao remover reserva: $e', isError: true);
     }
-    return null;
   }
 
+  // Função para obter a cor do status, como no código antigo
   Color _getStatusColor(String? status) {
     switch (status) {
       case 'DISPONIVEL':
@@ -129,260 +334,6 @@ class _PainelScreenState extends State<PainelScreen> {
     }
   }
 
-  Future<void> _editPlanner(int userId, TimeOfDay time) async {
-    final now = DateTime.now();
-    final currentTimeInMinutes = now.hour * 60 + now.minute;
-    final timeInMinutes = time.hour * 60;
-
-    if (DateFormat('yyyy-MM-dd').format(now) == DateFormat('yyyy-MM-dd').format(_selectedDate) &&
-        timeInMinutes <= currentTimeInMinutes) {
-      _showError('Não é possível editar horários já passados.');
-      return;
-    }
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        final controller = TextEditingController(text: _getInformacaoForUser(userId, time) ?? '');
-        return AlertDialog(
-          title: Text('Editar ${time.hour.toString().padLeft(2, '0')}:00 para ${getUserName(userId)}'),
-          content: TextField(
-            controller: controller,
-            maxLength: 10,
-            decoration: const InputDecoration(
-              labelText: 'Informação (máx. 10 caracteres)',
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancelar'),
-            ),
-            TextButton(
-              onPressed: () async {
-                await _saveOrUpdatePlanner(userId, time, controller.text.isEmpty ? null : controller.text);
-                Navigator.pop(context);
-              },
-              child: const Text('Salvar'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _saveOrUpdatePlanner(int userId, TimeOfDay time, String? informacao) async {
-    final timeString = '${time.hour.toString().padLeft(2, '0')}:00';
-    Planner existingPlanner = _planners.firstWhere(
-      (p) => p.usuarioId == userId && DateFormat('yyyy-MM-dd').format(p.data) == DateFormat('yyyy-MM-dd').format(_selectedDate),
-      orElse: () => Planner(
-        id: -1,
-        usuarioId: userId,
-        data: _selectedDate,
-        statusId: _statuses.isNotEmpty ? _statuses.firstWhere((s) => s.status == 'DISPONIVEL').id : 1,
-      ),
-    );
-
-    List<String?> horarios = [
-      existingPlanner.horario1,
-      existingPlanner.horario2,
-      existingPlanner.horario3,
-      existingPlanner.horario4,
-      existingPlanner.horario5,
-      existingPlanner.horario6,
-      existingPlanner.horario7,
-      existingPlanner.horario8,
-      existingPlanner.horario9,
-      existingPlanner.horario10,
-    ];
-    List<String?> informacoes = [
-      existingPlanner.informacao1,
-      existingPlanner.informacao2,
-      existingPlanner.informacao3,
-      existingPlanner.informacao4,
-      existingPlanner.informacao5,
-      existingPlanner.informacao6,
-      existingPlanner.informacao7,
-      existingPlanner.informacao8,
-      existingPlanner.informacao9,
-      existingPlanner.informacao10,
-    ];
-
-    int index = horarios.indexOf(timeString);
-    if (index == -1) {
-      index = horarios.indexWhere((h) => h == null);
-      if (index == -1) {
-        _showError('Limite de 10 horários atingido. Substitua um horário existente.');
-        return;
-      }
-      horarios[index] = timeString;
-    }
-    informacoes[index] = informacao;
-
-    Map<String, dynamic> plannerData = {
-      'id': existingPlanner.id != -1 ? existingPlanner.id : 0,
-      'usuarioid': userId,
-      'data': DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day).toIso8601String().split('T')[0],
-      'statusid': existingPlanner.statusId,
-      'horario1': horarios[0],
-      'informacao1': informacoes[0],
-      'horario2': horarios[1],
-      'informacao2': informacoes[1],
-      'horario3': horarios[2],
-      'informacao3': informacoes[2],
-      'horario4': horarios[3],
-      'informacao4': informacoes[3],
-      'horario5': horarios[4],
-      'informacao5': informacoes[4],
-      'horario6': horarios[5],
-      'informacao6': informacoes[5],
-      'horario7': horarios[6],
-      'informacao7': informacoes[6],
-      'horario8': horarios[7],
-      'informacao8': informacoes[7],
-      'horario9': horarios[8],
-      'informacao9': informacoes[8],
-      'horario10': horarios[9],
-      'informacao10': informacoes[9],
-    };
-
-    try {
-      await _authService.upsertPlanner(Planner(
-        id: plannerData['id'],
-        usuarioId: plannerData['usuarioid'],
-        data: DateTime.parse(plannerData['data']),
-        statusId: plannerData['statusid'],
-        horario1: plannerData['horario1'],
-        informacao1: plannerData['informacao1'],
-        horario2: plannerData['horario2'],
-        informacao2: plannerData['informacao2'],
-        horario3: plannerData['horario3'],
-        informacao3: plannerData['informacao3'],
-        horario4: plannerData['horario4'],
-        informacao4: plannerData['informacao4'],
-        horario5: plannerData['horario5'],
-        informacao5: plannerData['informacao5'],
-        horario6: plannerData['horario6'],
-        informacao6: plannerData['informacao6'],
-        horario7: plannerData['horario7'],
-        informacao7: plannerData['informacao7'],
-        horario8: plannerData['horario8'],
-        informacao8: plannerData['informacao8'],
-        horario9: plannerData['horario9'],
-        informacao9: plannerData['informacao9'],
-        horario10: plannerData['horario10'],
-        informacao10: plannerData['informacao10'],
-      ));
-      _showError('Informação salva com sucesso!');
-      await _loadInitialData();
-    } catch (e) {
-      _showError('Erro ao salvar informação: $e');
-    }
-  }
-
-  String getUserName(int userId) {
-    final user = _usuarios.firstWhere((u) => u.id == userId, orElse: () => Usuario(id: 0, email: 'Desconhecido', senha: ''));
-    return user.nome ?? user.email;
-  }
-
-  List<TimeOfDay> _getAvailableHours(Usuario user) {
-    final horarios = _horariosTrabalho[user.id] ?? [];
-    TimeOfDay startTime;
-    TimeOfDay endTime;
-    TimeOfDay lunchStartTime;
-    TimeOfDay lunchEndTime;
-    TimeOfDay gestaoStartTime;
-    TimeOfDay gestaoEndTime;
-
-    if (horarios.isNotEmpty) {
-      final horario = horarios.first;
-      startTime = _parseTimeOfDay(horario.horarioInicio ?? user.horarioiniciotrabalho ?? '06:00');
-      endTime = _parseTimeOfDay(horario.horarioFim ?? user.horariofimtrabalho ?? '18:00');
-      lunchStartTime = _parseTimeOfDay(horario.horarioAlmocoInicio ?? user.horarioalmocoinicio ?? '12:00');
-      lunchEndTime = _parseTimeOfDay(horario.horarioAlmocoFim ?? user.horarioalmocofim ?? '13:30');
-      gestaoStartTime = _parseTimeOfDay(horario.horarioAlmocoInicio ?? user.horariogestaoinicio ?? '14:00');
-      gestaoEndTime = _parseTimeOfDay(horario.horarioAlmocoFim ?? user.horariogestaofim ?? '15:00');
-    } else {
-      startTime = _parseTimeOfDay(user.horarioiniciotrabalho ?? '06:00');
-      endTime = _parseTimeOfDay(user.horariofimtrabalho ?? '18:00');
-      lunchStartTime = _parseTimeOfDay(user.horarioalmocoinicio ?? '12:00');
-      lunchEndTime = _parseTimeOfDay(user.horarioalmocofim ?? '13:30');
-      gestaoStartTime = _parseTimeOfDay(user.horariogestaoinicio ?? '14:00');
-      gestaoEndTime = _parseTimeOfDay(user.horariogestaofim ?? '15:00');
-    }
-
-    int startHour = startTime.hour;
-    if (startTime.minute > 0) startHour++;
-
-    int endHour = endTime.hour;
-    if (endTime.minute > 0) endHour--;
-
-    int lunchStartHour = lunchStartTime.hour;
-    int lunchEndHour = lunchEndTime.hour;
-    if (lunchEndTime.minute > 0) lunchEndHour++;
-
-    int gestaoStartHour = gestaoStartTime.hour;
-    int gestaoEndHour = gestaoEndTime.hour;
-    if (gestaoEndTime.minute > 0) gestaoEndHour++;
-
-    List<TimeOfDay> hours = [];
-    for (int h = startHour; h <= endHour; h++) {
-      final time = TimeOfDay(hour: h, minute: 0);
-      final timeInMinutes = h * 60;
-      final lunchStartInMinutes = lunchStartTime.hour * 60 + lunchStartTime.minute;
-      final lunchEndInMinutes = lunchEndTime.hour * 60 + lunchEndTime.minute;
-      final gestaoStartInMinutes = gestaoStartTime.hour * 60 + gestaoStartTime.minute;
-      final gestaoEndInMinutes = gestaoEndTime.hour * 60 + gestaoEndTime.minute;
-
-      if ((timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes) ||
-          (timeInMinutes >= gestaoStartInMinutes && timeInMinutes < gestaoEndInMinutes)) {
-        continue;
-      }
-
-      hours.add(time);
-    }
-    return hours;
-  }
-
-  TimeOfDay _parseTimeOfDay(String time) {
-    final parts = time.split(':');
-    return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
-  }
-
-  bool _isUserUnavailable(int userId, DateTime date) {
-    for (var period in _userPeriods) {
-      if (period.usuarioId == userId) {
-        final periodStart = DateTime(period.startDate.year, period.startDate.month, period.startDate.day);
-        final periodEnd = DateTime(period.endDate.year, period.endDate.month, period.endDate.day);
-        final checkDate = DateTime(date.year, date.month, date.day);
-
-        if (checkDate.isAfter(periodStart.subtract(const Duration(days: 1))) &&
-            checkDate.isBefore(periodEnd.add(const Duration(days: 1)))) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  String? _getPeriodInfoForUser(int userId, TimeOfDay time) {
-    final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
-    final checkDate = DateTime(date.year, date.month, date.day);
-
-    for (var period in _userPeriods) {
-      if (period.usuarioId == userId) {
-        final periodStart = DateTime(period.startDate.year, period.startDate.month, period.startDate.day);
-        final periodEnd = DateTime(period.endDate.year, period.endDate.month, period.endDate.day);
-
-        if (checkDate.isAfter(periodStart.subtract(const Duration(days: 1))) &&
-            checkDate.isBefore(periodEnd.add(const Duration(days: 1)))) {
-          return '${period.info} (${DateFormat('dd/MM').format(period.startDate)}-${DateFormat('dd/MM').format(period.endDate)})';
-        }
-      }
-    }
-    return null;
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -393,10 +344,7 @@ class _PainelScreenState extends State<PainelScreen> {
       );
     }
 
-    final now = DateTime.now();
-    final currentTimeInMinutes = now.hour * 60 + now.minute;
-    final isAdmin = widget.usuarioLogado.email == 'adm@dataplace.com.br';
-
+    // Organizar usuários por setor, como no código antigo
     final Map<String, List<Usuario>> usersBySector = {
       'Suporte': _usuarios.where((u) => u.setor == 'Suporte').toList(),
       'ADM': _usuarios.where((u) => u.setor == 'ADM').toList(),
@@ -404,8 +352,16 @@ class _PainelScreenState extends State<PainelScreen> {
       'Externo': _usuarios.where((u) => u.setor == 'Externo').toList(),
     };
 
+    // Definir cores para os setores, como no código antigo
+    final Map<String, Color> sectorColors = {
+      'Suporte': Colors.green,
+      'ADM': Colors.blue,
+      'DEV': Colors.purple,
+      'Externo': Colors.orange,
+    };
+
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: const Color(0xFF1A1A2E), // Fundo escuro do código antigo
       extendBody: true,
       body: RefreshIndicator(
         onRefresh: _loadInitialData,
@@ -414,6 +370,7 @@ class _PainelScreenState extends State<PainelScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Ícone de dashboard e título, como no código antigo
               const Icon(
                 Icons.dashboard,
                 size: 100,
@@ -459,6 +416,7 @@ class _PainelScreenState extends State<PainelScreen> {
               ),
               const SizedBox(height: 20),
 
+              // Exibir usuários agrupados por setor
               ...usersBySector.entries.map((entry) {
                 final sector = entry.key;
                 final users = entry.value;
@@ -472,7 +430,7 @@ class _PainelScreenState extends State<PainelScreen> {
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: _sectorColors[sector] ?? Colors.white,
+                        color: sectorColors[sector] ?? Colors.white,
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -481,13 +439,15 @@ class _PainelScreenState extends State<PainelScreen> {
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: users.length,
                       itemBuilder: (context, index) {
-                        final user = users[index];
+                        final usuario = users[index];
+                        final plannerEntries = _getPlannerEntriesForUserAndDate(usuario.id);
+                        final availableHours = _getAvailableHoursForUser(usuario.id);
                         final status = _statuses.firstWhere(
-                          (s) => s.status == user.status,
-                          orElse: () => Status(id: 1, status: 'DISPONIVEL'),
+                          (s) => s.status == usuario.status,
+                          orElse: () => Status(id: -1, status: 'Desconhecido'),
                         );
-                        final availableHours = _getAvailableHours(user);
 
+                        // Calcular largura para o trailing com rolagem horizontal
                         final screenWidth = MediaQuery.of(context).size.width;
                         const leadingWidth = 40.0;
                         const paddingAndMargins = 32.0;
@@ -495,23 +455,25 @@ class _PainelScreenState extends State<PainelScreen> {
                         final trailingWidth = screenWidth - leadingWidth - nameAndStatusWidth - paddingAndMargins;
 
                         return Card(
-                          color: Colors.white.withOpacity(0.1),
+                          color: Colors.white.withOpacity(0.1), // Fundo do cartão com opacidade baixa
                           margin: const EdgeInsets.symmetric(vertical: 4.0),
                           child: ListTile(
                             leading: CircleAvatar(
-                              backgroundColor: _sectorColors[sector] ?? Colors.grey,
+                              backgroundColor: sectorColors[sector] ?? Colors.grey,
                               child: Text(
-                                user.nome?.substring(0, 1) ?? user.email.substring(0, 1),
+                                usuario.nome?.substring(0, 1) ?? usuario.email.substring(0, 1),
                                 style: const TextStyle(color: Colors.white),
                               ),
                             ),
                             title: Text(
-                              user.nome ?? user.email,
+                              usuario.nome ?? usuario.email,
                               style: const TextStyle(color: Colors.white),
                             ),
                             subtitle: Text(
                               'Status: ${status.status}',
-                              style: TextStyle(color: _getStatusColor(status.status)),
+                              style: TextStyle(
+                                color: _getStatusColor(status.status),
+                              ),
                             ),
                             trailing: SizedBox(
                               width: trailingWidth,
@@ -519,20 +481,18 @@ class _PainelScreenState extends State<PainelScreen> {
                                 scrollDirection: Axis.horizontal,
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
-                                  children: availableHours.map((time) {
-                                    final informacao = _getInformacaoForUser(user.id, time);
-                                    final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
-                                    final isUnavailable = _isUserUnavailable(user.id, date);
-                                    final periodInfo = _getPeriodInfoForUser(user.id, time);
-                                    final timeInMinutes = time.hour * 60;
-                                    final isPastHour = DateFormat('yyyy-MM-dd').format(now) == DateFormat('yyyy-MM-dd').format(_selectedDate) &&
-                                        timeInMinutes <= currentTimeInMinutes;
-                                    final canEdit = isAdmin || (widget.usuarioLogado.setor == 'ADM' && widget.usuarioLogado.id == user.id);
+                                  children: availableHours.map((hour) {
+                                    final time = hour['time'] as TimeOfDay;
+                                    final isUnavailable = hour['isUnavailable'] as bool;
+                                    final isReserved = plannerEntries.any(
+                                        (entry) => entry['horario'] == '${time.hour.toString().padLeft(2, '0')}:00');
 
                                     return GestureDetector(
-                                      onTap: (canEdit && !isPastHour && !isUnavailable)
-                                          ? () => _editPlanner(user.id, time)
-                                          : null,
+                                      onTap: (isUnavailable || isReserved)
+                                          ? null
+                                          : () {
+                                              _addOrUpdatePlanner(usuario.id, time);
+                                            },
                                       child: Container(
                                         width: 80.0,
                                         margin: const EdgeInsets.only(left: 4.0),
@@ -540,7 +500,7 @@ class _PainelScreenState extends State<PainelScreen> {
                                         decoration: BoxDecoration(
                                           color: isUnavailable
                                               ? Colors.red.withOpacity(0.5)
-                                              : (informacao != null ? Colors.greenAccent : Colors.grey.withOpacity(0.5)),
+                                              : (isReserved ? Colors.greenAccent : Colors.grey.withOpacity(0.5)),
                                           borderRadius: BorderRadius.circular(5),
                                         ),
                                         child: Column(
@@ -551,17 +511,13 @@ class _PainelScreenState extends State<PainelScreen> {
                                               style: const TextStyle(color: Colors.white, fontSize: 12),
                                               textAlign: TextAlign.center,
                                             ),
-                                            if (isUnavailable && periodInfo != null)
+                                            if (isReserved)
                                               Text(
-                                                periodInfo,
-                                                style: const TextStyle(color: Colors.white70, fontSize: 10),
-                                                textAlign: TextAlign.center,
-                                                overflow: TextOverflow.ellipsis,
-                                                maxLines: 1,
-                                              )
-                                            else if (informacao != null)
-                                              Text(
-                                                informacao,
+                                                plannerEntries
+                                                        .firstWhere((entry) =>
+                                                            entry['horario'] ==
+                                                            '${time.hour.toString().padLeft(2, '0')}:00')['informacao'] ??
+                                                    'Sem informação',
                                                 style: const TextStyle(color: Colors.white70, fontSize: 10),
                                                 textAlign: TextAlign.center,
                                                 overflow: TextOverflow.ellipsis,
@@ -584,11 +540,17 @@ class _PainelScreenState extends State<PainelScreen> {
                 );
               }).toList(),
 
+              // Botão "Voltar" estilizado no final, como no código antigo
               const SizedBox(height: 20),
               Center(
                 child: ElevatedButton(
                   onPressed: () {
-                    Navigator.pop(context);
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => StatusDPScreen(usuario: widget.usuarioLogado),
+                      ),
+                    );
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.redAccent,

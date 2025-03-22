@@ -7,9 +7,11 @@ import '../models/user_period.dart';
 import 'package:intl/intl.dart';
 
 class AuthService {
+  final SupabaseClient _supabase = Supabase.instance.client;
+
   Future<Usuario?> login(String email, String password) async {
     try {
-      final response = await Supabase.instance.client
+      final response = await _supabase
           .from('usuarios')
           .select()
           .eq('email', email)
@@ -31,7 +33,7 @@ class AuthService {
 
   Future<Usuario?> getUserData(String email) async {
     try {
-      final response = await Supabase.instance.client
+      final response = await _supabase
           .from('usuarios')
           .select()
           .eq('email', email)
@@ -52,7 +54,7 @@ class AuthService {
 
   Future<void> updateUserStatus(int userId, String status) async {
     try {
-      await Supabase.instance.client
+      await _supabase
           .from('usuarios')
           .update({'status': status})
           .eq('id', userId);
@@ -63,7 +65,7 @@ class AuthService {
 
   Future<void> deleteUserPeriod(int periodId) async {
     try {
-      await Supabase.instance.client
+      await _supabase
           .from('user_periods')
           .delete()
           .eq('id', periodId);
@@ -74,22 +76,26 @@ class AuthService {
 
   Future<List<Status>> getStatuses() async {
     try {
-      final response = await Supabase.instance.client.from('status_').select();
+      final response = await _supabase.from('status_').select();
       return (response as List).map((json) => Status.fromJson(json)).toList();
     } catch (e) {
       throw Exception('Erro ao buscar status: $e');
     }
   }
 
-  Future<List<Planner>> getPlanner(int usuarioId, DateTime date) async {
+  Future<List<Planner>> getPlanner(int usuarioId) async {
     try {
-      final response = await Supabase.instance.client
+      final response = await _supabase
           .from('planner')
           .select()
           .eq('usuarioid', usuarioId)
-          .eq('data', date.toIso8601String().split('T')[0]);
+          .maybeSingle();
 
-      return (response as List).map((json) => Planner.fromJson(json)).toList();
+      if (response == null) {
+        return [];
+      }
+
+      return [Planner.fromJson(response)];
     } catch (e) {
       throw Exception('Erro ao buscar planner: $e');
     }
@@ -97,7 +103,7 @@ class AuthService {
 
   Future<List<HorarioTrabalho>> getHorarioTrabalho(int usuarioId, int diaSemana) async {
     try {
-      final response = await Supabase.instance.client
+      final response = await _supabase
           .from('horariotrabalho')
           .select()
           .eq('usuarioid', usuarioId)
@@ -109,17 +115,104 @@ class AuthService {
     }
   }
 
-  Future<void> upsertPlanner(Planner planner) async {
+  Future<Planner> _getOrCreatePlanner(int usuarioId, int statusId) async {
     try {
-      await Supabase.instance.client.from('planner').upsert(planner.toJson());
+      final plannerResponse = await _supabase
+          .from('planner')
+          .select()
+          .eq('usuarioid', usuarioId)
+          .maybeSingle();
+
+      if (plannerResponse != null) {
+        return Planner.fromJson(plannerResponse);
+      }
+
+      final newPlannerResponse = await _supabase
+          .from('planner')
+          .insert({
+            'usuarioid': usuarioId,
+            'statusid': statusId,
+          })
+          .select()
+          .single();
+
+      return Planner.fromJson(newPlannerResponse);
+    } catch (e) {
+      throw Exception('Erro ao buscar ou criar planner: $e');
+    }
+  }
+
+  Future<void> upsertPlanner(Planner planner, String horario, DateTime data, String? informacao) async {
+    try {
+      // Busca ou cria o planner para o usuário
+      final existingPlanner = await _getOrCreatePlanner(planner.usuarioId, planner.statusId);
+
+      // Obtém todas as entradas atuais
+      final entries = existingPlanner.getEntries();
+
+      // Verifica se já existe uma reserva no mesmo horário e data
+      final selectedDateStr = DateFormat('yyyy-MM-dd').format(data);
+      final hasConflict = entries.any((entry) =>
+          entry['horario'] == horario &&
+          entry['data'] != null &&
+          DateFormat('yyyy-MM-dd').format(entry['data'] as DateTime) == selectedDateStr);
+
+      if (hasConflict) {
+        throw Exception('Já existe uma reserva neste horário e data.');
+      }
+
+      // Conta quantas entradas não nulas existem
+      int nonNullEntries = entries.where((entry) => entry['horario'] != null).length;
+
+      int indexToUpdate;
+      Planner updatedPlanner = existingPlanner; // Variável para armazenar o planner atualizado
+      if (nonNullEntries < 10) {
+        // Se há menos de 10 entradas, encontra o primeiro slot vazio
+        indexToUpdate = entries.indexWhere((entry) => entry['horario'] == null);
+      } else {
+        // Se já há 10 entradas, sobrescreve a partir do primeiro slot (horario1)
+        indexToUpdate = 0;
+        // Reorganiza as entradas para manter a ordem
+        final List<Map<String, dynamic>> newEntries = [];
+        for (int i = 1; i < 10; i++) {
+          newEntries.add(entries[i]);
+        }
+        newEntries.add({'horario': horario, 'data': data, 'informacao': informacao});
+        for (int i = 0; i < 9; i++) {
+          updatedPlanner = updatedPlanner.updateEntry(i, newEntries[i]['horario'], newEntries[i]['data'], newEntries[i]['informacao']);
+        }
+        indexToUpdate = 9;
+      }
+
+      // Atualiza o slot escolhido
+      updatedPlanner = updatedPlanner.updateEntry(indexToUpdate, horario, data, informacao);
+
+      // Salva o planner atualizado no banco de dados
+      await _supabase
+          .from('planner')
+          .upsert(updatedPlanner.toJson(), onConflict: 'id');
     } catch (e) {
       throw Exception('Erro ao salvar planner: $e');
     }
   }
 
+  Future<void> deletePlannerEntry(Planner planner, int index) async {
+    try {
+      // Atualiza o slot para null
+      final updatedPlanner = planner.updateEntry(index, null, null, null);
+
+      // Salva o planner atualizado no banco de dados
+      await _supabase
+          .from('planner')
+          .upsert(updatedPlanner.toJson(), onConflict: 'id');
+    } catch (e) {
+      throw Exception('Erro ao remover entrada do planner: $e');
+    }
+  }
+
   Future<void> upsertHorarioTrabalho(HorarioTrabalho horario) async {
     try {
-      await Supabase.instance.client.from('horariotrabalho').upsert(horario.toJson());
+      await _supabase.from('horariotrabalho').upsert(horario.toJson());
     } catch (e) {
       throw Exception('Erro ao salvar horário de trabalho: $e');
     }
@@ -127,7 +220,7 @@ class AuthService {
 
   Future<List<Usuario>> getAllUsuarios() async {
     try {
-      final response = await Supabase.instance.client.from('usuarios').select();
+      final response = await _supabase.from('usuarios').select();
       return (response as List).map((json) => Usuario.fromJson(json)).toList();
     } catch (e) {
       throw Exception('Erro ao buscar usuários: $e');
@@ -136,7 +229,7 @@ class AuthService {
 
   Future<void> createUsuario(Usuario usuario) async {
     try {
-      await Supabase.instance.client.from('usuarios').insert({
+      await _supabase.from('usuarios').insert({
         'email': usuario.email,
         'nome': usuario.nome,
         'setor': usuario.setor,
@@ -156,7 +249,7 @@ class AuthService {
 
   Future<void> updateUsuario(Usuario usuario) async {
     try {
-      await Supabase.instance.client.from('usuarios').update({
+      await _supabase.from('usuarios').update({
         'email': usuario.email,
         'nome': usuario.nome,
         'setor': usuario.setor,
@@ -176,7 +269,7 @@ class AuthService {
 
   Future<void> createStatus(Status status) async {
     try {
-      await Supabase.instance.client.from('status_').insert({
+      await _supabase.from('status_').insert({
         'status': status.status,
       });
     } catch (e) {
@@ -186,7 +279,7 @@ class AuthService {
 
   Future<void> updateStatus(Status status) async {
     try {
-      await Supabase.instance.client.from('status_').update({
+      await _supabase.from('status_').update({
         'status': status.status,
       }).eq('id', status.id);
     } catch (e) {
@@ -196,7 +289,7 @@ class AuthService {
 
   Future<List<Planner>> getAllPlanners() async {
     try {
-      final response = await Supabase.instance.client.from('planner').select();
+      final response = await _supabase.from('planner').select();
       return (response as List).map((json) => Planner.fromJson(json)).toList();
     } catch (e) {
       throw Exception('Erro ao buscar planners: $e');
@@ -205,7 +298,7 @@ class AuthService {
 
   Future<List<HorarioTrabalho>> getAllHorariosTrabalho() async {
     try {
-      final response = await Supabase.instance.client.from('horariotrabalho').select();
+      final response = await _supabase.from('horariotrabalho').select();
       return (response as List).map((json) => HorarioTrabalho.fromJson(json)).toList();
     } catch (e) {
       throw Exception('Erro ao buscar horários de trabalho: $e');
@@ -214,7 +307,7 @@ class AuthService {
 
   Future<void> saveUserPeriod(UserPeriod period) async {
     try {
-      await Supabase.instance.client.from('user_periods').insert(period.toJson());
+      await _supabase.from('user_periods').insert(period.toJson());
     } catch (e) {
       throw Exception('Erro ao salvar período: $e');
     }
@@ -222,7 +315,7 @@ class AuthService {
 
   Future<List<UserPeriod>> getUserPeriods(int usuarioId) async {
     try {
-      final response = await Supabase.instance.client
+      final response = await _supabase
           .from('user_periods')
           .select()
           .eq('usuarioid', usuarioId);
@@ -235,36 +328,30 @@ class AuthService {
 
   Future<List<UserPeriod>> getAllUserPeriods() async {
     try {
-      final response = await Supabase.instance.client.from('user_periods').select();
+      final response = await _supabase.from('user_periods').select();
       return (response as List).map((json) => UserPeriod.fromJson(json)).toList();
     } catch (e) {
       throw Exception('Erro ao buscar todos os períodos: $e');
     }
   }
 
-  // Novo método para adicionar um período de indisponibilidade com verificação de sobreposição
   Future<void> addUserPeriod(UserPeriod newPeriod) async {
     try {
-      // Obtém todos os períodos de indisponibilidade existentes para o usuário
       final existingPeriods = await getUserPeriods(newPeriod.usuarioId);
 
-      // Normaliza as datas do novo período
       final newStart = DateTime(newPeriod.startDate.year, newPeriod.startDate.month, newPeriod.startDate.day);
       final newEnd = DateTime(newPeriod.endDate.year, newPeriod.endDate.month, newPeriod.endDate.day);
 
-      // Verifica se há sobreposição com períodos existentes
       for (var period in existingPeriods) {
         final periodStart = DateTime(period.startDate.year, period.startDate.month, period.startDate.day);
         final periodEnd = DateTime(period.endDate.year, period.endDate.month, period.endDate.day);
 
-        // Verifica se há sobreposição de datas
         if (!(newEnd.isBefore(periodStart) || newStart.isAfter(periodEnd))) {
           throw Exception(
               'Não é possível cadastrar: o período se sobrepõe a um período existente (${DateFormat('dd/MM/yyyy').format(period.startDate)}-${DateFormat('dd/MM/yyyy').format(period.endDate)}).');
         }
       }
 
-      // Se não houver sobreposição, salva o novo período
       await saveUserPeriod(newPeriod);
     } catch (e) {
       throw Exception('Erro ao adicionar período de indisponibilidade: $e');
