@@ -140,7 +140,7 @@ class _PainelScreenState extends State<PainelScreen> {
     _scaffoldMessenger.showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? Colors.red : Colors.green,
+        backgroundColor: isError ? Colors.red : const Color.fromARGB(255, 49, 248, 96),
       ),
     );
   }
@@ -663,7 +663,7 @@ class _PainelScreenState extends State<PainelScreen> {
                                         decoration: BoxDecoration(
                                           color: isUnavailable
                                               ? Colors.red.withOpacity(0.5)
-                                              : (isReserved ? Colors.greenAccent : Colors.grey.withOpacity(0.5)),
+                                              : (isReserved ? const Color.fromARGB(255, 255, 0, 0) : Colors.grey.withOpacity(0.5)),
                                           borderRadius: BorderRadius.circular(5),
                                         ),
                                         child: Column(
