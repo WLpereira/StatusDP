@@ -7,6 +7,7 @@ import '../models/user_period.dart';
 import '../services/auth_service.dart';
 import 'package:intl/intl.dart';
 import 'status_dp_screen.dart';
+import 'admin_screen.dart'; // Importe a AdminScreen
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PainelScreen extends StatefulWidget {
@@ -700,12 +701,23 @@ class _PainelScreenState extends State<PainelScreen> {
                   onPressed: () {
                     if (mounted) {
                       _showMessage('Voltando para a tela anterior...');
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => StatusDPScreen(usuario: widget.usuarioLogado),
-                        ),
-                      );
+                      if (widget.usuarioLogado.email == 'adm@dataplace.com.br') {
+                        // Redireciona para AdminScreen se for o administrador
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => AdminScreen(usuario: widget.usuarioLogado),
+                          ),
+                        );
+                      } else {
+                        // Redireciona para StatusDPScreen para outros usuários
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => StatusDPScreen(usuario: widget.usuarioLogado),
+                          ),
+                        );
+                      }
                     }
                   },
                   style: ElevatedButton.styleFrom(
