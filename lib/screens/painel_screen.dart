@@ -592,6 +592,22 @@ class _PainelScreenState extends State<PainelScreen> {
                           orElse: () => Status(id: -1, status: 'Desconhecido'),
                         );
 
+                        final horario = _horariosTrabalho.firstWhere(
+                          (h) => h.usuarioId == usuario.id && h.diaSemana == _selectedDate.weekday,
+                          orElse: () => HorarioTrabalho(
+                            id: -1,
+                            usuarioId: usuario.id,
+                            diaSemana: _selectedDate.weekday,
+                            horarioInicio: usuario.horarioiniciotrabalho ?? '06:00',
+                            horarioFim: usuario.horariofimtrabalho ?? '18:00',
+                            horarioAlmocoInicio: usuario.horarioalmocoinicio ?? '12:00',
+                            horarioAlmocoFim: usuario.horarioalmocofim ?? '13:30',
+                          ),
+                        );
+
+                        final lunchStartTime = _parseTimeOfDay(horario.horarioAlmocoInicio ?? '12:00');
+                        final lunchEndTime = _parseTimeOfDay(horario.horarioAlmocoFim ?? '13:30');
+
                         final screenWidth = MediaQuery.of(context).size.width;
                         const leadingWidth = 40.0;
                         const paddingAndMargins = 32.0;
@@ -601,95 +617,115 @@ class _PainelScreenState extends State<PainelScreen> {
                         return Card(
                           color: Colors.white.withOpacity(0.1),
                           margin: const EdgeInsets.symmetric(vertical: 4.0),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: sectorColors[sector] ?? Colors.grey,
-                              child: Text(
-                                usuario.nome?.substring(0, 1) ?? usuario.email.substring(0, 1),
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                            ),
-                            title: Text(
-                              usuario.nome ?? usuario.email,
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                            subtitle: Text(
-                              'Status: ${status.status}',
-                              style: TextStyle(
-                                color: _getStatusColor(status.status),
-                              ),
-                            ),
-                            trailing: SizedBox(
-                              width: trailingWidth,
-                              child: SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: availableHours.map((hour) {
-                                    final time = hour['time'] as TimeOfDay;
-                                    final isUnavailable = hour['isUnavailable'] as bool;
-                                    final entry = plannerEntries.firstWhere(
-                                      (entry) =>
-                                          entry['horario'] == '${time.hour.toString().padLeft(2, '0')}:00',
-                                      orElse: () => {},
-                                    );
-                                    final isReserved = entry.isNotEmpty;
-
-                                    return GestureDetector(
-                                      onTap: () {
-                                        if (isUnavailable) return;
-                                        if (!_podeEditar(usuario.id, hour, isReserved ? entry : null)) {
-                                          _showMessage(
-                                            'Você não pode editar esta reserva.',
-                                            isError: true,
-                                          );
-                                          return;
-                                        }
-                                        _addOrUpdatePlanner(
-                                          usuario.id,
-                                          time,
-                                          isReserved ? entry : null,
+                          child: Column(
+                            children: [
+                              ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor: sectorColors[sector] ?? Colors.grey,
+                                  child: Text(
+                                    usuario.nome?.substring(0, 1) ?? usuario.email.substring(0, 1),
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                                title: Text(
+                                  usuario.nome ?? usuario.email,
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                                subtitle: Text(
+                                  'Status: ${status.status}',
+                                  style: TextStyle(
+                                    color: _getStatusColor(status.status),
+                                  ),
+                                ),
+                                trailing: SizedBox(
+                                  width: trailingWidth,
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: availableHours.map((hour) {
+                                        final time = hour['time'] as TimeOfDay;
+                                        final isUnavailable = hour['isUnavailable'] as bool;
+                                        final entry = plannerEntries.firstWhere(
+                                          (entry) =>
+                                              entry['horario'] == '${time.hour.toString().padLeft(2, '0')}:00',
+                                          orElse: () => {},
                                         );
-                                      },
-                                      onLongPress: isReserved && _podeEditar(usuario.id, hour, entry)
-                                          ? () {
-                                              _removePlannerEntry(usuario.id, entry['index']);
+                                        final isReserved = entry.isNotEmpty;
+
+                                        return GestureDetector(
+                                          onTap: () {
+                                            if (isUnavailable) return;
+                                            if (!_podeEditar(usuario.id, hour, isReserved ? entry : null)) {
+                                              _showMessage(
+                                                'Você não pode editar esta reserva.',
+                                                isError: true,
+                                              );
+                                              return;
                                             }
-                                          : null,
-                                      child: Container(
-                                        width: 80.0,
-                                        margin: const EdgeInsets.only(left: 4.0),
-                                        padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4.0),
-                                        decoration: BoxDecoration(
-                                          color: isUnavailable
-                                              ? Colors.red.withOpacity(0.5)
-                                              : (isReserved ? const Color.fromARGB(255, 255, 0, 0) : Colors.grey.withOpacity(0.5)),
-                                          borderRadius: BorderRadius.circular(5),
-                                        ),
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              '${time.hour.toString().padLeft(2, '0')}:00',
-                                              style: const TextStyle(color: Colors.white, fontSize: 12),
-                                              textAlign: TextAlign.center,
+                                            _addOrUpdatePlanner(
+                                              usuario.id,
+                                              time,
+                                              isReserved ? entry : null,
+                                            );
+                                          },
+                                          onLongPress: isReserved && _podeEditar(usuario.id, hour, entry)
+                                              ? () {
+                                                  _removePlannerEntry(usuario.id, entry['index']);
+                                                }
+                                              : null,
+                                          child: Container(
+                                            width: 80.0,
+                                            margin: const EdgeInsets.only(left: 4.0),
+                                            padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4.0),
+                                            decoration: BoxDecoration(
+                                              color: isUnavailable
+                                                  ? Colors.red.withOpacity(0.5)
+                                                  : (isReserved ? const Color.fromARGB(255, 255, 0, 0) : Colors.grey.withOpacity(0.5)),
+                                              borderRadius: BorderRadius.circular(5),
                                             ),
-                                            if (isReserved)
-                                              Text(
-                                                entry['informacao'] ?? 'Sem informação',
-                                                style: const TextStyle(color: Colors.white70, fontSize: 10),
-                                                textAlign: TextAlign.center,
-                                                overflow: TextOverflow.ellipsis,
-                                                maxLines: 1,
-                                              ),
-                                          ],
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  '${time.hour.toString().padLeft(2, '0')}:00',
+                                                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                                if (isReserved)
+                                                  Text(
+                                                    entry['informacao'] ?? 'Sem informação',
+                                                    style: const TextStyle(color: Colors.white70, fontSize: 10),
+                                                    textAlign: TextAlign.center,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    maxLines: 1,
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Almoço Início: ${lunchStartTime.format(context)}',
+                                      style: const TextStyle(color: Colors.white),
+                                    ),
+                                    Text(
+                                      'Almoço Fim: ${lunchEndTime.format(context)}',
+                                      style: const TextStyle(color: Colors.white),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         );
                       },

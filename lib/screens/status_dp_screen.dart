@@ -160,7 +160,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     final isUnavailable = _isUserUnavailable(date);
     return isUnavailable
         ? Colors.orangeAccent.withOpacity(0.8)
-        : (informacoes.isNotEmpty ? const Color.fromARGB(255, 248, 6, 6) : const Color.fromARGB(255, 255, 255, 255).withOpacity(0.5));
+        : (informacoes.isNotEmpty ? Colors.greenAccent : const Color.fromARGB(255, 255, 255, 255).withOpacity(0.5));
   }
 
   List<String?> _getInformacoesForTime(TimeOfDay time) {
@@ -285,15 +285,30 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     }
   }
 
-  Future<void> _updateHorarioTrabalho() async {
+  Future<void> _updateHorarioTrabalhoAutomatically({
+    TimeOfDay? newStartTime,
+    TimeOfDay? newLunchStartTime,
+    TimeOfDay? newLunchEndTime,
+    TimeOfDay? newGestaoStartTime,
+    TimeOfDay? newGestaoEndTime,
+    TimeOfDay? newEndTime,
+  }) async {
     final horario = HorarioTrabalho(
       id: _horariosTrabalho.isNotEmpty ? _horariosTrabalho.first.id : -1,
       usuarioId: _usuario.id,
       diaSemana: _selectedDate.weekday,
-      horarioInicio: '${_startTime.hour.toString().padLeft(2, '0')}:${_startTime.minute.toString().padLeft(2, '0')}',
-      horarioFim: '${_endTime.hour.toString().padLeft(2, '0')}:${_endTime.minute.toString().padLeft(2, '0')}',
-      horarioAlmocoInicio: '${_lunchStartTime.hour.toString().padLeft(2, '0')}:${_lunchStartTime.minute.toString().padLeft(2, '0')}',
-      horarioAlmocoFim: '${_lunchEndTime.hour.toString().padLeft(2, '0')}:${_lunchEndTime.minute.toString().padLeft(2, '0')}',
+      horarioInicio: newStartTime != null
+          ? '${newStartTime.hour.toString().padLeft(2, '0')}:${newStartTime.minute.toString().padLeft(2, '0')}'
+          : '${_startTime.hour.toString().padLeft(2, '0')}:${_startTime.minute.toString().padLeft(2, '0')}',
+      horarioFim: newEndTime != null
+          ? '${newEndTime.hour.toString().padLeft(2, '0')}:${newEndTime.minute.toString().padLeft(2, '0')}'
+          : '${_endTime.hour.toString().padLeft(2, '0')}:${_endTime.minute.toString().padLeft(2, '0')}',
+      horarioAlmocoInicio: newLunchStartTime != null
+          ? '${newLunchStartTime.hour.toString().padLeft(2, '0')}:${newLunchStartTime.minute.toString().padLeft(2, '0')}'
+          : '${_lunchStartTime.hour.toString().padLeft(2, '0')}:${_lunchStartTime.minute.toString().padLeft(2, '0')}',
+      horarioAlmocoFim: newLunchEndTime != null
+          ? '${newLunchEndTime.hour.toString().padLeft(2, '0')}:${newLunchEndTime.minute.toString().padLeft(2, '0')}'
+          : '${_lunchEndTime.hour.toString().padLeft(2, '0')}:${_lunchEndTime.minute.toString().padLeft(2, '0')}',
       usuario: null,
     );
 
@@ -326,16 +341,22 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       setState(() {
         if (field == 'start') {
           _startTime = picked;
+          _updateHorarioTrabalhoAutomatically(newStartTime: picked);
         } else if (field == 'lunchStart') {
           _lunchStartTime = picked;
+          _updateHorarioTrabalhoAutomatically(newLunchStartTime: picked);
         } else if (field == 'lunchEnd') {
           _lunchEndTime = picked;
+          _updateHorarioTrabalhoAutomatically(newLunchEndTime: picked);
         } else if (field == 'gestaoStart') {
           _gestaoStartTime = picked;
+          _updateHorarioTrabalhoAutomatically(newGestaoStartTime: picked);
         } else if (field == 'gestaoEnd') {
           _gestaoEndTime = picked;
+          _updateHorarioTrabalhoAutomatically(newGestaoEndTime: picked);
         } else if (field == 'end') {
           _endTime = picked;
+          _updateHorarioTrabalhoAutomatically(newEndTime: picked);
         }
       });
     }
@@ -632,11 +653,12 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                   dropdownColor: Colors.grey[800],
                   style: const TextStyle(color: Colors.white),
                   underline: const SizedBox(),
-                  onChanged: (String? newValue) {
+                  onChanged: (String? newValue) async {
                     if (newValue != null && _isValidStatus(newValue)) {
                       setState(() {
                         _selectedStatus = newValue;
                       });
+                      await _saveOrUpdateStatus(); // Salva automaticamente ao selecionar
                     }
                   },
                   items: _statuses.map((status) {
@@ -1057,54 +1079,6 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                       ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 20),
-
-              // Botões de Ação
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  ElevatedButton(
-                    onPressed: _saveOrUpdateStatus,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueAccent,
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      elevation: 10,
-                      shadowColor: Colors.blueAccent.withOpacity(0.5),
-                    ),
-                    child: const Text(
-                      'Salvar Status',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  ElevatedButton(
-                    onPressed: _updateHorarioTrabalho,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      elevation: 10,
-                      shadowColor: Colors.green.withOpacity(0.5),
-                    ),
-                    child: const Text(
-                      'Salvar Horários',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
               ),
               const SizedBox(height: 20),
 
