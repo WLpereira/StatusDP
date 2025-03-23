@@ -7,7 +7,7 @@ import '../models/user_period.dart';
 import '../services/auth_service.dart';
 import 'package:intl/intl.dart';
 import 'status_dp_screen.dart';
-import 'admin_screen.dart'; // Importe a AdminScreen
+import 'admin_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PainelScreen extends StatefulWidget {
@@ -187,6 +187,10 @@ class _PainelScreenState extends State<PainelScreen> {
     }
   }
 
+  DateTime _normalizeDate(DateTime date) {
+    return DateTime(date.year, date.month, date.day);
+  }
+
   List<Map<String, dynamic>> _getAvailableHoursForUser(int usuarioId) {
     try {
       final horario = _horariosTrabalho.firstWhere(
@@ -248,15 +252,21 @@ class _PainelScreenState extends State<PainelScreen> {
         }
 
         final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, h);
-        final isUnavailable = _userPeriods.any((period) =>
-            period.usuarioId == usuarioId &&
-            date.isAfter(period.startDate.subtract(const Duration(days: 1))) &&
-            date.isBefore(period.endDate.add(const Duration(days: 1))));
+        final normalizedDate = _normalizeDate(date);
+        final isUnavailable = _userPeriods.any((period) {
+          final normalizedStartDate = _normalizeDate(period.startDate);
+          final normalizedEndDate = _normalizeDate(period.endDate);
+          return period.usuarioId == usuarioId &&
+              (normalizedDate.isAfter(normalizedStartDate) ||
+                  normalizedDate.isAtSameMomentAs(normalizedStartDate)) &&
+              (normalizedDate.isBefore(normalizedEndDate.add(const Duration(days: 1))) ||
+                  normalizedDate.isAtSameMomentAs(normalizedEndDate));
+        });
 
         hours.add({
           'time': time,
           'isUnavailable': isUnavailable,
-          'endHour': endHour, // Adicionado para verificar o último horário
+          'endHour': endHour,
         });
       }
       return hours;
@@ -277,19 +287,16 @@ class _PainelScreenState extends State<PainelScreen> {
   }
 
   bool _podeEditar(int usuarioId, Map<String, dynamic> hour, Map<String, dynamic>? entry) {
-    // Verifica se o usuário logado é o administrador
     if (widget.usuarioLogado.email == 'adm@dataplace.com.br') {
-      return true; // Administrador pode editar qualquer reserva
+      return true;
     }
 
-    // Lógica para outros usuários (não administradores)
     if (widget.usuarioLogado.id != usuarioId) {
-      return false; // Usuários só podem editar suas próprias reservas
+      return false;
     }
 
-    if (entry == null) return true; // Pode adicionar uma nova reserva
+    if (entry == null) return true;
 
-    // Verifica se o horário é passado
     final DateTime agora = DateTime.now();
     final DateTime? data = _selectedDate;
     final String? horario = entry['horario'] as String?;
@@ -306,14 +313,13 @@ class _PainelScreenState extends State<PainelScreen> {
     );
 
     if (dataHorario.isBefore(agora)) {
-      return false; // Não pode editar horários passados
+      return false;
     }
 
-    // Verifica se é o último horário do expediente
     final time = hour['time'] as TimeOfDay;
     final endHour = hour['endHour'] as int;
     if (time.hour == endHour) {
-      return false; // Não pode editar o último horário do expediente
+      return false;
     }
 
     return true;
@@ -375,7 +381,6 @@ class _PainelScreenState extends State<PainelScreen> {
                   );
 
                   if (existingEntry != null) {
-                    // Atualizar entrada existente
                     final index = existingEntry['index'] as int;
                     final updatedPlanner = planner.updateEntry(
                       index,
@@ -390,7 +395,6 @@ class _PainelScreenState extends State<PainelScreen> {
                         .eq('id', updatedPlanner.id);
                     _showMessage('Reserva atualizada com sucesso!');
                   } else {
-                    // Adicionar nova entrada
                     await _authService.upsertPlanner(planner, timeString, date, controller.text);
                     _showMessage('Reserva adicionada com sucesso!');
                   }
@@ -702,7 +706,6 @@ class _PainelScreenState extends State<PainelScreen> {
                     if (mounted) {
                       _showMessage('Voltando para a tela anterior...');
                       if (widget.usuarioLogado.email == 'adm@dataplace.com.br') {
-                        // Redireciona para AdminScreen se for o administrador
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
@@ -710,7 +713,6 @@ class _PainelScreenState extends State<PainelScreen> {
                           ),
                         );
                       } else {
-                        // Redireciona para StatusDPScreen para outros usuários
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(

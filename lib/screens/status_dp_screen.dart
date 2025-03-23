@@ -150,13 +150,17 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     }
   }
 
+  DateTime _normalizeDate(DateTime date) {
+    return DateTime(date.year, date.month, date.day);
+  }
+
   Color _getColorForGrid(TimeOfDay time) {
     final informacoes = _getInformacoesForTime(time);
     final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
     final isUnavailable = _isUserUnavailable(date);
     return isUnavailable
         ? Colors.orangeAccent.withOpacity(0.8)
-        : (informacoes.isNotEmpty ? Colors.greenAccent : const Color.fromARGB(255, 255, 255, 255).withOpacity(0.5));
+        : (informacoes.isNotEmpty ? const Color.fromARGB(255, 248, 6, 6) : const Color.fromARGB(255, 255, 255, 255).withOpacity(0.5));
   }
 
   List<String?> _getInformacoesForTime(TimeOfDay time) {
@@ -180,8 +184,17 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
 
   String? _getPeriodInfoForTime(TimeOfDay time) {
     final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
+    final normalizedDate = _normalizeDate(date);
     final period = _userPeriods.cast<UserPeriod?>().firstWhere(
-          (p) => p != null && date.isAfter(p.startDate.subtract(const Duration(days: 1))) && date.isBefore(p.endDate.add(const Duration(days: 1))),
+          (p) {
+            if (p == null) return false;
+            final normalizedStartDate = _normalizeDate(p.startDate);
+            final normalizedEndDate = _normalizeDate(p.endDate);
+            return (normalizedDate.isAfter(normalizedStartDate) ||
+                    normalizedDate.isAtSameMomentAs(normalizedStartDate)) &&
+                (normalizedDate.isBefore(normalizedEndDate.add(const Duration(days: 1))) ||
+                    normalizedDate.isAtSameMomentAs(normalizedEndDate));
+          },
           orElse: () => null,
         );
     if (period != null) {
@@ -191,8 +204,15 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
   }
 
   bool _isUserUnavailable(DateTime date) {
-    return _userPeriods.any((period) =>
-        date.isAfter(period.startDate.subtract(const Duration(days: 1))) && date.isBefore(period.endDate.add(const Duration(days: 1))));
+    final normalizedDate = _normalizeDate(date);
+    return _userPeriods.any((period) {
+      final normalizedStartDate = _normalizeDate(period.startDate);
+      final normalizedEndDate = _normalizeDate(period.endDate);
+      return (normalizedDate.isAfter(normalizedStartDate) ||
+              normalizedDate.isAtSameMomentAs(normalizedStartDate)) &&
+          (normalizedDate.isBefore(normalizedEndDate.add(const Duration(days: 1))) ||
+              normalizedDate.isAtSameMomentAs(normalizedEndDate));
+    });
   }
 
   bool _isValidStatus(String? status) {
