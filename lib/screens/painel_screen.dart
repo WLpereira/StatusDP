@@ -276,12 +276,14 @@ class _PainelScreenState extends State<PainelScreen> {
   }
 
   bool _podeEditar(int usuarioId, Map<String, dynamic> hour, Map<String, dynamic>? entry) {
-    // Verifica se o usuário logado pode editar
-    if (widget.usuarioLogado.email == 'admin@dataplace.com.br') {
-      return true;
+    // Verifica se o usuário logado é o administrador
+    if (widget.usuarioLogado.email == 'adm@dataplace.com.br') {
+      return true; // Administrador pode editar qualquer reserva
     }
+
+    // Lógica para outros usuários (não administradores)
     if (widget.usuarioLogado.id != usuarioId) {
-      return false;
+      return false; // Usuários só podem editar suas próprias reservas
     }
 
     if (entry == null) return true; // Pode adicionar uma nova reserva
@@ -303,14 +305,14 @@ class _PainelScreenState extends State<PainelScreen> {
     );
 
     if (dataHorario.isBefore(agora)) {
-      return false;
+      return false; // Não pode editar horários passados
     }
 
     // Verifica se é o último horário do expediente
     final time = hour['time'] as TimeOfDay;
     final endHour = hour['endHour'] as int;
     if (time.hour == endHour) {
-      return false;
+      return false; // Não pode editar o último horário do expediente
     }
 
     return true;

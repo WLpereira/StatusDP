@@ -4,9 +4,13 @@ import '../models/status.dart';
 import '../models/user_period.dart';
 import '../services/auth_service.dart';
 import 'package:intl/intl.dart';
+import 'login_screen.dart'; // Importe a tela de login
+import 'painel_screen.dart'; // Importe a tela do painel
 
 class AdminScreen extends StatefulWidget {
-  const AdminScreen({super.key, required Usuario usuario});
+  final Usuario usuario; // Adicionei 'final' para seguir boas práticas
+
+  const AdminScreen({super.key, required this.usuario});
 
   @override
   State<AdminScreen> createState() => _AdminScreenState();
@@ -440,30 +444,66 @@ class _AdminScreenState extends State<AdminScreen> {
 
               const SizedBox(height: 20),
 
-              Center(
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.redAccent,
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
+              // Botões de Ação
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => PainelScreen(usuarioLogado: widget.usuario),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      elevation: 10,
+                      shadowColor: Colors.green.withOpacity(0.5),
                     ),
-                    elevation: 10,
-                    shadowColor: Colors.redAccent.withOpacity(0.5),
-                  ),
-                  child: const Text(
-                    'Sair',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                    child: const Text(
+                      'Acessar Painel',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
-                ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (context) => const LoginScreen()),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      elevation: 10,
+                      shadowColor: Colors.redAccent.withOpacity(0.5),
+                    ),
+                    child: const Text(
+                      'Sair',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
               ),
+
+              const SizedBox(height: 20),
             ],
           ),
         ),
