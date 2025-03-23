@@ -7,6 +7,7 @@ import '../models/user_period.dart';
 import '../services/auth_service.dart';
 import 'package:intl/intl.dart';
 import 'status_dp_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PainelScreen extends StatefulWidget {
   final Usuario usuarioLogado;
@@ -27,10 +28,18 @@ class _PainelScreenState extends State<PainelScreen> {
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = true;
 
+  late ScaffoldMessengerState _scaffoldMessenger;
+
   @override
   void initState() {
     super.initState();
     _loadInitialData();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _scaffoldMessenger = ScaffoldMessenger.of(context);
   }
 
   Future<void> _loadInitialData() async {
@@ -43,22 +52,28 @@ class _PainelScreenState extends State<PainelScreen> {
       await _loadPlanners();
       await _loadHorariosTrabalho();
       await _loadUserPeriods();
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('Erro ao carregar dados iniciais: $e\n$stackTrace');
       _showMessage('Erro ao carregar dados: $e', isError: true);
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
   Future<void> _loadStatuses() async {
     try {
       final statuses = await _authService.getStatuses();
-      setState(() {
-        _statuses = statuses;
-      });
-    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _statuses = statuses;
+        });
+      }
+    } catch (e, stackTrace) {
+      print('Erro ao carregar statuses: $e\n$stackTrace');
       _showMessage('Erro ao carregar status: $e', isError: true);
     }
   }
@@ -66,10 +81,13 @@ class _PainelScreenState extends State<PainelScreen> {
   Future<void> _loadUsuarios() async {
     try {
       final usuarios = await _authService.getAllUsuarios();
-      setState(() {
-        _usuarios = usuarios;
-      });
-    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _usuarios = usuarios;
+        });
+      }
+    } catch (e, stackTrace) {
+      print('Erro ao carregar usuários: $e\n$stackTrace');
       _showMessage('Erro ao carregar usuários: $e', isError: true);
     }
   }
@@ -77,10 +95,13 @@ class _PainelScreenState extends State<PainelScreen> {
   Future<void> _loadPlanners() async {
     try {
       final planners = await _authService.getAllPlanners();
-      setState(() {
-        _planners = planners;
-      });
-    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _planners = planners;
+        });
+      }
+    } catch (e, stackTrace) {
+      print('Erro ao carregar planners: $e\n$stackTrace');
       _showMessage('Erro ao carregar planners: $e', isError: true);
     }
   }
@@ -88,10 +109,13 @@ class _PainelScreenState extends State<PainelScreen> {
   Future<void> _loadHorariosTrabalho() async {
     try {
       final horarios = await _authService.getAllHorariosTrabalho();
-      setState(() {
-        _horariosTrabalho = horarios;
-      });
-    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _horariosTrabalho = horarios;
+        });
+      }
+    } catch (e, stackTrace) {
+      print('Erro ao carregar horários de trabalho: $e\n$stackTrace');
       _showMessage('Erro ao carregar horários de trabalho: $e', isError: true);
     }
   }
@@ -99,141 +123,219 @@ class _PainelScreenState extends State<PainelScreen> {
   Future<void> _loadUserPeriods() async {
     try {
       final periods = await _authService.getAllUserPeriods();
-      setState(() {
-        _userPeriods = periods;
-      });
-    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _userPeriods = periods;
+        });
+      }
+    } catch (e, stackTrace) {
+      print('Erro ao carregar períodos: $e\n$stackTrace');
       _showMessage('Erro ao carregar períodos: $e', isError: true);
     }
   }
 
   void _showMessage(String message, {bool isError = false}) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: isError ? Colors.red : Colors.green,
-        ),
-      );
+    if (!mounted) return;
+    _scaffoldMessenger.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : Colors.green,
+      ),
+    );
+  }
+
+  int _getNextPlannerId() {
+    if (_planners.isEmpty) {
+      return 1;
     }
+    final maxId = _planners.map((p) => p.id).reduce((a, b) => a > b ? a : b);
+    return maxId + 1;
   }
 
   List<Map<String, dynamic>> _getPlannerEntriesForUserAndDate(int usuarioId) {
-    final planner = _planners.firstWhere(
-      (p) => p.usuarioId == usuarioId,
-      orElse: () => Planner(id: -1, usuarioId: usuarioId, statusId: 1),
-    );
+    try {
+      final planner = _planners.firstWhere(
+        (p) => p.usuarioId == usuarioId,
+        orElse: () => Planner(
+          id: _getNextPlannerId(),
+          usuarioId: usuarioId,
+          statusId: 1,
+        ),
+      );
 
-    final entries = planner.getEntries();
-    final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+      final entries = planner.getEntries();
+      final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
 
-    return entries
-        .asMap()
-        .entries
-        .where((entry) =>
-            entry.value['horario'] != null &&
-            entry.value['data'] != null &&
-            DateFormat('yyyy-MM-dd').format(entry.value['data'] as DateTime) == selectedDateStr)
-        .map((entry) => {
-              'index': entry.key,
-              'horario': entry.value['horario'],
-              'informacao': entry.value['informacao'],
-            })
-        .toList();
+      return entries
+          .asMap()
+          .entries
+          .where((entry) =>
+              entry.value['horario'] != null &&
+              entry.value['data'] != null &&
+              DateFormat('yyyy-MM-dd').format(entry.value['data'] as DateTime) == selectedDateStr)
+          .map((entry) => {
+                'index': entry.key,
+                'horario': entry.value['horario'],
+                'informacao': entry.value['informacao'],
+                'data': entry.value['data'],
+              })
+          .toList();
+    } catch (e, stackTrace) {
+      print('Erro ao obter entradas do planner: $e\n$stackTrace');
+      return [];
+    }
   }
 
   List<Map<String, dynamic>> _getAvailableHoursForUser(int usuarioId) {
-    final horario = _horariosTrabalho.firstWhere(
-      (h) => h.usuarioId == usuarioId && h.diaSemana == _selectedDate.weekday,
-      orElse: () {
-        final usuario = _usuarios.firstWhere((u) => u.id == usuarioId);
-        return HorarioTrabalho(
-          id: -1,
-          usuarioId: usuarioId,
-          diaSemana: _selectedDate.weekday,
-          horarioInicio: usuario.horarioiniciotrabalho ?? '06:00',
-          horarioFim: usuario.horariofimtrabalho ?? '18:00',
-          horarioAlmocoInicio: usuario.horarioalmocoinicio ?? '12:00',
-          horarioAlmocoFim: usuario.horarioalmocofim ?? '13:30',
-        );
-      },
-    );
+    try {
+      final horario = _horariosTrabalho.firstWhere(
+        (h) => h.usuarioId == usuarioId && h.diaSemana == _selectedDate.weekday,
+        orElse: () {
+          final usuario = _usuarios.firstWhere(
+            (u) => u.id == usuarioId,
+            orElse: () => Usuario(
+              id: usuarioId,
+              email: '',
+              senha: '',
+              horarioiniciotrabalho: '06:00',
+              horariofimtrabalho: '18:00',
+              horarioalmocoinicio: '12:00',
+              horarioalmocofim: '13:30',
+            ),
+          );
+          return HorarioTrabalho(
+            id: -1,
+            usuarioId: usuarioId,
+            diaSemana: _selectedDate.weekday,
+            horarioInicio: usuario.horarioiniciotrabalho ?? '06:00',
+            horarioFim: usuario.horariofimtrabalho ?? '18:00',
+            horarioAlmocoInicio: usuario.horarioalmocoinicio ?? '12:00',
+            horarioAlmocoFim: usuario.horarioalmocofim ?? '13:30',
+          );
+        },
+      );
 
-    final String startTimeStr = horario.horarioInicio ?? '06:00';
-    final String endTimeStr = horario.horarioFim ?? '18:00';
-    final String lunchStartTimeStr = horario.horarioAlmocoInicio ?? '12:00';
-    final String lunchEndTimeStr = horario.horarioAlmocoFim ?? '13:30';
+      final String startTimeStr = horario.horarioInicio ?? '06:00';
+      final String endTimeStr = horario.horarioFim ?? '18:00';
+      final String lunchStartTimeStr = horario.horarioAlmocoInicio ?? '12:00';
+      final String lunchEndTimeStr = horario.horarioAlmocoFim ?? '13:30';
 
-    final startTime = _parseTimeOfDay(startTimeStr);
-    final endTime = _parseTimeOfDay(endTimeStr);
-    final lunchStartTime = _parseTimeOfDay(lunchStartTimeStr);
-    final lunchEndTime = _parseTimeOfDay(lunchEndTimeStr);
+      final startTime = _parseTimeOfDay(startTimeStr);
+      final endTime = _parseTimeOfDay(endTimeStr);
+      final lunchStartTime = _parseTimeOfDay(lunchStartTimeStr);
+      final lunchEndTime = _parseTimeOfDay(lunchEndTimeStr);
 
-    int startHour = startTime.hour;
-    if (startTime.minute > 0) startHour++;
+      int startHour = startTime.hour;
+      if (startTime.minute > 0) startHour++;
 
-    int endHour = endTime.hour;
-    if (endTime.minute > 0) endHour--;
+      int endHour = endTime.hour;
+      if (endTime.minute > 0) endHour--;
 
-    int lunchStartHour = lunchStartTime.hour;
-    int lunchEndHour = lunchEndTime.hour;
-    if (lunchEndTime.minute > 0) lunchEndHour++;
+      int lunchStartHour = lunchStartTime.hour;
+      int lunchEndHour = lunchEndTime.hour;
+      if (lunchEndTime.minute > 0) lunchEndHour++;
 
-    List<Map<String, dynamic>> hours = [];
-    for (int h = startHour; h <= endHour; h++) {
-      final time = TimeOfDay(hour: h, minute: 0);
-      final timeInMinutes = h * 60;
-      final lunchStartInMinutes = lunchStartTime.hour * 60 + lunchStartTime.minute;
-      final lunchEndInMinutes = lunchEndTime.hour * 60 + lunchEndTime.minute;
+      List<Map<String, dynamic>> hours = [];
+      for (int h = startHour; h <= endHour; h++) {
+        final time = TimeOfDay(hour: h, minute: 0);
+        final timeInMinutes = h * 60;
+        final lunchStartInMinutes = lunchStartTime.hour * 60 + lunchStartTime.minute;
+        final lunchEndInMinutes = lunchEndTime.hour * 60 + lunchEndTime.minute;
 
-      if (timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes) {
-        continue;
+        if (timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes) {
+          continue;
+        }
+
+        final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, h);
+        final isUnavailable = _userPeriods.any((period) =>
+            period.usuarioId == usuarioId &&
+            date.isAfter(period.startDate.subtract(const Duration(days: 1))) &&
+            date.isBefore(period.endDate.add(const Duration(days: 1))));
+
+        hours.add({
+          'time': time,
+          'isUnavailable': isUnavailable,
+          'endHour': endHour, // Adicionado para verificar o último horário
+        });
       }
-
-      final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, h);
-      final isUnavailable = _userPeriods.any((period) =>
-          period.usuarioId == usuarioId &&
-          date.isAfter(period.startDate.subtract(const Duration(days: 1))) &&
-          date.isBefore(period.endDate.add(const Duration(days: 1))));
-
-      hours.add({
-        'time': time,
-        'isUnavailable': isUnavailable,
-      });
+      return hours;
+    } catch (e, stackTrace) {
+      print('Erro ao obter horários disponíveis: $e\n$stackTrace');
+      return [];
     }
-    return hours;
   }
 
   TimeOfDay _parseTimeOfDay(String time) {
-    final parts = time.split(':');
-    return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+    try {
+      final parts = time.split(':');
+      return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+    } catch (e, stackTrace) {
+      print('Erro ao parsear TimeOfDay: $e\n$stackTrace');
+      return const TimeOfDay(hour: 0, minute: 0);
+    }
   }
 
-  Future<void> _addOrUpdatePlanner(int usuarioId, TimeOfDay time) async {
+  bool _podeEditar(int usuarioId, Map<String, dynamic> hour, Map<String, dynamic>? entry) {
+    // Verifica se o usuário logado pode editar
+    if (widget.usuarioLogado.email == 'admin@dataplace.com.br') {
+      return true;
+    }
+    if (widget.usuarioLogado.id != usuarioId) {
+      return false;
+    }
+
+    if (entry == null) return true; // Pode adicionar uma nova reserva
+
+    // Verifica se o horário é passado
+    final DateTime agora = DateTime.now();
+    final DateTime? data = _selectedDate;
+    final String? horario = entry['horario'] as String?;
+
+    if (data == null || horario == null) return false;
+
+    final List<String> horarioPartes = horario.split(':');
+    final DateTime dataHorario = DateTime(
+      data.year,
+      data.month,
+      data.day,
+      int.parse(horarioPartes[0]),
+      int.parse(horarioPartes[1]),
+    );
+
+    if (dataHorario.isBefore(agora)) {
+      return false;
+    }
+
+    // Verifica se é o último horário do expediente
+    final time = hour['time'] as TimeOfDay;
+    final endHour = hour['endHour'] as int;
+    if (time.hour == endHour) {
+      return false;
+    }
+
+    return true;
+  }
+
+  Future<void> _addOrUpdatePlanner(int usuarioId, TimeOfDay time, Map<String, dynamic>? existingEntry) async {
     final timeString = '${time.hour.toString().padLeft(2, '0')}:00';
     final date = _selectedDate;
 
-    // Data e hora atuais
     final now = DateTime.now();
-    final currentDateStr = DateFormat('yyyy-MM-dd').format(now);
-    final selectedDateStr = DateFormat('yyyy-MM-dd').format(date);
     final currentTimeInMinutes = now.hour * 60 + now.minute;
-    final selectedTimeInMinutes = time.hour * 60;
-
-    // Verificar se é o dia atual e se o horário já passou
-    if (currentDateStr == selectedDateStr && selectedTimeInMinutes <= currentTimeInMinutes) {
-      _showMessage('Não é possível agendar horários passados no dia atual.', isError: true);
+    if (DateFormat('yyyy-MM-dd').format(now) == DateFormat('yyyy-MM-dd').format(date) &&
+        (time.hour * 60) <= currentTimeInMinutes) {
+      _showMessage('Não é possível agendar horários passados.', isError: true);
       return;
     }
-
-    // Para datas futuras, qualquer horário é permitido, então não há restrição adicional
 
     showDialog(
       context: context,
       builder: (context) {
-        final controller = TextEditingController();
+        final controller = TextEditingController(text: existingEntry?['informacao'] as String?);
         return AlertDialog(
-          title: Text('Adicionar Reserva em ${time.hour.toString().padLeft(2, '0')}:00'),
+          title: Text(existingEntry == null
+              ? 'Adicionar Reserva em ${time.hour.toString().padLeft(2, '0')}:00'
+              : 'Editar Reserva em ${time.hour.toString().padLeft(2, '0')}:00'),
           content: TextField(
             controller: controller,
             maxLength: 10,
@@ -248,35 +350,64 @@ class _PainelScreenState extends State<PainelScreen> {
             ),
             TextButton(
               onPressed: () async {
-                if (controller.text.isNotEmpty) {
-                  try {
-                    final planner = _planners.firstWhere(
-                      (p) => p.usuarioId == usuarioId,
-                      orElse: () => Planner(
-                        id: -1,
+                if (controller.text.isEmpty) {
+                  _showMessage('Por favor, insira uma informação para a reserva.', isError: true);
+                  return;
+                }
+
+                try {
+                  final planner = _planners.firstWhere(
+                    (p) => p.usuarioId == usuarioId,
+                    orElse: () {
+                      final defaultStatus = _statuses.firstWhere(
+                        (s) => s.status == 'DISPONIVEL',
+                        orElse: () => Status(id: 1, status: 'DISPONIVEL'),
+                      );
+                      return Planner(
+                        id: _getNextPlannerId(),
                         usuarioId: usuarioId,
-                        statusId: _statuses.firstWhere((s) => s.status == 'DISPONIVEL').id,
-                      ),
+                        statusId: defaultStatus.id,
+                      );
+                    },
+                  );
+
+                  if (existingEntry != null) {
+                    // Atualizar entrada existente
+                    final index = existingEntry['index'] as int;
+                    final updatedPlanner = planner.updateEntry(
+                      index,
+                      horario: timeString,
+                      data: date,
+                      informacao: controller.text,
                     );
 
+                    await Supabase.instance.client
+                        .from('planner')
+                        .update(updatedPlanner.toJson())
+                        .eq('id', updatedPlanner.id);
+                    _showMessage('Reserva atualizada com sucesso!');
+                  } else {
+                    // Adicionar nova entrada
                     await _authService.upsertPlanner(planner, timeString, date, controller.text);
                     _showMessage('Reserva adicionada com sucesso!');
-                    await _loadPlanners();
-                    Navigator.pop(context);
-                  } catch (e) {
-                    String errorMessage = 'Erro ao adicionar reserva. Tente novamente.';
-                    if (e.toString().contains('Já existe uma reserva')) {
-                      errorMessage = e.toString().replaceFirst('Exception: ', '');
-                    } else if (e.toString().contains('PostgresException')) {
-                      errorMessage = 'Erro no banco de dados. Verifique os dados e tente novamente.';
-                    }
-                    _showMessage(errorMessage, isError: true);
                   }
-                } else {
-                  _showMessage('Por favor, insira uma informação para a reserva.', isError: true);
+
+                  await _loadPlanners();
+                  if (mounted) {
+                    Navigator.pop(context);
+                  }
+                } catch (e, stackTrace) {
+                  print('Erro ao adicionar/atualizar planner: $e\n$stackTrace');
+                  String errorMessage = 'Erro ao adicionar/atualizar reserva. Tente novamente.';
+                  if (e.toString().contains('Já existe uma reserva')) {
+                    errorMessage = e.toString().replaceFirst('Exception: ', '');
+                  } else if (e.toString().contains('PostgresException')) {
+                    errorMessage = 'Erro no banco de dados. Verifique os dados e tente novamente.';
+                  }
+                  _showMessage(errorMessage, isError: true);
                 }
               },
-              child: const Text('Adicionar'),
+              child: Text(existingEntry == null ? 'Adicionar' : 'Salvar'),
             ),
           ],
         );
@@ -308,24 +439,28 @@ class _PainelScreenState extends State<PainelScreen> {
     try {
       final planner = _planners.firstWhere(
         (p) => p.usuarioId == usuarioId,
-        orElse: () => Planner(
-          id: -1,
-          usuarioId: usuarioId,
-          statusId: _statuses.firstWhere((s) => s.status == 'DISPONIVEL').id,
-        ),
+        orElse: () {
+          final defaultStatus = _statuses.firstWhere(
+            (s) => s.status == 'DISPONIVEL',
+            orElse: () => Status(id: 1, status: 'DISPONIVEL'),
+          );
+          return Planner(
+            id: _getNextPlannerId(),
+            usuarioId: usuarioId,
+            statusId: defaultStatus.id,
+          );
+        },
       );
 
-      if (planner.id != -1) {
-        await _authService.deletePlannerEntry(planner, index);
-        _showMessage('Reserva removida com sucesso!');
-        await _loadPlanners();
-      }
-    } catch (e) {
+      await _authService.deletePlannerEntry(planner, index);
+      _showMessage('Reserva removida com sucesso!');
+      await _loadPlanners();
+    } catch (e, stackTrace) {
+      print('Erro ao remover planner: $e\n$stackTrace');
       _showMessage('Erro ao remover reserva: $e', isError: true);
     }
   }
 
-  // Função para obter a cor do status, como no código antigo
   Color _getStatusColor(String? status) {
     switch (status) {
       case 'DISPONIVEL':
@@ -351,7 +486,6 @@ class _PainelScreenState extends State<PainelScreen> {
       );
     }
 
-    // Organizar usuários por setor, como no código antigo
     final Map<String, List<Usuario>> usersBySector = {
       'Suporte': _usuarios.where((u) => u.setor == 'Suporte').toList(),
       'ADM': _usuarios.where((u) => u.setor == 'ADM').toList(),
@@ -359,7 +493,6 @@ class _PainelScreenState extends State<PainelScreen> {
       'Externo': _usuarios.where((u) => u.setor == 'Externo').toList(),
     };
 
-    // Definir cores para os setores, como no código antigo
     final Map<String, Color> sectorColors = {
       'Suporte': Colors.green,
       'ADM': Colors.blue,
@@ -368,7 +501,7 @@ class _PainelScreenState extends State<PainelScreen> {
     };
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E), // Fundo escuro do código antigo
+      backgroundColor: const Color(0xFF1A1A2E),
       extendBody: true,
       body: RefreshIndicator(
         onRefresh: _loadInitialData,
@@ -377,7 +510,6 @@ class _PainelScreenState extends State<PainelScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Ícone de dashboard e título, como no código antigo
               const Icon(
                 Icons.dashboard,
                 size: 100,
@@ -423,7 +555,6 @@ class _PainelScreenState extends State<PainelScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Exibir usuários agrupados por setor
               ...usersBySector.entries.map((entry) {
                 final sector = entry.key;
                 final users = entry.value;
@@ -454,7 +585,6 @@ class _PainelScreenState extends State<PainelScreen> {
                           orElse: () => Status(id: -1, status: 'Desconhecido'),
                         );
 
-                        // Calcular largura para o trailing com rolagem horizontal
                         final screenWidth = MediaQuery.of(context).size.width;
                         const leadingWidth = 40.0;
                         const paddingAndMargins = 32.0;
@@ -462,7 +592,7 @@ class _PainelScreenState extends State<PainelScreen> {
                         final trailingWidth = screenWidth - leadingWidth - nameAndStatusWidth - paddingAndMargins;
 
                         return Card(
-                          color: Colors.white.withOpacity(0.1), // Fundo do cartão com opacidade baixa
+                          color: Colors.white.withOpacity(0.1),
                           margin: const EdgeInsets.symmetric(vertical: 4.0),
                           child: ListTile(
                             leading: CircleAvatar(
@@ -491,15 +621,34 @@ class _PainelScreenState extends State<PainelScreen> {
                                   children: availableHours.map((hour) {
                                     final time = hour['time'] as TimeOfDay;
                                     final isUnavailable = hour['isUnavailable'] as bool;
-                                    final isReserved = plannerEntries.any(
-                                        (entry) => entry['horario'] == '${time.hour.toString().padLeft(2, '0')}:00');
+                                    final entry = plannerEntries.firstWhere(
+                                      (entry) =>
+                                          entry['horario'] == '${time.hour.toString().padLeft(2, '0')}:00',
+                                      orElse: () => {},
+                                    );
+                                    final isReserved = entry.isNotEmpty;
 
                                     return GestureDetector(
-                                      onTap: (isUnavailable || isReserved)
-                                          ? null
-                                          : () {
-                                              _addOrUpdatePlanner(usuario.id, time);
-                                            },
+                                      onTap: () {
+                                        if (isUnavailable) return;
+                                        if (!_podeEditar(usuario.id, hour, isReserved ? entry : null)) {
+                                          _showMessage(
+                                            'Você não pode editar esta reserva.',
+                                            isError: true,
+                                          );
+                                          return;
+                                        }
+                                        _addOrUpdatePlanner(
+                                          usuario.id,
+                                          time,
+                                          isReserved ? entry : null,
+                                        );
+                                      },
+                                      onLongPress: isReserved && _podeEditar(usuario.id, hour, entry)
+                                          ? () {
+                                              _removePlannerEntry(usuario.id, entry['index']);
+                                            }
+                                          : null,
                                       child: Container(
                                         width: 80.0,
                                         margin: const EdgeInsets.only(left: 4.0),
@@ -520,11 +669,7 @@ class _PainelScreenState extends State<PainelScreen> {
                                             ),
                                             if (isReserved)
                                               Text(
-                                                plannerEntries
-                                                        .firstWhere((entry) =>
-                                                            entry['horario'] ==
-                                                            '${time.hour.toString().padLeft(2, '0')}:00')['informacao'] ??
-                                                    'Sem informação',
+                                                entry['informacao'] ?? 'Sem informação',
                                                 style: const TextStyle(color: Colors.white70, fontSize: 10),
                                                 textAlign: TextAlign.center,
                                                 overflow: TextOverflow.ellipsis,
@@ -547,17 +692,19 @@ class _PainelScreenState extends State<PainelScreen> {
                 );
               }).toList(),
 
-              // Botão "Voltar" estilizado no final, como no código antigo
               const SizedBox(height: 20),
               Center(
                 child: ElevatedButton(
                   onPressed: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => StatusDPScreen(usuario: widget.usuarioLogado),
-                      ),
-                    );
+                    if (mounted) {
+                      _showMessage('Voltando para a tela anterior...');
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => StatusDPScreen(usuario: widget.usuarioLogado),
+                        ),
+                      );
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.redAccent,
