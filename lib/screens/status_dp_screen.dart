@@ -160,7 +160,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     final isUnavailable = _isUserUnavailable(date);
     return isUnavailable
         ? Colors.orangeAccent.withOpacity(0.8)
-        : (informacoes.isNotEmpty ? Colors.greenAccent : const Color.fromARGB(255, 255, 255, 255).withOpacity(0.5));
+        : (informacoes.isNotEmpty ? const Color.fromARGB(255, 249, 0, 0) : const Color.fromARGB(255, 255, 255, 255).withOpacity(0.5));
   }
 
   List<String?> _getInformacoesForTime(TimeOfDay time) {
