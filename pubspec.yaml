@@ -14,6 +14,7 @@
     mocktail: ^1.0.4
     supabase_flutter: ^2.4.0
     collection: ^1.17.0
+    cupertino_icons: ^1.0.8  # Verifique a versão mais recente
 
   dev_dependencies:
     flutter_test:
