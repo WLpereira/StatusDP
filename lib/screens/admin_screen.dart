@@ -94,8 +94,6 @@ class _AdminScreenState extends State<AdminScreen> {
     final fimController = TextEditingController(text: isEditing ? usuario.horariofimtrabalho : '');
     final almocoInicioController = TextEditingController(text: isEditing ? usuario.horarioalmocoinicio : '');
     final almocoFimController = TextEditingController(text: isEditing ? usuario.horarioalmocofim : '');
-    final gestaoInicioController = TextEditingController(text: isEditing ? usuario.horariogestaoinicio : '');
-    final gestaoFimController = TextEditingController(text: isEditing ? usuario.horariogestaofim : '');
 
     showDialog(
       context: context,
@@ -142,14 +140,6 @@ class _AdminScreenState extends State<AdminScreen> {
                   controller: almocoFimController,
                   decoration: const InputDecoration(labelText: 'Horário Fim Almoço (HH:MM)'),
                 ),
-                TextField(
-                  controller: gestaoInicioController,
-                  decoration: const InputDecoration(labelText: 'Horário Início Gestão (HH:MM)'),
-                ),
-                TextField(
-                  controller: gestaoFimController,
-                  decoration: const InputDecoration(labelText: 'Horário Fim Gestão (HH:MM)'),
-                ),
               ],
             ),
           ),
@@ -172,8 +162,6 @@ class _AdminScreenState extends State<AdminScreen> {
                     horariofimtrabalho: fimController.text.isEmpty ? null : fimController.text,
                     horarioalmocoinicio: almocoInicioController.text.isEmpty ? null : almocoInicioController.text,
                     horarioalmocofim: almocoFimController.text.isEmpty ? null : almocoFimController.text,
-                    horariogestaoinicio: gestaoInicioController.text.isEmpty ? null : gestaoInicioController.text,
-                    horariogestaofim: gestaoFimController.text.isEmpty ? null : gestaoFimController.text,
                   );
 
                   if (isEditing) {

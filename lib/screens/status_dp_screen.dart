@@ -33,8 +33,6 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
   TimeOfDay _lunchStartTime = const TimeOfDay(hour: 12, minute: 0);
   TimeOfDay _lunchEndTime = const TimeOfDay(hour: 13, minute: 30);
   TimeOfDay _endTime = const TimeOfDay(hour: 18, minute: 0);
-  TimeOfDay _gestaoStartTime = const TimeOfDay(hour: 14, minute: 0);
-  TimeOfDay _gestaoEndTime = const TimeOfDay(hour: 15, minute: 0);
 
   @override
   void initState() {
@@ -79,7 +77,6 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
           Status(id: 1, status: 'DISPONIVEL'),
           Status(id: 2, status: 'AUSENTE'),
           Status(id: 3, status: 'ALMOCO'),
-          Status(id: 4, status: 'GESTAO'),
         ];
       });
     }
@@ -118,15 +115,11 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
           _lunchStartTime = _parseTimeOfDay(horario.horarioAlmocoInicio ?? _usuario.horarioalmocoinicio ?? '12:00');
           _lunchEndTime = _parseTimeOfDay(horario.horarioAlmocoFim ?? _usuario.horarioalmocofim ?? '13:30');
           _endTime = _parseTimeOfDay(horario.horarioFim ?? _usuario.horariofimtrabalho ?? '18:00');
-          _gestaoStartTime = _parseTimeOfDay(horario.horarioAlmocoInicio ?? _usuario.horariogestaoinicio ?? '14:00');
-          _gestaoEndTime = _parseTimeOfDay(horario.horarioAlmocoFim ?? _usuario.horariogestaofim ?? '15:00');
         } else {
           _startTime = _parseTimeOfDay(_usuario.horarioiniciotrabalho ?? '06:00');
           _lunchStartTime = _parseTimeOfDay(_usuario.horarioalmocoinicio ?? '12:00');
           _lunchEndTime = _parseTimeOfDay(_usuario.horarioalmocofim ?? '13:30');
           _endTime = _parseTimeOfDay(_usuario.horariofimtrabalho ?? '18:00');
-          _gestaoStartTime = _parseTimeOfDay(_usuario.horariogestaoinicio ?? '14:00');
-          _gestaoEndTime = _parseTimeOfDay(_usuario.horariogestaofim ?? '15:00');
         }
       });
     } catch (e) {
@@ -160,7 +153,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     final isUnavailable = _isUserUnavailable(date);
     return isUnavailable
         ? Colors.orangeAccent.withOpacity(0.8)
-        : (informacoes.isNotEmpty ? const Color.fromARGB(255, 225, 9, 2) : const Color.fromARGB(255, 255, 255, 255).withOpacity(0.5));
+        : (informacoes.isNotEmpty ? const Color.fromARGB(255, 239, 116, 112) : const Color.fromARGB(255, 255, 255, 255).withOpacity(0.5));
   }
 
   List<String?> _getInformacoesForTime(TimeOfDay time) {
@@ -240,13 +233,10 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     final timeInMinutes = time.hour * 60;
     final lunchStartInMinutes = _lunchStartTime.hour * 60 + _lunchStartTime.minute;
     final lunchEndInMinutes = _lunchEndTime.hour * 60 + _lunchEndTime.minute;
-    final gestaoStartInMinutes = _gestaoStartTime.hour * 60 + _gestaoStartTime.minute;
-    final gestaoEndInMinutes = _gestaoEndTime.hour * 60 + _gestaoEndTime.minute;
     final endInMinutes = _endTime.hour * 60 + _endTime.minute;
 
-    if ((timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes) ||
-        (timeInMinutes >= gestaoStartInMinutes && timeInMinutes < gestaoEndInMinutes)) {
-      _showError('Não é possível agendar durante o horário de almoço ou gestão.');
+    if (timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes) {
+      _showError('Não é possível agendar durante o horário de almoço.');
       return;
     }
 
@@ -289,8 +279,6 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     TimeOfDay? newStartTime,
     TimeOfDay? newLunchStartTime,
     TimeOfDay? newLunchEndTime,
-    TimeOfDay? newGestaoStartTime,
-    TimeOfDay? newGestaoEndTime,
     TimeOfDay? newEndTime,
   }) async {
     final horario = HorarioTrabalho(
@@ -331,11 +319,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
               ? _lunchStartTime
               : field == 'lunchEnd'
                   ? _lunchEndTime
-                  : field == 'gestaoStart'
-                      ? _gestaoStartTime
-                      : field == 'gestaoEnd'
-                          ? _gestaoEndTime
-                          : _endTime,
+                  : _endTime,
     );
     if (picked != null) {
       setState(() {
@@ -348,12 +332,6 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
         } else if (field == 'lunchEnd') {
           _lunchEndTime = picked;
           _updateHorarioTrabalhoAutomatically(newLunchEndTime: picked);
-        } else if (field == 'gestaoStart') {
-          _gestaoStartTime = picked;
-          _updateHorarioTrabalhoAutomatically(newGestaoStartTime: picked);
-        } else if (field == 'gestaoEnd') {
-          _gestaoEndTime = picked;
-          _updateHorarioTrabalhoAutomatically(newGestaoEndTime: picked);
         } else if (field == 'end') {
           _endTime = picked;
           _updateHorarioTrabalhoAutomatically(newEndTime: picked);
@@ -373,21 +351,14 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     int lunchEndHour = _lunchEndTime.hour;
     if (_lunchEndTime.minute > 0) lunchEndHour++;
 
-    int gestaoStartHour = _gestaoStartTime.hour;
-    int gestaoEndHour = _gestaoEndTime.hour;
-    if (_gestaoEndTime.minute > 0) gestaoEndHour++;
-
     List<TimeOfDay> hours = [];
     for (int h = startHour; h <= endHour; h++) {
       final time = TimeOfDay(hour: h, minute: 0);
       final timeInMinutes = h * 60;
       final lunchStartInMinutes = _lunchStartTime.hour * 60 + _lunchStartTime.minute;
       final lunchEndInMinutes = _lunchEndTime.hour * 60 + _lunchEndTime.minute;
-      final gestaoStartInMinutes = _gestaoStartTime.hour * 60 + _gestaoStartTime.minute;
-      final gestaoEndInMinutes = _gestaoEndTime.hour * 60 + _gestaoEndTime.minute;
 
-      if ((timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes) ||
-          (timeInMinutes >= gestaoStartInMinutes && timeInMinutes < gestaoEndInMinutes)) {
+      if (timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes) {
         continue;
       }
 
@@ -404,8 +375,6 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
         return Colors.orange;
       case 'ALMOCO':
         return Colors.yellow;
-      case 'GESTAO':
-        return Colors.blueAccent;
       default:
         return Colors.white;
     }
@@ -419,8 +388,6 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
         return Icons.lock;
       case 'ALMOCO':
         return Icons.local_dining;
-      case 'GESTAO':
-        return Icons.business;
       default:
         return Icons.help;
     }
@@ -869,20 +836,6 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   GestureDetector(
-                    onTap: () => _selectTime(context, 'gestaoStart'),
-                    child: Text(
-                      'Gestão Início: ${_gestaoStartTime.format(context)}',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => _selectTime(context, 'gestaoEnd'),
-                    child: Text(
-                      'Gestão Fim: ${_gestaoEndTime.format(context)}',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ),
-                  GestureDetector(
                     onTap: () => _selectTime(context, 'end'),
                     child: Text(
                       'Fim: ${_endTime.format(context)}',
@@ -926,11 +879,9 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                               onTap: (isPastHour || isUnavailable)
                                   ? null
                                   : () {
-                                      if ((timeInMinutes >= (_lunchStartTime.hour * 60 + _lunchStartTime.minute) &&
-                                              timeInMinutes < (_lunchEndTime.hour * 60 + _lunchEndTime.minute)) ||
-                                          (timeInMinutes >= (_gestaoStartTime.hour * 60 + _gestaoStartTime.minute) &&
-                                              timeInMinutes < (_gestaoEndTime.hour * 60 + _gestaoEndTime.minute))) {
-                                        _showError('Não é possível agendar durante o horário de almoço ou gestão.');
+                                      if (timeInMinutes >= (_lunchStartTime.hour * 60 + _lunchStartTime.minute) &&
+                                          timeInMinutes < (_lunchEndTime.hour * 60 + _lunchEndTime.minute)) {
+                                        _showError('Não é possível agendar durante o horário de almoço.');
                                         return;
                                       }
                                       showDialog(

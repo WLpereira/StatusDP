@@ -245,44 +245,40 @@ class AuthService {
   }
 
   Future<void> createUsuario(Usuario usuario) async {
-    try {
-      await _supabase.from('usuarios').insert({
-        'email': usuario.email,
-        'nome': usuario.nome,
-        'setor': usuario.setor,
-        'senha': usuario.senha,
-        'status': usuario.status,
-        'horarioiniciotrabalho': usuario.horarioiniciotrabalho,
-        'horariofimtrabalho': usuario.horariofimtrabalho,
-        'horarioalmocoinicio': usuario.horarioalmocoinicio,
-        'horarioalmocofim': usuario.horarioalmocofim,
-        'horariogestaoinicio': usuario.horariogestaoinicio,
-        'horariogestaofim': usuario.horariogestaofim,
-      });
-    } catch (e) {
-      throw Exception('Erro ao criar usuário: $e');
-    }
+  try {
+    await _supabase.from('usuarios').insert({
+      'email': usuario.email,
+      'nome': usuario.nome,
+      'setor': usuario.setor,
+      'senha': usuario.senha,
+      'status': usuario.status,
+      'horarioiniciotrabalho': usuario.horarioiniciotrabalho,
+      'horariofimtrabalho': usuario.horariofimtrabalho,
+      'horarioalmocoinicio': usuario.horarioalmocoinicio,
+      'horarioalmocofim': usuario.horarioalmocofim,
+    });
+  } catch (e) {
+    throw Exception('Erro ao criar usuário: $e');
   }
+}
 
-  Future<void> updateUsuario(Usuario usuario) async {
-    try {
-      await _supabase.from('usuarios').update({
-        'email': usuario.email,
-        'nome': usuario.nome,
-        'setor': usuario.setor,
-        'senha': usuario.senha,
-        'status': usuario.status,
-        'horarioiniciotrabalho': usuario.horarioiniciotrabalho,
-        'horariofimtrabalho': usuario.horariofimtrabalho,
-        'horarioalmocoinicio': usuario.horarioalmocoinicio,
-        'horarioalmocofim': usuario.horarioalmocofim,
-        'horariogestaoinicio': usuario.horariogestaoinicio,
-        'horariogestaofim': usuario.horariogestaofim,
-      }).eq('id', usuario.id);
-    } catch (e) {
-      throw Exception('Erro ao atualizar usuário: $e');
-    }
+Future<void> updateUsuario(Usuario usuario) async {
+  try {
+    await _supabase.from('usuarios').update({
+      'email': usuario.email,
+      'nome': usuario.nome,
+      'setor': usuario.setor,
+      'senha': usuario.senha,
+      'status': usuario.status,
+      'horarioiniciotrabalho': usuario.horarioiniciotrabalho,
+      'horariofimtrabalho': usuario.horariofimtrabalho,
+      'horarioalmocoinicio': usuario.horarioalmocoinicio,
+      'horarioalmocofim': usuario.horarioalmocofim,
+    }).eq('id', usuario.id);
+  } catch (e) {
+    throw Exception('Erro ao atualizar usuário: $e');
   }
+}
 
   Future<void> createStatus(Status status) async {
     try {

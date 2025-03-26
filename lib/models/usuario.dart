@@ -9,8 +9,6 @@ class Usuario {
   final String? horariofimtrabalho;
   final String? horarioalmocoinicio;
   final String? horarioalmocofim;
-  final String? horariogestaoinicio;
-  final String? horariogestaofim;
 
   Usuario({
     required this.id,
@@ -23,8 +21,6 @@ class Usuario {
     this.horariofimtrabalho,
     this.horarioalmocoinicio,
     this.horarioalmocofim,
-    this.horariogestaoinicio,
-    this.horariogestaofim,
   });
 
   factory Usuario.fromJson(Map<String, dynamic> json) {
@@ -39,8 +35,6 @@ class Usuario {
       horariofimtrabalho: json['horariofimtrabalho'] as String?,
       horarioalmocoinicio: json['horarioalmocoinicio'] as String?,
       horarioalmocofim: json['horarioalmocofim'] as String?,
-      horariogestaoinicio: json['horariogestaoinicio'] as String?,
-      horariogestaofim: json['horariogestaofim'] as String?,
     );
   }
 
@@ -56,8 +50,6 @@ class Usuario {
       'horariofimtrabalho': horariofimtrabalho,
       'horarioalmocoinicio': horarioalmocoinicio,
       'horarioalmocofim': horarioalmocofim,
-      'horariogestaoinicio': horariogestaoinicio,
-      'horariogestaofim': horariogestaofim,
     };
   }
 }
