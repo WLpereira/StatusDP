@@ -512,272 +512,301 @@ class _PainelScreenState extends State<PainelScreen> {
       extendBody: true,
       body: RefreshIndicator(
         onRefresh: _loadInitialData,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(
-                Icons.dashboard,
-                size: 100,
-                color: Colors.white,
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Painel de Status e Agenda',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Data: ${DateFormat('dd/MM/yyyy').format(_selectedDate)}',
-                style: const TextStyle(
-                  fontSize: 18,
-                  color: Colors.white70,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () async {
-                  final DateTime? picked = await showDatePicker(
-                    context: context,
-                    initialDate: _selectedDate,
-                    firstDate: DateTime(2025),
-                    lastDate: DateTime(2026),
-                  );
-                  if (picked != null && picked != _selectedDate) {
-                    setState(() {
-                      _selectedDate = picked;
-                    });
-                    await _loadInitialData();
-                  }
-                },
-                child: const Text(
-                  'Selecionar Data',
-                  style: TextStyle(color: Color.fromARGB(179, 162, 215, 0)),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              ...usersBySector.entries.map((entry) {
-                final sector = entry.key;
-                final users = entry.value;
-                if (users.isEmpty) return const SizedBox.shrink();
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Color(0xFF1A1A2E),
+                Color(0xFF16213E),
+                Color(0xFF0F3460),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Cabeçalho
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      '$sector (${users.length} usuários)',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: sectorColors[sector] ?? Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: users.length,
-                      itemBuilder: (context, index) {
-                        final usuario = users[index];
-                        final plannerEntries = _getPlannerEntriesForUserAndDate(usuario.id);
-                        final availableHours = _getAvailableHoursForUser(usuario.id);
-                        final status = _statuses.firstWhere(
-                          (s) => s.status == usuario.status,
-                          orElse: () => Status(id: -1, status: 'Desconhecido'),
-                        );
-
-                        final horario = _horariosTrabalho.firstWhere(
-                          (h) => h.usuarioId == usuario.id && h.diaSemana == _selectedDate.weekday,
-                          orElse: () => HorarioTrabalho(
-                            id: -1,
-                            usuarioId: usuario.id,
-                            diaSemana: _selectedDate.weekday,
-                            horarioInicio: usuario.horarioiniciotrabalho ?? '06:00',
-                            horarioFim: usuario.horariofimtrabalho ?? '18:00',
-                            horarioAlmocoInicio: usuario.horarioalmocoinicio ?? '12:00',
-                            horarioAlmocoFim: usuario.horarioalmocofim ?? '13:30',
-                          ),
-                        );
-
-                        final lunchStartTime = _parseTimeOfDay(horario.horarioAlmocoInicio ?? '12:00');
-                        final lunchEndTime = _parseTimeOfDay(horario.horarioAlmocoFim ?? '13:30');
-
-                        final screenWidth = MediaQuery.of(context).size.width;
-                        const leadingWidth = 40.0;
-                        const paddingAndMargins = 32.0;
-                        const nameAndStatusWidth = 200.0;
-                        final trailingWidth = screenWidth - leadingWidth - nameAndStatusWidth - paddingAndMargins;
-
-                        return Card(
-                          color: Colors.white.withOpacity(0.1),
-                          margin: const EdgeInsets.symmetric(vertical: 4.0),
-                          child: Column(
-                            children: [
-                              ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: sectorColors[sector] ?? Colors.grey,
-                                  child: Text(
-                                    usuario.nome?.substring(0, 1) ?? usuario.email.substring(0, 1),
-                                    style: const TextStyle(color: Colors.white),
-                                  ),
-                                ),
-                                title: Text(
-                                  usuario.nome ?? usuario.email,
-                                  style: const TextStyle(color: Colors.white),
-                                ),
-                                subtitle: Text(
-                                  'Status: ${status.status}',
-                                  style: TextStyle(
-                                    color: _getStatusColor(status.status),
-                                  ),
-                                ),
-                                trailing: SizedBox(
-                                  width: trailingWidth,
-                                  child: SingleChildScrollView(
-                                    scrollDirection: Axis.horizontal,
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: availableHours.map((hour) {
-                                        final time = hour['time'] as TimeOfDay;
-                                        final isUnavailable = hour['isUnavailable'] as bool;
-                                        final entry = plannerEntries.firstWhere(
-                                          (entry) =>
-                                              entry['horario'] == '${time.hour.toString().padLeft(2, '0')}:00',
-                                          orElse: () => {},
-                                        );
-                                        final isReserved = entry.isNotEmpty;
-
-                                        return GestureDetector(
-                                          onTap: () {
-                                            if (isUnavailable) return;
-                                            if (!_podeEditar(usuario.id, hour, isReserved ? entry : null)) {
-                                              _showMessage(
-                                                'Você não pode editar esta reserva.',
-                                                isError: true,
-                                              );
-                                              return;
-                                            }
-                                            _addOrUpdatePlanner(
-                                              usuario.id,
-                                              time,
-                                              isReserved ? entry : null,
-                                            );
-                                          },
-                                          onLongPress: isReserved && _podeEditar(usuario.id, hour, entry)
-                                              ? () {
-                                                  _removePlannerEntry(usuario.id, entry['index']);
-                                                }
-                                              : null,
-                                          child: Container(
-                                            width: 80.0,
-                                            margin: const EdgeInsets.only(left: 4.0),
-                                            padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4.0),
-                                            decoration: BoxDecoration(
-                                              color: isUnavailable
-                                                  ? Colors.red.withOpacity(0.5)
-                                                  : (isReserved ? const Color.fromARGB(255, 255, 0, 0) : Colors.grey.withOpacity(0.5)),
-                                              borderRadius: BorderRadius.circular(5),
-                                            ),
-                                            child: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Text(
-                                                  '${time.hour.toString().padLeft(2, '0')}:00',
-                                                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                                                  textAlign: TextAlign.center,
-                                                ),
-                                                if (isReserved)
-                                                  Text(
-                                                    entry['informacao'] ?? 'Sem informação',
-                                                    style: const TextStyle(color: Colors.white70, fontSize: 10),
-                                                    textAlign: TextAlign.center,
-                                                    overflow: TextOverflow.ellipsis,
-                                                    maxLines: 1,
-                                                  ),
-                                              ],
-                                            ),
-                                          ),
-                                        );
-                                      }).toList(),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      'Almoço Início: ${lunchStartTime.format(context)}',
-                                      style: const TextStyle(color: Colors.white),
-                                    ),
-                                    Text(
-                                      'Almoço Fim: ${lunchEndTime.format(context)}',
-                                      style: const TextStyle(color: Colors.white),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                );
-              }).toList(),
-
-              const SizedBox(height: 20),
-              Center(
-                child: ElevatedButton(
-                  onPressed: () {
-                    if (mounted) {
-                      _showMessage('Voltando para a tela anterior...');
-                      if (widget.usuarioLogado.email == 'adm@dataplace.com.br') {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => AdminScreen(usuario: widget.usuarioLogado),
-                          ),
-                        );
-                      } else {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => StatusDPScreen(usuario: widget.usuarioLogado),
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.redAccent,
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    elevation: 10,
-                    shadowColor: Colors.redAccent.withOpacity(0.5),
-                  ),
-                  child: const Text(
-                    'Voltar',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                    const Icon(
+                      Icons.dashboard,
+                      size: 100,
                       color: Colors.white,
                     ),
+                    Column(
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            final DateTime? picked = await showDatePicker(
+                              context: context,
+                              initialDate: _selectedDate,
+                              firstDate: DateTime(2025),
+                              lastDate: DateTime(2026),
+                            );
+                            if (picked != null && picked != _selectedDate) {
+                              setState(() {
+                                _selectedDate = picked;
+                              });
+                              await _loadInitialData();
+                            }
+                          },
+                          icon: const Icon(Icons.calendar_today, color: Colors.white),
+                          label: Text(
+                            DateFormat('dd/MM/yyyy').format(_selectedDate),
+                            style: const TextStyle(color: Colors.white, fontSize: 16),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white.withOpacity(0.2),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Painel de Status e Agenda',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 20),
+
+                // Lista de usuários por setor
+                ...usersBySector.entries.map((entry) {
+                  final sector = entry.key;
+                  final users = entry.value;
+                  if (users.isEmpty) return const SizedBox.shrink();
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$sector (${users.length} usuários)',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: sectorColors[sector] ?? Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: users.length,
+                        itemBuilder: (context, index) {
+                          final usuario = users[index];
+                          final plannerEntries = _getPlannerEntriesForUserAndDate(usuario.id);
+                          final availableHours = _getAvailableHoursForUser(usuario.id);
+                          final status = _statuses.firstWhere(
+                            (s) => s.status == usuario.status,
+                            orElse: () => Status(id: -1, status: 'Desconhecido'),
+                          );
+
+                          final horario = _horariosTrabalho.firstWhere(
+                            (h) => h.usuarioId == usuario.id && h.diaSemana == _selectedDate.weekday,
+                            orElse: () => HorarioTrabalho(
+                              id: -1,
+                              usuarioId: usuario.id,
+                              diaSemana: _selectedDate.weekday,
+                              horarioInicio: usuario.horarioiniciotrabalho ?? '06:00',
+                              horarioFim: usuario.horariofimtrabalho ?? '18:00',
+                              horarioAlmocoInicio: usuario.horarioalmocoinicio ?? '12:00',
+                              horarioAlmocoFim: usuario.horarioalmocofim ?? '13:30',
+                            ),
+                          );
+
+                          final lunchStartTime = _parseTimeOfDay(horario.horarioAlmocoInicio ?? '12:00');
+                          final lunchEndTime = _parseTimeOfDay(horario.horarioAlmocoFim ?? '13:30');
+
+                          final screenWidth = MediaQuery.of(context).size.width;
+                          const leadingWidth = 40.0;
+                          const paddingAndMargins = 32.0;
+                          const nameAndStatusWidth = 200.0;
+                          final trailingWidth = screenWidth - leadingWidth - nameAndStatusWidth - paddingAndMargins;
+
+                          return Card(
+                            color: Colors.white.withOpacity(0.1),
+                            margin: const EdgeInsets.symmetric(vertical: 8.0),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            child: Column(
+                              children: [
+                                ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: sectorColors[sector] ?? Colors.grey,
+                                    child: Text(
+                                      usuario.nome?.substring(0, 1) ?? usuario.email.substring(0, 1),
+                                      style: const TextStyle(color: Colors.white),
+                                    ),
+                                  ),
+                                  title: Text(
+                                    usuario.nome ?? usuario.email,
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                  ),
+                                  subtitle: Text(
+                                    'Status: ${status.status}',
+                                    style: TextStyle(
+                                      color: _getStatusColor(status.status),
+                                    ),
+                                  ),
+                                  trailing: SizedBox(
+                                    width: trailingWidth,
+                                    child: SingleChildScrollView(
+                                      scrollDirection: Axis.horizontal,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: availableHours.map((hour) {
+                                          final time = hour['time'] as TimeOfDay;
+                                          final isUnavailable = hour['isUnavailable'] as bool;
+                                          final entry = plannerEntries.firstWhere(
+                                            (entry) =>
+                                                entry['horario'] == '${time.hour.toString().padLeft(2, '0')}:00',
+                                            orElse: () => {},
+                                          );
+                                          final isReserved = entry.isNotEmpty;
+
+                                          return GestureDetector(
+                                            onTap: () {
+                                              if (isUnavailable) return;
+                                              if (!_podeEditar(usuario.id, hour, isReserved ? entry : null)) {
+                                                _showMessage(
+                                                  'Você não pode editar esta reserva.',
+                                                  isError: true,
+                                                );
+                                                return;
+                                              }
+                                              _addOrUpdatePlanner(
+                                                usuario.id,
+                                                time,
+                                                isReserved ? entry : null,
+                                              );
+                                            },
+                                            onLongPress: isReserved && _podeEditar(usuario.id, hour, entry)
+                                                ? () {
+                                                    _removePlannerEntry(usuario.id, entry['index']);
+                                                  }
+                                                : null,
+                                            child: Container(
+                                              width: 80.0,
+                                              margin: const EdgeInsets.only(left: 4.0),
+                                              padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
+                                              decoration: BoxDecoration(
+                                                color: isUnavailable
+                                                    ? Colors.red.withOpacity(0.5)
+                                                    : (isReserved ? const Color.fromARGB(255, 255, 0, 0) : Colors.grey.withOpacity(0.5)),
+                                                borderRadius: BorderRadius.circular(5),
+                                              ),
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    '${time.hour.toString().padLeft(2, '0')}:00',
+                                                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                                                    textAlign: TextAlign.center,
+                                                  ),
+                                                  if (isReserved)
+                                                    Text(
+                                                      entry['informacao'] ?? 'Sem informação',
+                                                      style: const TextStyle(color: Colors.white70, fontSize: 10),
+                                                      textAlign: TextAlign.center,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      maxLines: 1,
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'Almoço Início: ${lunchStartTime.format(context)}',
+                                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                                      ),
+                                      Text(
+                                        'Almoço Fim: ${lunchEndTime.format(context)}',
+                                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  );
+                }).toList(),
+
+                const SizedBox(height: 20),
+
+                // Botão de voltar centralizado
+                Center(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      if (mounted) {
+                        _showMessage('Voltando para a tela anterior...');
+                        if (widget.usuarioLogado.email == 'adm@dataplace.com.br') {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => AdminScreen(usuario: widget.usuarioLogado),
+                            ),
+                          );
+                        } else {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => StatusDPScreen(usuario: widget.usuarioLogado),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      elevation: 10,
+                      shadowColor: Colors.redAccent.withOpacity(0.5),
+                    ),
+                    child: const Text(
+                      'Voltar',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
           ),
         ),
       ),
