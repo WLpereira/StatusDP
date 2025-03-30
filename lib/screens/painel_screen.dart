@@ -79,19 +79,19 @@ class _PainelScreenState extends State<PainelScreen> {
     }
   }
 
-  Future<void> _loadUsuarios() async {
+Future<void> _loadUsuarios() async {
     try {
       final usuarios = await _authService.getAllUsuarios();
       if (mounted) {
         setState(() {
-          _usuarios = usuarios;
+          _usuarios = usuarios.where((u) => u.email != 'adm@dataplace.com.br').toList();
         });
       }
     } catch (e, stackTrace) {
       print('Erro ao carregar usuários: $e\n$stackTrace');
       _showMessage('Erro ao carregar usuários: $e', isError: true);
     }
-  }
+}
 
   Future<void> _loadPlanners() async {
     try {
