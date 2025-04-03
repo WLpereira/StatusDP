@@ -1001,7 +1001,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                                     controller: controller,
                                                     maxLength: 10,
                                                     decoration: const InputDecoration(
-                                                      labelText: 'Informação da Reserva (máx. 10 caracteres)',
+                                                      labelText: 'Informação da Reserva  (máx. 10 caracteres)',
                                                     ),
                                                   ),
                                                   if (informacoes.isNotEmpty) ...[
