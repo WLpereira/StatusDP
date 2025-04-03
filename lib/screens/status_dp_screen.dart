@@ -542,7 +542,69 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A2E),
-      extendBody: true,
+     bottomNavigationBar: Container(
+  color: const Color(0xFF0F3460),
+  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+  child: Row(
+    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    children: [
+      Expanded(
+        child: ElevatedButton.icon(
+          onPressed: _goToPainel,
+          icon: const Icon(
+            Icons.dashboard,
+            color: Colors.white,
+            size: 24,
+          ),
+          label: const Text(
+            'Painel',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF0F3460),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(width: 16),
+      Expanded(
+        child: ElevatedButton.icon(
+          onPressed: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const LoginScreen()),
+            );
+          },
+          icon: const Icon(
+            Icons.exit_to_app,
+            color: Colors.white,
+            size: 24,
+          ),
+          label: const Text(
+            'Sair',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        ),
+      ),
+    ],
+  ),
+),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -555,318 +617,389 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
             end: Alignment.bottomRight,
           ),
         ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Icon(
-                    Icons.person_outline,
-                    size: 100,
-                    color: Colors.white,
-                  ),
-                  Icon(
-                    _getStatusIcon(_selectedStatus),
-                    size: 40,
-                    color: _getStatusColor(_selectedStatus),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Bem-vindo, ${_usuario.nome ?? _usuario.email}',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Setor: ${_usuario.setor ?? "Não especificado"}',
-                style: const TextStyle(
-                  fontSize: 18,
-                  color: Colors.white70,
-                ),
-              ),
-              const SizedBox(height: 40),
-
-              // Seção de Status
-              const Text(
-                'Atualizar Status',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.white.withOpacity(0.3)),
-                ),
-                child: DropdownButton<String>(
-                  value: _isValidStatus(_selectedStatus) ? _selectedStatus : null,
-                  hint: const Text(
-                    'Alterar Status',
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                  dropdownColor: Colors.grey[800],
-                  style: const TextStyle(color: Colors.white),
-                  underline: const SizedBox(),
-                  onChanged: (String? newValue) async {
-                    if (newValue != null && _isValidStatus(newValue)) {
-                      setState(() {
-                        _selectedStatus = newValue;
-                      });
-                      await _saveOrUpdateStatus(); // Salva automaticamente ao selecionar
-                    }
-                  },
-                  items: _statuses.map((status) {
-                    return DropdownMenuItem<String>(
-                      value: status.status,
-                      child: Text(status.status),
-                    );
-                  }).toSet().toList(),
-                ),
-              ),
-              const SizedBox(height: 40),
-
-              // Seção de Períodos de Indisponibilidade
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Meus Períodos de Indisponibilidade',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Cabeçalho
+                Container(
+                  padding: const EdgeInsets.all(16.0),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFF0F3460),
+                        Color(0xFF16213E),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
+                    borderRadius: BorderRadius.circular(15),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.add, color: Colors.white),
-                    onPressed: _requestUserPeriod,
-                    tooltip: 'Solicitar Período de Indisponibilidade',
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (_userPeriods.isEmpty)
-                const Text(
-                  'Nenhum período de indisponibilidade registrado.',
-                  style: TextStyle(color: Colors.white70),
-                )
-              else
-                ..._userPeriods.map((period) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4.0),
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.white.withOpacity(0.3)),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
                         children: [
-                          Text(
-                            '${DateFormat('dd/MM/yyyy').format(period.startDate)} - ${DateFormat('dd/MM/yyyy').format(period.endDate)}: ${period.info}',
-                            style: const TextStyle(color: Colors.orangeAccent, fontSize: 14),
+                          const Icon(
+                            Icons.person_outline,
+                            size: 50,
+                            color: Colors.white,
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red, size: 20),
-                            onPressed: () => _removePeriod(period.id),
+                          const SizedBox(width: 10),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Bem-vindo, ${_usuario.nome ?? _usuario.email}',
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              Text(
+                                'Setor: ${_usuario.setor ?? "Não especificado"}',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ),
-                  );
-                }),
-              const SizedBox(height: 40),
-
-              // Seção de Planner (Agenda)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Minha Agenda para ${DateFormat('dd/MM/yyyy').format(_selectedDate)}',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+                      Icon(
+                        _getStatusIcon(_selectedStatus),
+                        size: 30,
+                        color: _getStatusColor(_selectedStatus),
+                      ),
+                    ],
                   ),
-                  TextButton(
-                    onPressed: () async {
-                      final DateTime? picked = await showDatePicker(
-                        context: context,
-                        initialDate: _selectedDate,
-                        firstDate: DateTime(2025),
-                        lastDate: DateTime(2026),
-                      );
-                      if (picked != null && picked != _selectedDate) {
+                ),
+                const SizedBox(height: 20),
+
+                // Seção de Status
+                const Text(
+                  'Atualizar Status',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 10,
+                  children: _statuses.map((status) {
+                    return ElevatedButton.icon(
+                      onPressed: () async {
                         setState(() {
-                          _selectedDate = picked;
+                          _selectedStatus = status.status;
                         });
-                        await _loadHorarioTrabalho();
-                      }
-                    },
-                    child: const Text(
-                      'Selecionar Data',
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (_planner.isNotEmpty) ...[
-                ..._planner.map((p) {
-                  final entries = p.getEntries();
-                  final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-                  final filteredEntries = entries
-                      .asMap()
-                      .entries
-                      .where((entry) =>
-                          entry.value['horario'] != null &&
-                          entry.value['data'] != null &&
-                          DateFormat('yyyy-MM-dd').format(entry.value['data'] as DateTime) == selectedDateStr)
-                      .map((entry) => {'index': entry.key, 'entry': entry.value})
-                      .toList();
-
-                  if (filteredEntries.isEmpty) {
-                    return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8.0),
-                      child: Text(
-                        'Nenhuma reserva para este dia.',
-                        style: TextStyle(color: Colors.white70),
+                        await _saveOrUpdateStatus();
+                      },
+                      icon: Icon(
+                        _getStatusIcon(status.status),
+                        size: 20,
+                        color: Colors.white,
+                      ),
+                      label: Text(
+                        status.status,
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _selectedStatus == status.status
+                            ? _getStatusColor(status.status)
+                            : Colors.grey[700],
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     );
-                  }
-
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.white.withOpacity(0.3)),
-                      ),
-                      padding: const EdgeInsets.all(10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: filteredEntries.map((item) {
-                          final index = item['index'] as int;
-                          final entry = item['entry'] as Map<String, dynamic>;
-                          final horario = entry['horario'] as String;
-                          final informacao = entry['informacao'] as String?;
-                          return Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '$horario${informacao != null ? ": $informacao" : ""}',
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.red, size: 20),
-                                onPressed: () async {
-                                  await _authService.deletePlannerEntry(p, index);
-                                  await _loadPlanner();
-                                },
-                              ),
-                            ],
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  );
-                }),
-              ] else
-                const Text(
-                  'Nenhuma reserva registrada.',
-                  style: TextStyle(color: Colors.white70),
+                  }).toList(),
                 ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 20),
 
-              // Seção de Horário de Trabalho
-              Text(
-                'Horário de Trabalho (Dia ${_selectedDate.weekday})',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  GestureDetector(
-                    onTap: () => _selectTime(context, 'start'),
-                    child: Text(
-                      'Início: ${_startTime.format(context)}',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => _selectTime(context, 'lunchStart'),
-                    child: Text(
-                      'Almoço Início: ${_lunchStartTime.format(context)}',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => _selectTime(context, 'lunchEnd'),
-                    child: Text(
-                      'Almoço Fim: ${_lunchEndTime.format(context)}',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  GestureDetector(
-                    onTap: () => _selectTime(context, 'end'),
-                    child: Text(
-                      'Fim: ${_endTime.format(context)}',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Seção de Agendamento (Grid de Horários)
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Column(
+                // Seção de Períodos de Indisponibilidade
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    if (availableHours.isEmpty)
+                    const Text(
+                      'Meus Períodos de Indisponibilidade',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: _requestUserPeriod,
+                      icon: const Icon(
+                        Icons.add_circle_outline,
+                        size: 20,
+                        color: Colors.white,
+                      ),
+                      label: const Text(
+                        'Indisponibilidade',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blueAccent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: 5,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (_userPeriods.isEmpty)
+                  const Text(
+                    'Nenhum período de indisponibilidade registrado.',
+                    style: TextStyle(color: Colors.white70),
+                  )
+                else
+                  ..._userPeriods.map((period) {
+                    return Card(
+                      color: Colors.white.withOpacity(0.1),
+                      elevation: 5,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: ListTile(
+                        title: Text(
+                          '${DateFormat('dd/MM/yyyy').format(period.startDate)} - ${DateFormat('dd/MM/yyyy').format(period.endDate)}',
+                          style: const TextStyle(color: Colors.orangeAccent),
+                        ),
+                        subtitle: Text(
+                          period.info ?? '',
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () => _removePeriod(period.id),
+                        ),
+                      ),
+                    );
+                  }),
+                const SizedBox(height: 20),
+
+                // Seção de Planner (Agenda)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Minha Agenda para ${DateFormat('dd/MM/yyyy').format(_selectedDate)}',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.calendar_today, color: Colors.white70),
+                      onPressed: () async {
+                        final DateTime? picked = await showDatePicker(
+                          context: context,
+                          initialDate: _selectedDate,
+                          firstDate: DateTime(2025),
+                          lastDate: DateTime(2026),
+                        );
+                        if (picked != null && picked != _selectedDate) {
+                          setState(() {
+                            _selectedDate = picked;
+                          });
+                          await _loadHorarioTrabalho();
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (_planner.isNotEmpty) ...[
+                  ..._planner.map((p) {
+                    final entries = p.getEntries();
+                    final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+                    final filteredEntries = entries
+                        .asMap()
+                        .entries
+                        .where((entry) =>
+                            entry.value['horario'] != null &&
+                            entry.value['data'] != null &&
+                            DateFormat('yyyy-MM-dd').format(entry.value['data'] as DateTime) == selectedDateStr)
+                        .map((entry) => {'index': entry.key, 'entry': entry.value})
+                        .toList();
+
+                    if (filteredEntries.isEmpty) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8.0),
+                        child: Text(
+                          'Nenhuma reserva para este dia.',
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      );
+                    }
+
+                    return Column(
+                      children: filteredEntries.map((item) {
+                        final index = item['index'] as int;
+                        final entry = item['entry'] as Map<String, dynamic>;
+                        final horario = entry['horario'] as String;
+                        final informacao = entry['informacao'] as String?;
+                        return Card(
+                          color: Colors.white.withOpacity(0.1),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: ListTile(
+                            leading: const Icon(Icons.schedule, color: Colors.white70),
+                            title: Text(
+                              '$horario${informacao != null ? ": $informacao" : ""}',
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () async {
+                                await _authService.deletePlannerEntry(p, index);
+                                await _loadPlanner();
+                              },
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  }),
+                ] else
+                  const Text(
+                    'Nenhuma reserva registrada.',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                const SizedBox(height: 20),
+
+                // Seção de Horário de Trabalho
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Horário de Trabalho (Dia ${_selectedDate.weekday})',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          GestureDetector(
+                            onTap: () => _selectTime(context, 'start'),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.access_time, color: Colors.white70, size: 20),
+                                const SizedBox(width: 5),
+                                Text(
+                                  'Início: ${_startTime.format(context)}',
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                              ],
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => _selectTime(context, 'lunchStart'),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.local_dining, color: Colors.white70, size: 20),
+                                const SizedBox(width: 5),
+                                Text(
+                                  'Almoço: ${_lunchStartTime.format(context)}',
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                              ],
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => _selectTime(context, 'lunchEnd'),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.local_dining, color: Colors.white70, size: 20),
+                                const SizedBox(width: 5),
+                                Text(
+                                  'Fim Almoço: ${_lunchEndTime.format(context)}',
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                              ],
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => _selectTime(context, 'end'),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.access_time, color: Colors.white70, size: 20),
+                                const SizedBox(width: 5),
+                                Text(
+                                  'Fim: ${_endTime.format(context)}',
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Seção de Agendamento (Grid de Horários)
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       const Text(
-                        'Nenhum horário disponível. Verifique os horários de trabalho.',
-                        style: TextStyle(color: Colors.white70),
-                      )
-                    else
-                      SizedBox(
-                        width: double.infinity,
-                        child: Wrap(
-                          spacing: 2.0,
-                          runSpacing: 2.0,
-                          children: availableHours.map((time) {
+                        'Horários Disponíveis',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (availableHours.isEmpty)
+                        const Text(
+                          'Nenhum horário disponível. Verifique os horários de trabalho.',
+                          style: TextStyle(color: Colors.white70),
+                        )
+                      else
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 4,
+                            crossAxisSpacing: 8,
+                            mainAxisSpacing: 8,
+                            childAspectRatio: 1.2,
+                          ),
+                          itemCount: availableHours.length,
+                          itemBuilder: (context, index) {
+                            final time = availableHours[index];
                             final informacoes = _getInformacoesForTime(time);
                             final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
                             final isUnavailable = _isUserUnavailable(date);
@@ -963,15 +1096,12 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                         },
                                       );
                                     },
-                              child: Container(
-                                width: (MediaQuery.of(context).size.width - 40) / 5 - 2,
-                                height: 70,
-                                decoration: BoxDecoration(
-                                  color: _getColorForGrid(time),
-                                  borderRadius: BorderRadius.circular(5),
-                                  border: Border.all(color: Colors.white.withOpacity(0.3)),
+                              child: Card(
+                                elevation: (isPastHour || isUnavailable) ? 0 : 3,
+                                color: _getColorForGrid(time),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
-                                padding: const EdgeInsets.all(8),
                                 child: Center(
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
@@ -990,17 +1120,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                         '${time.hour.toString().padLeft(2, '0')}:00',
                                         style: TextStyle(
                                           color: isUnavailable ? Colors.black : (informacoes.isNotEmpty ? Colors.white : Colors.white),
-                                          fontSize: 12,
+                                          fontSize: 14,
                                           fontWeight: FontWeight.bold,
-                                          shadows: isUnavailable || informacoes.isNotEmpty
-                                              ? [
-                                                  const Shadow(
-                                                    color: Colors.black26,
-                                                    offset: Offset(1.0, 1.0),
-                                                    blurRadius: 2.0,
-                                                  ),
-                                                ]
-                                              : null,
                                         ),
                                         textAlign: TextAlign.center,
                                       ),
@@ -1018,77 +1139,24 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                           style: const TextStyle(color: Colors.white70, fontSize: 10),
                                           textAlign: TextAlign.center,
                                           overflow: TextOverflow.ellipsis,
-                                          maxLines: 1,
+                                          maxLines: 1, // Permite que o texto seja cortado se for muito longo
                                         ),
                                     ],
                                   ),
                                 ),
                               ),
                             );
-                          }).toList(),
+                          },
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 20),
-
-              // Botões de Navegação
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  ElevatedButton(
-                    onPressed: _goToPainel,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      elevation: 10,
-                      shadowColor: Colors.green.withOpacity(0.5),
-                    ),
-                    child: const Text(
-                      'Painel',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (context) => const LoginScreen()),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      elevation: 10,
-                      shadowColor: Colors.redAccent.withOpacity(0.5),
-                    ),
-                    child: const Text(
-                      'Sair',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-            ],
+                const SizedBox(height: 20),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
-}  
+}
