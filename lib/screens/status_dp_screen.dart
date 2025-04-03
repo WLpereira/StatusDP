@@ -982,7 +982,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                   : () {
                                       if (timeInMinutes >= (_lunchStartTime.hour * 60 + _lunchStartTime.minute) &&
                                           timeInMinutes < (_lunchEndTime.hour * 60 + _lunchEndTime.minute)) {
-                                        _showError('Não é possível agendar durante o horário de almoço.');
+                                        _showError('Não é possível agendar  durante o horário de almoço.');
                                         return;
                                       }
                                       showDialog(
@@ -1120,7 +1120,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
             ),
           ),
         ),
-      ),
+      ), 
     );
   } 
 } 
