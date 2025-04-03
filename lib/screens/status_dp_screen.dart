@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import '../services/auth_service.dart';
 import '../models/usuario.dart';
 import '../models/status.dart';
 import '../models/planner.dart';
 import '../models/horario_trabalho.dart';
 import '../models/user_period.dart';
-import '../services/auth_service.dart';
-import 'package:intl/intl.dart';
 import 'login_screen.dart';
 import 'painel_screen.dart';
 
@@ -19,25 +19,25 @@ class StatusDPScreen extends StatefulWidget {
 }
 
 class _StatusDPScreenState extends State<StatusDPScreen> {
-  final AuthService _authService = AuthService();
   late Usuario _usuario;
   List<Status> _statuses = [];
-  List<Planner> _planner = [];
-  List<HorarioTrabalho> _horariosTrabalho = [];
-  List<UserPeriod> _userPeriods = [];
-  DateTime _selectedDate = DateTime.now();
   String? _selectedStatus;
-  bool _isLoading = true;
-
-  TimeOfDay _startTime = const TimeOfDay(hour: 6, minute: 0);
+  List<UserPeriod> _userPeriods = [];
+  List<Planner> _planner = [];
+  List<HorarioTrabalho> _horarioTrabalho = [];
+  DateTime _selectedDate = DateTime.now();
+  TimeOfDay _startTime = const TimeOfDay(hour: 8, minute: 0);
+  TimeOfDay _endTime = const TimeOfDay(hour: 17, minute: 0);
   TimeOfDay _lunchStartTime = const TimeOfDay(hour: 12, minute: 0);
-  TimeOfDay _lunchEndTime = const TimeOfDay(hour: 13, minute: 30);
-  TimeOfDay _endTime = const TimeOfDay(hour: 18, minute: 0);
+  TimeOfDay _lunchEndTime = const TimeOfDay(hour: 13, minute: 0);
+  bool _isLoading = true;
+  final AuthService _authService = AuthService();
 
   @override
   void initState() {
     super.initState();
     _usuario = widget.usuario;
+    _selectedStatus = _usuario.status;
     _loadInitialData();
   }
 
@@ -46,50 +46,20 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       _isLoading = true;
     });
     try {
-      await _loadStatuses();
-      await _loadUserData();
+      final statuses = await _authService.getStatuses();
+      final userPeriods = await _authService.getUserPeriods(_usuario.id);
       await _loadPlanner();
       await _loadHorarioTrabalho();
-      final periods = await _authService.getUserPeriods(_usuario.id);
       setState(() {
-        _userPeriods = periods;
-        _selectedStatus = _usuario.status ?? 'DISPONIVEL';
+        _statuses = statuses;
+        _userPeriods = userPeriods;
+        _isLoading = false;
       });
     } catch (e) {
-      _showError('Erro ao carregar dados iniciais: $e');
-    } finally {
+      _showError('Erro ao carregar dados: $e');
       setState(() {
         _isLoading = false;
       });
-    }
-  }
-
-  Future<void> _loadStatuses() async {
-    try {
-      final statuses = await _authService.getStatuses();
-      setState(() {
-        _statuses = statuses;
-      });
-    } catch (e) {
-      _showError('Erro ao carregar status: $e');
-      setState(() {
-        _statuses = [
-          Status(id: 1, status: 'DISPONIVEL'),
-          Status(id: 2, status: 'AUSENTE'),
-          Status(id: 3, status: 'ALMOCO'),
-        ];
-      });
-    }
-  }
-
-  Future<void> _loadUserData() async {
-    try {
-      final userData = await _authService.getUserData(_usuario.email);
-      setState(() {
-        _usuario = userData ?? _usuario;
-      });
-    } catch (e) {
-      _showError('Erro ao carregar dados do usuário: $e');
     }
   }
 
@@ -106,208 +76,203 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
 
   Future<void> _loadHorarioTrabalho() async {
     try {
-      final horarios = await _authService.getHorarioTrabalho(_usuario.id, _selectedDate.weekday);
+      final horarioTrabalho = await _authService.getHorarioTrabalho(_usuario.id, _selectedDate.weekday);
       setState(() {
-        _horariosTrabalho = horarios;
-        if (horarios.isNotEmpty) {
-          final horario = horarios.first;
-          _startTime = _parseTimeOfDay(horario.horarioInicio ?? _usuario.horarioiniciotrabalho ?? '06:00');
-          _lunchStartTime = _parseTimeOfDay(horario.horarioAlmocoInicio ?? _usuario.horarioalmocoinicio ?? '12:00');
-          _lunchEndTime = _parseTimeOfDay(horario.horarioAlmocoFim ?? _usuario.horarioalmocofim ?? '13:30');
-          _endTime = _parseTimeOfDay(horario.horarioFim ?? _usuario.horariofimtrabalho ?? '18:00');
-        } else {
-          _startTime = _parseTimeOfDay(_usuario.horarioiniciotrabalho ?? '06:00');
-          _lunchStartTime = _parseTimeOfDay(_usuario.horarioalmocoinicio ?? '12:00');
-          _lunchEndTime = _parseTimeOfDay(_usuario.horarioalmocofim ?? '13:30');
-          _endTime = _parseTimeOfDay(_usuario.horariofimtrabalho ?? '18:00');
+        _horarioTrabalho = horarioTrabalho;
+        if (horarioTrabalho.isNotEmpty) {
+          final ht = horarioTrabalho.first;
+          _startTime = _parseTimeOfDay(ht.horarioInicio, const TimeOfDay(hour: 8, minute: 0));
+          _endTime = _parseTimeOfDay(ht.horarioFim, const TimeOfDay(hour: 17, minute: 0));
+          _lunchStartTime = _parseTimeOfDay(ht.horarioAlmocoInicio, const TimeOfDay(hour: 12, minute: 0));
+          _lunchEndTime = _parseTimeOfDay(ht.horarioAlmocoFim, const TimeOfDay(hour: 13, minute: 0));
         }
       });
     } catch (e) {
-      _showError('Erro ao carregar horários de trabalho: $e');
+      _showError('Erro ao carregar horário de trabalho: $e');
     }
   }
 
-  TimeOfDay _parseTimeOfDay(String time) {
-    final parts = time.split(':');
-    return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+  TimeOfDay _parseTimeOfDay(String? timeString, TimeOfDay defaultTime) {
+    if (timeString == null || timeString.isEmpty) return defaultTime;
+    final parts = timeString.split(':');
+    if (parts.length != 2) return defaultTime;
+    final hour = int.tryParse(parts[0]) ?? defaultTime.hour;
+    final minute = int.tryParse(parts[1]) ?? defaultTime.minute;
+    return TimeOfDay(hour: hour, minute: minute);
+  }
+
+  Future<void> _saveOrUpdateStatus() async {
+    try {
+      await _authService.updateUserStatus(_usuario.id, _selectedStatus!);
+      setState(() {
+        _usuario = Usuario(
+          id: _usuario.id,
+          nome: _usuario.nome,
+          email: _usuario.email,
+          setor: _usuario.setor,
+          status: _selectedStatus,
+          senha: _usuario.senha,
+        );
+      });
+    } catch (e) {
+      _showError('Erro ao atualizar status: $e');
+    }
+  }
+
+  Future<void> _saveOrUpdatePlanner(TimeOfDay time, DateTime date, String informacao) async {
+    try {
+      final timeString = '${time.hour.toString().padLeft(2, '0')}:00';
+      final timeInMinutes = time.hour * 60;
+      final timeEndInMinutes = (time.hour + 1) * 60; // Fim da janela do horário (ex.: 9:59 para 9:00)
+      final now = DateTime.now();
+      final currentTimeInMinutes = now.hour * 60 + now.minute;
+
+      // Verifica se o horário está no passado (apenas após o fim da janela do horário)
+      if (DateFormat('yyyy-MM-dd').format(now) == DateFormat('yyyy-MM-dd').format(date) &&
+          currentTimeInMinutes >= timeEndInMinutes) {
+        _showError('Não é possível agendar horários já passados.');
+        return;
+      }
+
+      if (_planner.isEmpty) {
+        // Cria um novo Planner se não existir
+        final newPlanner = Planner(id: 0, usuarioId: _usuario.id, statusId: 0);
+        await _authService.upsertPlanner(newPlanner, '00:00', date, '');
+        await _loadPlanner(); // Recarrega a lista de planners
+      }
+
+      final planner = _planner.first;
+      final entries = planner.getEntries();
+      final selectedDateStr = DateFormat('yyyy-MM-dd').format(date);
+
+      // Verifica se já existe uma entrada para o horário e data
+      final existingEntryIndex = entries.indexWhere((entry) =>
+          entry['horario'] == timeString &&
+          entry['data'] != null &&
+          DateFormat('yyyy-MM-dd').format(entry['data'] as DateTime) == selectedDateStr);
+
+      if (existingEntryIndex != -1) {
+        // Se existe uma entrada, atualiza a informação existente
+        entries[existingEntryIndex]['informacao'] = informacao;
+        await _authService.deletePlannerEntry(planner, existingEntryIndex); // Remove a entrada antiga
+        await _authService.upsertPlanner(planner, timeString, date, informacao); // Adiciona a nova entrada atualizada
+      } else {
+        // Se não existe, cria uma nova entrada
+        await _authService.upsertPlanner(planner, timeString, date, informacao);
+      }
+
+      await _loadPlanner();
+    } catch (e) {
+      _showError('Erro ao salvar reserva: $e');
+    }
+  }
+
+  Future<void> _updateHorarioTrabalhoAutomatically({
+    TimeOfDay? newStartTime,
+    TimeOfDay? newEndTime,
+    TimeOfDay? newLunchStartTime,
+    TimeOfDay? newLunchEndTime,
+  }) async {
+    try {
+      final horarioTrabalho = HorarioTrabalho(
+        id: _horarioTrabalho.isNotEmpty ? _horarioTrabalho.first.id : 0,
+        usuarioId: _usuario.id,
+        diaSemana: _selectedDate.weekday,
+        horarioInicio: newStartTime != null
+            ? '${newStartTime.hour.toString().padLeft(2, '0')}:${newStartTime.minute.toString().padLeft(2, '0')}'
+            : '${_startTime.hour.toString().padLeft(2, '0')}:${_startTime.minute.toString().padLeft(2, '0')}',
+        horarioFim: newEndTime != null
+            ? '${newEndTime.hour.toString().padLeft(2, '0')}:${newEndTime.minute.toString().padLeft(2, '0')}'
+            : '${_endTime.hour.toString().padLeft(2, '0')}:${_endTime.minute.toString().padLeft(2, '0')}',
+        horarioAlmocoInicio: newLunchStartTime != null
+            ? '${newLunchStartTime.hour.toString().padLeft(2, '0')}:${newLunchStartTime.minute.toString().padLeft(2, '0')}'
+            : '${_lunchStartTime.hour.toString().padLeft(2, '0')}:${_lunchStartTime.minute.toString().padLeft(2, '0')}',
+        horarioAlmocoFim: newLunchEndTime != null
+            ? '${newLunchEndTime.hour.toString().padLeft(2, '0')}:${newLunchEndTime.minute.toString().padLeft(2, '0')}'
+            : '${_lunchEndTime.hour.toString().padLeft(2, '0')}:${_lunchEndTime.minute.toString().padLeft(2, '0')}',
+      );
+
+      await _authService.upsertHorarioTrabalho(horarioTrabalho);
+      await _loadHorarioTrabalho();
+    } catch (e) {
+      _showError('Erro ao atualizar horário de trabalho: $e');
+    }
   }
 
   void _showError(String message) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: const Color.fromARGB(255, 244, 167, 104),
-        ),
-      );
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
 
-  DateTime _normalizeDate(DateTime date) {
-    return DateTime(date.year, date.month, date.day);
+  List<String> _getInformacoesForTime(TimeOfDay time) {
+    if (_planner.isEmpty) return [];
+    final planner = _planner.first;
+    final entries = planner.getEntries();
+    final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    final timeString = '${time.hour.toString().padLeft(2, '0')}:00';
+    return entries
+        .where((entry) =>
+            entry['horario'] == timeString &&
+            entry['data'] != null &&
+            DateFormat('yyyy-MM-dd').format(entry['data'] as DateTime) == selectedDateStr)
+        .map((entry) => entry['informacao'] as String? ?? '')
+        .toList();
+  }
+
+  bool _isUserUnavailable(DateTime date) {
+    final dateOnly = DateTime(date.year, date.month, date.day);
+    return _userPeriods.any((period) {
+      final startDate = DateTime(period.startDate.year, period.startDate.month, period.startDate.day);
+      final endDate = DateTime(period.endDate.year, period.endDate.month, period.endDate.day);
+      return (dateOnly.isAfter(startDate) || dateOnly.isAtSameMomentAs(startDate)) &&
+          (dateOnly.isBefore(endDate) || dateOnly.isAtSameMomentAs(endDate));
+    });
+  }
+
+  String? _getPeriodInfoForTime(TimeOfDay time) {
+    final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
+    final dateOnly = DateTime(date.year, date.month, date.day);
+    final period = _userPeriods.firstWhere(
+      (period) {
+        final startDate = DateTime(period.startDate.year, period.startDate.month, period.startDate.day);
+        final endDate = DateTime(period.endDate.year, period.endDate.month, period.endDate.day);
+        return (dateOnly.isAfter(startDate) || dateOnly.isAtSameMomentAs(startDate)) &&
+            (dateOnly.isBefore(endDate) || dateOnly.isAtSameMomentAs(endDate));
+      },
+      orElse: () => UserPeriod(id: 0, usuarioId: 0, startDate: DateTime.now(), endDate: DateTime.now(), info: ''),
+    );
+    return period.id != 0 ? period.info : null;
   }
 
   Color _getColorForGrid(TimeOfDay time) {
     final informacoes = _getInformacoesForTime(time);
     final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
     final isUnavailable = _isUserUnavailable(date);
-    return isUnavailable
-        ? Colors.orangeAccent.withOpacity(0.8)
-        : (informacoes.isNotEmpty ? const Color.fromARGB(255, 239, 116, 112) : const Color.fromARGB(255, 255, 255, 255).withOpacity(0.5));
-  }
-
-  List<String?> _getInformacoesForTime(TimeOfDay time) {
-    if (_planner.isEmpty) {
-      return [];
-    }
-
-    final plannerEntry = _planner.first;
-    final timeString = '${time.hour.toString().padLeft(2, '0')}:00';
-    final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-
-    return plannerEntry
-        .getEntries()
-        .where((entry) =>
-            entry['horario'] == timeString &&
-            entry['data'] != null &&
-            DateFormat('yyyy-MM-dd').format(entry['data'] as DateTime) == selectedDateStr)
-        .map((entry) => entry['informacao'] as String?)
-        .toList();
-  }
-
-  String? _getPeriodInfoForTime(TimeOfDay time) {
-    final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
-    final normalizedDate = _normalizeDate(date);
-    final period = _userPeriods.cast<UserPeriod?>().firstWhere(
-          (p) {
-            if (p == null) return false;
-            final normalizedStartDate = _normalizeDate(p.startDate);
-            final normalizedEndDate = _normalizeDate(p.endDate);
-            return (normalizedDate.isAfter(normalizedStartDate) ||
-                    normalizedDate.isAtSameMomentAs(normalizedStartDate)) &&
-                (normalizedDate.isBefore(normalizedEndDate.add(const Duration(days: 1))) ||
-                    normalizedDate.isAtSameMomentAs(normalizedEndDate));
-          },
-          orElse: () => null,
-        );
-    if (period != null) {
-      return '${period.info} (${DateFormat('dd/MM').format(period.startDate)}-${DateFormat('dd/MM').format(period.endDate)})';
-    }
-    return null;
-  }
-
-  bool _isUserUnavailable(DateTime date) {
-    final normalizedDate = _normalizeDate(date);
-    return _userPeriods.any((period) {
-      final normalizedStartDate = _normalizeDate(period.startDate);
-      final normalizedEndDate = _normalizeDate(period.endDate);
-      return (normalizedDate.isAfter(normalizedStartDate) ||
-              normalizedDate.isAtSameMomentAs(normalizedStartDate)) &&
-          (normalizedDate.isBefore(normalizedEndDate.add(const Duration(days: 1))) ||
-              normalizedDate.isAtSameMomentAs(normalizedEndDate));
-    });
-  }
-
-  bool _isValidStatus(String? status) {
-    if (status == null) return false;
-    return _statuses.map((s) => s.status).contains(status);
-  }
-
-  Future<void> _saveOrUpdateStatus() async {
-    if (_selectedStatus == null || !_isValidStatus(_selectedStatus)) {
-      _showError('Por favor, selecione um status válido.');
-      return;
-    }
-
-    try {
-      await _authService.updateUserStatus(_usuario.id, _selectedStatus!);
-      _showError('Status atualizado com sucesso!');
-      await _loadUserData();
-    } catch (e) {
-      _showError('Erro ao atualizar status: $e');
-    }
-  }
-
-  Future<void> _saveOrUpdatePlanner(TimeOfDay time, DateTime date, String? informacao) async {
-    final timeString = '${time.hour.toString().padLeft(2, '0')}:00';
     final timeInMinutes = time.hour * 60;
-    final lunchStartInMinutes = _lunchStartTime.hour * 60 + _lunchStartTime.minute;
-    final lunchEndInMinutes = _lunchEndTime.hour * 60 + _lunchEndTime.minute;
-    final endInMinutes = _endTime.hour * 60 + _endTime.minute;
-
-    if (timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes) {
-      _showError('Não é possível agendar durante o horário de almoço.');
-      return;
-    }
-
-    if (timeInMinutes >= endInMinutes) {
-      _showError('Não é possível agendar após o fim do expediente.');
-      return;
-    }
-
+    final timeEndInMinutes = (time.hour + 1) * 60;
     final now = DateTime.now();
     final currentTimeInMinutes = now.hour * 60 + now.minute;
-    if (DateFormat('yyyy-MM-dd').format(now) == DateFormat('yyyy-MM-dd').format(date) &&
-        timeInMinutes <= currentTimeInMinutes) {
-      _showError('Não é possível agendar horários já passados.');
-      return;
+    final isPastHour = DateFormat('yyyy-MM-dd').format(now) == DateFormat('yyyy-MM-dd').format(_selectedDate) &&
+        currentTimeInMinutes >= timeEndInMinutes;
+
+    if (isPastHour) {
+      return Colors.grey;
     }
-
-    if (informacao == null || informacao.isEmpty) {
-      _showError('Por favor, insira uma informação para a reserva.');
-      return;
+    if (isUnavailable) {
+      return Colors.orange;
     }
-
-    try {
-      final planner = _planner.isNotEmpty
-          ? _planner.first
-          : Planner(
-              id: -1,
-              usuarioId: _usuario.id,
-              statusId: _statuses.isNotEmpty ? _statuses.firstWhere((s) => s.status == 'DISPONIVEL').id : 1,
-            );
-
-      await _authService.upsertPlanner(planner, timeString, date, informacao);
-      _showError('Reserva adicionada com sucesso!');
-      await _loadPlanner();
-    } catch (e) {
-      _showError('Erro ao adicionar reserva: $e');
+    if (informacoes.isNotEmpty) {
+      return Colors.redAccent;
     }
-  }
-
-  Future<void> _updateHorarioTrabalhoAutomatically({
-    TimeOfDay? newStartTime,
-    TimeOfDay? newLunchStartTime,
-    TimeOfDay? newLunchEndTime,
-    TimeOfDay? newEndTime,
-  }) async {
-    final horario = HorarioTrabalho(
-      id: _horariosTrabalho.isNotEmpty ? _horariosTrabalho.first.id : -1,
-      usuarioId: _usuario.id,
-      diaSemana: _selectedDate.weekday,
-      horarioInicio: newStartTime != null
-          ? '${newStartTime.hour.toString().padLeft(2, '0')}:${newStartTime.minute.toString().padLeft(2, '0')}'
-          : '${_startTime.hour.toString().padLeft(2, '0')}:${_startTime.minute.toString().padLeft(2, '0')}',
-      horarioFim: newEndTime != null
-          ? '${newEndTime.hour.toString().padLeft(2, '0')}:${newEndTime.minute.toString().padLeft(2, '0')}'
-          : '${_endTime.hour.toString().padLeft(2, '0')}:${_endTime.minute.toString().padLeft(2, '0')}',
-      horarioAlmocoInicio: newLunchStartTime != null
-          ? '${newLunchStartTime.hour.toString().padLeft(2, '0')}:${newLunchStartTime.minute.toString().padLeft(2, '0')}'
-          : '${_lunchStartTime.hour.toString().padLeft(2, '0')}:${_lunchStartTime.minute.toString().padLeft(2, '0')}',
-      horarioAlmocoFim: newLunchEndTime != null
-          ? '${newLunchEndTime.hour.toString().padLeft(2, '0')}:${newLunchEndTime.minute.toString().padLeft(2, '0')}'
-          : '${_lunchEndTime.hour.toString().padLeft(2, '0')}:${_lunchEndTime.minute.toString().padLeft(2, '0')}',
-      usuario: null,
-    );
-
-    try {
-      await _authService.upsertHorarioTrabalho(horario);
-      _showError('Horário de trabalho salvo com sucesso!');
-      await _loadHorarioTrabalho();
-      await _loadPlanner();
-    } catch (e) {
-      _showError('Erro ao salvar horário de trabalho: $e');
+    if (timeInMinutes >= (_lunchStartTime.hour * 60 + _lunchStartTime.minute) &&
+        timeInMinutes < (_lunchEndTime.hour * 60 + _lunchEndTime.minute)) {
+      return Colors.yellow;
     }
+    return Colors.green;
   }
 
   Future<void> _selectTime(BuildContext context, String field) async {
@@ -315,11 +280,11 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       context: context,
       initialTime: field == 'start'
           ? _startTime
-          : field == 'lunchStart'
-              ? _lunchStartTime
-              : field == 'lunchEnd'
-                  ? _lunchEndTime
-                  : _endTime,
+          : field == 'end'
+              ? _endTime
+              : field == 'lunchStart'
+                  ? _lunchStartTime
+                  : _lunchEndTime,
     );
     if (picked != null) {
       setState(() {
@@ -402,7 +367,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     });
   }
 
-  Future<void> _requestUserPeriod() async {
+  Future<void> _requestUserI() async {
     DateTime? startDate;
     DateTime? endDate;
     final infoController = TextEditingController();
@@ -542,69 +507,69 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A2E),
-     bottomNavigationBar: Container(
-  color: const Color(0xFF0F3460),
-  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-  child: Row(
-    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-    children: [
-      Expanded(
-        child: ElevatedButton.icon(
-          onPressed: _goToPainel,
-          icon: const Icon(
-            Icons.dashboard,
-            color: Colors.white,
-            size: 24,
-          ),
-          label: const Text(
-            'Painel',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
+      bottomNavigationBar: Container(
+        color: const Color(0xFF0F3460),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _goToPainel,
+                icon: const Icon(
+                  Icons.dashboard,
+                  color: Colors.white,
+                  size: 24,
+                ),
+                label: const Text(
+                  'Painel',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F3460),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
             ),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF0F3460),
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
+            const SizedBox(width: 16),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  );
+                },
+                icon: const Icon(
+                  Icons.exit_to_app,
+                  color: Colors.white,
+                  size: 24,
+                ),
+                label: const Text(
+                  'Sair',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
             ),
-          ),
+          ],
         ),
       ),
-      const SizedBox(width: 16),
-      Expanded(
-        child: ElevatedButton.icon(
-          onPressed: () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const LoginScreen()),
-            );
-          },
-          icon: const Icon(
-            Icons.exit_to_app,
-            color: Colors.white,
-            size: 24,
-          ),
-          label: const Text(
-            'Sair',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red,
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        ),
-      ),
-    ],
-  ),
-),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -735,7 +700,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                       ),
                     ),
                     ElevatedButton.icon(
-                      onPressed: _requestUserPeriod,
+                      onPressed: _requestUserI,
                       icon: const Icon(
                         Icons.add_circle_outline,
                         size: 20,
@@ -1005,8 +970,11 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                             final isUnavailable = _isUserUnavailable(date);
                             final periodInfo = _getPeriodInfoForTime(time);
                             final timeInMinutes = time.hour * 60;
+                            final timeEndInMinutes = (time.hour + 1) * 60; // Fim da janela do horário (ex.: 9:59 para 9:00)
+                            final now = DateTime.now();
+                            final currentTimeInMinutes = now.hour * 60 + now.minute;
                             final isPastHour = DateFormat('yyyy-MM-dd').format(now) == DateFormat('yyyy-MM-dd').format(_selectedDate) &&
-                                timeInMinutes <= currentTimeInMinutes;
+                                currentTimeInMinutes >= timeEndInMinutes; // Bloqueia apenas após o fim da janela do horário
 
                             return GestureDetector(
                               onTap: (isPastHour || isUnavailable)
@@ -1020,9 +988,11 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                       showDialog(
                                         context: context,
                                         builder: (context) {
-                                          final controller = TextEditingController();
+                                          final controller = TextEditingController(
+                                            text: informacoes.isNotEmpty ? informacoes.first : '', // Preenche com a reserva existente, se houver
+                                          );
                                           return AlertDialog(
-                                            title: Text('Adicionar Reserva em ${time.hour.toString().padLeft(2, '0')}:00'),
+                                            title: Text('Adicionar/Editar Reserva em ${time.hour.toString().padLeft(2, '0')}:00'),
                                             content: SingleChildScrollView(
                                               child: Column(
                                                 mainAxisSize: MainAxisSize.min,
@@ -1044,7 +1014,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                                         children: [
                                                           Expanded(
                                                             child: Text(
-                                                              info ?? 'Sem informação',
+                                                              info.isNotEmpty ? info : 'Sem informação',
                                                               style: const TextStyle(fontSize: 12),
                                                             ),
                                                           ),
@@ -1064,7 +1034,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                                                 if (entryIndex != -1) {
                                                                   await _authService.deletePlannerEntry(planner, entryIndex);
                                                                   await _loadPlanner();
-                                                                  Navigator.pop(context);
+                                                                  controller.text = ''; // Limpa o campo após exclusão
+                                                                  Navigator.pop(context); // Fecha o diálogo para reabrir com dados atualizados
                                                                   setState(() {});
                                                                 }
                                                               }
@@ -1084,65 +1055,59 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                               ),
                                               TextButton(
                                                 onPressed: () async {
-                                                  if (controller.text.isNotEmpty) {
-                                                    await _saveOrUpdatePlanner(time, _selectedDate, controller.text);
+                                                  final informacao = controller.text.trim();
+                                                  if (informacao.isEmpty) {
+                                                    _showError('Por favor, insira uma informação para a reserva.');
+                                                    return;
                                                   }
+                                                  await _saveOrUpdatePlanner(time, _selectedDate, informacao);
                                                   Navigator.pop(context);
+                                                  setState(() {});
                                                 },
-                                                child: const Text('Adicionar'),
+                                                child: const Text('Salvar'),
                                               ),
                                             ],
                                           );
                                         },
                                       );
                                     },
-                              child: Card(
-                                elevation: (isPastHour || isUnavailable) ? 0 : 3,
-                                color: _getColorForGrid(time),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: _getColorForGrid(time),
+                                  borderRadius: BorderRadius.circular(8),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.2),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
                                 ),
-                                child: Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        isUnavailable
-                                            ? Icons.lock
-                                            : (informacoes.isNotEmpty ? Icons.check : Icons.add),
-                                        color: isUnavailable
-                                            ? Colors.black
-                                            : (informacoes.isNotEmpty ? Colors.white : Colors.black),
-                                        size: 16,
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
+                                child: Stack(
+                                  children: [
+                                    Center(
+                                      child: Text(
                                         '${time.hour.toString().padLeft(2, '0')}:00',
-                                        style: TextStyle(
-                                          color: isUnavailable ? Colors.black : (informacoes.isNotEmpty ? Colors.white : Colors.white),
-                                          fontSize: 14,
+                                        style: const TextStyle(
+                                          color: Colors.white,
                                           fontWeight: FontWeight.bold,
                                         ),
-                                        textAlign: TextAlign.center,
                                       ),
-                                      if (isUnavailable && periodInfo != null)
-                                        Text(
-                                          periodInfo,
-                                          style: const TextStyle(color: Colors.black, fontSize: 10),
-                                          textAlign: TextAlign.center,
-                                          overflow: TextOverflow.ellipsis,
-                                          maxLines: 1,
-                                        )
-                                      else if (informacoes.isNotEmpty)
-                                        Text(
-                                          informacoes.first ?? '',
-                                          style: const TextStyle(color: Colors.white70, fontSize: 10),
-                                          textAlign: TextAlign.center,
-                                          overflow: TextOverflow.ellipsis,
-                                          maxLines: 1, // Permite que o texto seja cortado se for muito longo
+                                    ),
+                                    if (isUnavailable && periodInfo != null)
+                                      Positioned(
+                                        top: 2,
+                                        right: 2,
+                                        child: Tooltip(
+                                          message: periodInfo,
+                                          child: const Icon(
+                                            Icons.info_outline,
+                                            color: Colors.white,
+                                            size: 16,
+                                          ),
                                         ),
-                                    ],
-                                  ),
+                                      ),
+                                  ],
                                 ),
                               ),
                             );
@@ -1151,7 +1116,6 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
               ],
             ),
           ),
