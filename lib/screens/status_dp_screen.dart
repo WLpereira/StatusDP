@@ -111,7 +111,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
           email: _usuario.email,
           setor: _usuario.setor,
           status: _selectedStatus,
-          senha: _usuario.senha, // Adicionando o parâmetro 'senha' que é obrigatório
+          senha: _usuario.senha,
         );
       });
     } catch (e) {
@@ -123,11 +123,10 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     try {
       final timeString = '${time.hour.toString().padLeft(2, '0')}:00';
       final timeInMinutes = time.hour * 60;
-      final timeEndInMinutes = (time.hour + 1) * 60; // Fim da janela do horário (ex.: 9:59 para 9:00)
+      final timeEndInMinutes = (time.hour + 1) * 60;
       final now = DateTime.now();
       final currentTimeInMinutes = now.hour * 60 + now.minute;
 
-      // Verifica se o horário está no passado (apenas após o fim da janela do horário)
       if (DateFormat('yyyy-MM-dd').format(now) == DateFormat('yyyy-MM-dd').format(date) &&
           currentTimeInMinutes >= timeEndInMinutes) {
         _showError('Não é possível agendar horários já passados.');
@@ -135,10 +134,9 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       }
 
       if (_planner.isEmpty) {
-        // Cria um novo Planner se não existir
-        final newPlanner = Planner(id: 0, usuarioId: _usuario.id, statusId: 0); // Adicionando 'statusId' e removendo 'entries'
-        await _authService.upsertPlanner(newPlanner, '00:00', date, ''); // Cria um planner inicial
-        await _loadPlanner(); // Recarrega a lista de planners
+        final newPlanner = Planner(id: 0, usuarioId: _usuario.id, statusId: 0);
+        await _authService.upsertPlanner(newPlanner, '00:00', date, '');
+        await _loadPlanner();
       }
 
       final planner = _planner.first;
@@ -188,6 +186,26 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
         backgroundColor: Colors.red,
       ),
     );
+  }
+
+  List<Map<String, dynamic>> _getEntriesForDate() {
+    if (_planner.isEmpty) return [];
+    final planner = _planner.first;
+    final entries = planner.getEntries();
+    final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    return entries
+        .asMap()
+        .entries
+        .where((entry) =>
+            entry.value['horario'] != null &&
+            entry.value['data'] != null &&
+            DateFormat('yyyy-MM-dd').format(entry.value['data'] as DateTime) == selectedDateStr)
+        .map((entry) => {
+              'index': entry.key,
+              'horario': entry.value['horario'] as String,
+              'informacao': entry.value['informacao'] as String? ?? '',
+            })
+        .toList();
   }
 
   List<String> _getInformacoesForTime(TimeOfDay time) {
@@ -293,10 +311,6 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
 
     int endHour = _endTime.hour;
     if (_endTime.minute > 0) endHour--;
-
-    int lunchStartHour = _lunchStartTime.hour;
-    int lunchEndHour = _lunchEndTime.hour;
-    if (_lunchEndTime.minute > 0) lunchEndHour++;
 
     List<TimeOfDay> hours = [];
     for (int h = startHour; h <= endHour; h++) {
@@ -769,19 +783,9 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                if (_planner.isNotEmpty) ...[
-                  ..._planner.map((p) {
-                    final entries = p.getEntries();
-                    final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-                    final filteredEntries = entries
-                        .asMap()
-                        .entries
-                        .where((entry) =>
-                            entry.value['horario'] != null &&
-                            entry.value['data'] != null &&
-                            DateFormat('yyyy-MM-dd').format(entry.value['data'] as DateTime) == selectedDateStr)
-                        .map((entry) => {'index': entry.key, 'entry': entry.value})
-                        .toList();
+                Builder(
+                  builder: (context) {
+                    final filteredEntries = _getEntriesForDate();
 
                     if (filteredEntries.isEmpty) {
                       return const Padding(
@@ -794,11 +798,10 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                     }
 
                     return Column(
-                      children: filteredEntries.map((item) {
-                        final index = item['index'] as int;
-                        final entry = item['entry'] as Map<String, dynamic>;
+                      children: filteredEntries.map((entry) {
+                        final index = entry['index'] as int;
                         final horario = entry['horario'] as String;
-                        final informacao = entry['informacao'] as String?;
+                        final informacao = entry['informacao'] as String;
                         return Card(
                           color: Colors.white.withOpacity(0.1),
                           shape: RoundedRectangleBorder(
@@ -807,26 +810,25 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                           child: ListTile(
                             leading: const Icon(Icons.schedule, color: Colors.white70),
                             title: Text(
-                              '$horario${informacao != null ? ": $informacao" : ""}',
+                              '$horario${informacao.isNotEmpty ? ": $informacao" : ""}',
                               style: const TextStyle(color: Colors.white),
                             ),
                             trailing: IconButton(
                               icon: const Icon(Icons.delete, color: Colors.red),
                               onPressed: () async {
-                                await _authService.deletePlannerEntry(p, index);
-                                await _loadPlanner();
+                                if (_planner.isNotEmpty) {
+                                  final planner = _planner.first;
+                                  await _authService.deletePlannerEntry(planner, index);
+                                  await _loadPlanner();
+                                }
                               },
                             ),
                           ),
                         );
                       }).toList(),
                     );
-                  }),
-                ] else
-                  const Text(
-                    'Nenhuma reserva registrada.',
-                    style: TextStyle(color: Colors.white70),
-                  ),
+                  },
+                ),
                 const SizedBox(height: 20),
 
                 // Seção de Horário de Trabalho
@@ -952,11 +954,11 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                             final isUnavailable = _isUserUnavailable(date);
                             final periodInfo = _getPeriodInfoForTime(time);
                             final timeInMinutes = time.hour * 60;
-                            final timeEndInMinutes = (time.hour + 1) * 60; // Fim da janela do horário (ex.: 9:59 para 9:00)
+                            final timeEndInMinutes = (time.hour + 1) * 60;
                             final now = DateTime.now();
                             final currentTimeInMinutes = now.hour * 60 + now.minute;
                             final isPastHour = DateFormat('yyyy-MM-dd').format(now) == DateFormat('yyyy-MM-dd').format(_selectedDate) &&
-                                currentTimeInMinutes >= timeEndInMinutes; // Bloqueia apenas após o fim da janela do horário
+                                currentTimeInMinutes >= timeEndInMinutes;
 
                             return GestureDetector(
                               onTap: (isPastHour || isUnavailable)
@@ -971,7 +973,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                         context: context,
                                         builder: (context) {
                                           final controller = TextEditingController(
-                                            text: informacoes.isNotEmpty ? informacoes.first : '', // Preenche com a reserva existente, se houver
+                                            text: informacoes.isNotEmpty ? informacoes.first : '',
                                           );
                                           return AlertDialog(
                                             title: Text('Adicionar/Editar Reserva em ${time.hour.toString().padLeft(2, '0')}:00'),
@@ -1016,8 +1018,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                                                 if (entryIndex != -1) {
                                                                   await _authService.deletePlannerEntry(planner, entryIndex);
                                                                   await _loadPlanner();
-                                                                  controller.text = ''; // Limpa o campo após exclusão
-                                                                  Navigator.pop(context); // Fecha o diálogo para reabrir com dados atualizados
+                                                                  controller.text = '';
+                                                                  Navigator.pop(context);
                                                                   setState(() {});
                                                                 }
                                                               }
@@ -1102,7 +1104,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
             ),
           ),
         ),
-      ),
-    );
-  } 
+      ), 
+    ); 
+  }
 }
