@@ -8,6 +8,7 @@ import '../models/horario_trabalho.dart';
 import '../models/user_period.dart';
 import 'login_screen.dart';
 import 'painel_screen.dart';
+import 'dart:math'; // Adicionado para usar min()
 
 class StatusDPScreen extends StatefulWidget {
   final Usuario usuario;
@@ -517,39 +518,50 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     final now = DateTime.now();
     final currentTimeInMinutes = now.hour * 60 + now.minute;
 
+    // Obter as dimensões da tela para responsividade
+    final screenWidth = MediaQuery.of(context).size.width;
+    // Fator de escala com limite máximo para evitar elementos muito grandes em desktop
+    final scaleFactor = min(screenWidth / 400, 1.5); // Limitado a 1.5
+    // Tamanhos base ajustados pelo fator de escala (dimensões originais restauradas)
+    final baseWidth = 80 * scaleFactor; // Restaurado de 60 para 80
+    final baseHeight = 60 * scaleFactor; // Restaurado de 50 para 60
+    final largerWidth = 90 * scaleFactor; // Restaurado de 70 para 90
+    final largerHeight = 80 * scaleFactor; // Restaurado de 60 para 80
+
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A2E),
       bottomNavigationBar: Container(
         color: const Color(0xFF0F3460),
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+        padding: EdgeInsets.symmetric(vertical: 4 * scaleFactor, horizontal: 10 * scaleFactor),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: _goToPainel,
-                icon: const Icon(
+                icon: Icon(
                   Icons.dashboard,
                   color: Colors.white,
-                  size: 24,
+                  size: 16 * scaleFactor,
                 ),
-                label: const Text(
+                label: Text(
                   'Painel',
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
+                    fontSize: 12 * scaleFactor,
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF0F3460),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: EdgeInsets.symmetric(vertical: 6 * scaleFactor),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(6 * scaleFactor),
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: 10 * scaleFactor),
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: () {
@@ -558,23 +570,24 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                     MaterialPageRoute(builder: (context) => const LoginScreen()),
                   );
                 },
-                icon: const Icon(
+                icon: Icon(
                   Icons.exit_to_app,
                   color: Colors.white,
-                  size: 24,
+                  size: 16 * scaleFactor,
                 ),
-                label: const Text(
+                label: Text(
                   'Sair',
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
+                    fontSize: 12 * scaleFactor,
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: EdgeInsets.symmetric(vertical: 6 * scaleFactor),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(6 * scaleFactor),
                   ),
                 ),
               ),
@@ -596,13 +609,13 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
         ),
         child: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
+            padding: EdgeInsets.all(10.0 * scaleFactor),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Cabeçalho
                 Container(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: EdgeInsets.all(10.0 * scaleFactor),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [
@@ -612,34 +625,34 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.circular(15),
+                    borderRadius: BorderRadius.circular(10 * scaleFactor),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.person_outline,
-                            size: 50,
+                            size: 36 * scaleFactor,
                             color: Colors.white,
                           ),
-                          const SizedBox(width: 10),
+                          SizedBox(width: 6 * scaleFactor),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 'Bem-vindo, ${_usuario.nome ?? _usuario.email}',
-                                style: const TextStyle(
-                                  fontSize: 20,
+                                style: TextStyle(
+                                  fontSize: 16 * scaleFactor,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                 ),
                               ),
                               Text(
                                 'Setor: ${_usuario.setor ?? "Não especificado"}',
-                                style: const TextStyle(
-                                  fontSize: 16,
+                                style: TextStyle(
+                                  fontSize: 12 * scaleFactor,
                                   color: Colors.white70,
                                 ),
                               ),
@@ -649,26 +662,26 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                       ),
                       Icon(
                         _getStatusIcon(_selectedStatus),
-                        size: 30,
+                        size: 20 * scaleFactor,
                         color: _getStatusColor(_selectedStatus),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: 12 * scaleFactor),
 
                 // Seção de Status
-                const Text(
+                Text(
                   'Atualizar Status',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 14 * scaleFactor,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 4 * scaleFactor),
                 Wrap(
-                  spacing: 10,
+                  spacing: 6 * scaleFactor,
                   children: _statuses.map((status) {
                     return ElevatedButton.icon(
                       onPressed: () async {
@@ -679,67 +692,82 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                       },
                       icon: Icon(
                         _getStatusIcon(status.status),
-                        size: 20,
+                        size: 12 * scaleFactor,
                         color: Colors.white,
                       ),
                       label: Text(
                         status.status,
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10 * scaleFactor,
+                        ),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _selectedStatus == status.status
                             ? _getStatusColor(status.status)
                             : Colors.grey[700],
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(6 * scaleFactor),
+                        ),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 8 * scaleFactor,
+                          vertical: 4 * scaleFactor,
                         ),
                       ),
                     );
                   }).toList(),
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: 12 * scaleFactor),
 
                 // Seção de Períodos de Indisponibilidade
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       'Meus Períodos de Indisponibilidade',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 14 * scaleFactor,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),
                     ),
                     ElevatedButton.icon(
                       onPressed: _requestUserI,
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.add_circle_outline,
-                        size: 20,
+                        size: 12 * scaleFactor,
                         color: Colors.white,
                       ),
-                      label: const Text(
+                      label: Text(
                         'Indisponibilidade',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
+                          fontSize: 10 * scaleFactor,
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blueAccent,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(6 * scaleFactor),
                         ),
                         elevation: 5,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 8 * scaleFactor,
+                          vertical: 4 * scaleFactor,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 4 * scaleFactor),
                 if (_userPeriods.isEmpty)
-                  const Text(
+                  Text(
                     'Nenhum período de indisponibilidade registrado.',
-                    style: TextStyle(color: Colors.white70),
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 10 * scaleFactor,
+                    ),
                   )
                 else
                   ..._userPeriods.map((period) {
@@ -747,25 +775,35 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                       color: Colors.white.withOpacity(0.1),
                       elevation: 5,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(6 * scaleFactor),
                       ),
                       child: ListTile(
                         title: Text(
                           '${DateFormat('dd/MM/yyyy').format(period.startDate)} - ${DateFormat('dd/MM/yyyy').format(period.endDate)}',
-                          style: const TextStyle(color: Colors.orangeAccent),
+                          style: TextStyle(
+                            color: Colors.orangeAccent,
+                            fontSize: 12 * scaleFactor,
+                          ),
                         ),
                         subtitle: Text(
                           period.info ?? '',
-                          style: const TextStyle(color: Colors.white70),
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 10 * scaleFactor,
+                          ),
                         ),
                         trailing: IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
+                          icon: Icon(
+                            Icons.delete,
+                            color: Colors.red,
+                            size: 12 * scaleFactor,
+                          ),
                           onPressed: () => _removePeriod(period.id),
                         ),
                       ),
                     );
                   }),
-                const SizedBox(height: 20),
+                SizedBox(height: 12 * scaleFactor),
 
                 // Seção de Planner (Agenda)
                 Row(
@@ -773,14 +811,18 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                   children: [
                     Text(
                       'Minha Agenda para ${DateFormat('dd/MM/yyyy').format(_selectedDate)}',
-                      style: const TextStyle(
-                        fontSize: 18,
+                      style: TextStyle(
+                        fontSize: 14 * scaleFactor,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.calendar_today, color: Colors.white70),
+                      icon: Icon(
+                        Icons.calendar_today,
+                        color: Colors.white70,
+                        size: 12 * scaleFactor,
+                      ),
                       onPressed: () async {
                         final DateTime? picked = await showDatePicker(
                           context: context,
@@ -798,17 +840,20 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 4 * scaleFactor),
                 Builder(
                   builder: (context) {
                     final filteredEntries = _getEntriesForDate();
 
                     if (filteredEntries.isEmpty) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 8.0),
+                      return Padding(
+                        padding: EdgeInsets.symmetric(vertical: 4.0 * scaleFactor),
                         child: Text(
                           'Nenhuma reserva para este dia.',
-                          style: TextStyle(color: Colors.white70),
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 10 * scaleFactor,
+                          ),
                         ),
                       );
                     }
@@ -821,16 +866,27 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                         return Card(
                           color: Colors.white.withOpacity(0.1),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(6 * scaleFactor),
                           ),
                           child: ListTile(
-                            leading: const Icon(Icons.schedule, color: Colors.white70),
+                            leading: Icon(
+                              Icons.schedule,
+                              color: Colors.white70,
+                              size: 12 * scaleFactor,
+                            ),
                             title: Text(
                               '$horario${informacao.isNotEmpty ? ": $informacao" : ""}',
-                              style: const TextStyle(color: Colors.white),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12 * scaleFactor,
+                              ),
                             ),
                             trailing: IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
+                              icon: Icon(
+                                Icons.delete,
+                                color: Colors.red,
+                                size: 12 * scaleFactor,
+                              ),
                               onPressed: () async {
                                 if (_planner.isNotEmpty) {
                                   final planner = _planner.first;
@@ -845,39 +901,48 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                     );
                   },
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: 12 * scaleFactor),
 
-                // Seção de Horário de Trabalho
+               // Seção de Horário de Trabalho
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: EdgeInsets.all(6 * scaleFactor),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(6 * scaleFactor),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Horário de Trabalho (Dia ${_selectedDate.weekday})',
-                        style: const TextStyle(
-                          fontSize: 18,
+                        style: TextStyle(
+                          fontSize: 14 * scaleFactor,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      SizedBox(height: 4 * scaleFactor),
+                      Wrap(
+                        spacing: 8 * scaleFactor, // Espaço horizontal entre os elementos
+                        runSpacing: 4 * scaleFactor, // Espaço vertical entre as linhas
                         children: [
                           GestureDetector(
                             onTap: () => _selectTime(context, 'start'),
                             child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.access_time, color: Colors.white70, size: 20),
-                                const SizedBox(width: 5),
+                                Icon(
+                                  Icons.access_time,
+                                  color: Colors.white70,
+                                  size: 12 * scaleFactor,
+                                ),
+                                SizedBox(width: 3 * scaleFactor),
                                 Text(
                                   'Início: ${_startTime.format(context)}',
-                                  style: const TextStyle(color: Colors.white),
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10 * scaleFactor,
+                                  ),
                                 ),
                               ],
                             ),
@@ -885,12 +950,20 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                           GestureDetector(
                             onTap: () => _selectTime(context, 'lunchStart'),
                             child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.local_dining, color: Colors.white70, size: 20),
-                                const SizedBox(width: 5),
+                                Icon(
+                                  Icons.local_dining,
+                                  color: Colors.white70,
+                                  size: 12 * scaleFactor,
+                                ),
+                                SizedBox(width: 3 * scaleFactor),
                                 Text(
                                   'Almoço: ${_lunchStartTime.format(context)}',
-                                  style: const TextStyle(color: Colors.white),
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10 * scaleFactor,
+                                  ),
                                 ),
                               ],
                             ),
@@ -898,12 +971,20 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                           GestureDetector(
                             onTap: () => _selectTime(context, 'lunchEnd'),
                             child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.local_dining, color: Colors.white70, size: 20),
-                                const SizedBox(width: 5),
+                                Icon(
+                                  Icons.local_dining,
+                                  color: Colors.white70,
+                                  size: 12 * scaleFactor,
+                                ),
+                                SizedBox(width: 3 * scaleFactor),
                                 Text(
                                   'Fim Almoço: ${_lunchEndTime.format(context)}',
-                                  style: const TextStyle(color: Colors.white),
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10 * scaleFactor,
+                                  ),
                                 ),
                               ],
                             ),
@@ -911,12 +992,20 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                           GestureDetector(
                             onTap: () => _selectTime(context, 'end'),
                             child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.access_time, color: Colors.white70, size: 20),
-                                const SizedBox(width: 5),
+                                Icon(
+                                  Icons.access_time,
+                                  color: Colors.white70,
+                                  size: 12 * scaleFactor,
+                                ),
+                                SizedBox(width: 3 * scaleFactor),
                                 Text(
                                   'Fim: ${_endTime.format(context)}',
-                                  style: const TextStyle(color: Colors.white),
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10 * scaleFactor,
+                                  ),
                                 ),
                               ],
                             ),
@@ -926,45 +1015,42 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: 12 * scaleFactor),
 
-                // Seção de Agendamento (Grid de Horários)
+                // Seção de Agendamento (Horários Disponíveis)
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: EdgeInsets.all(4 * scaleFactor),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(6 * scaleFactor),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Horários Disponíveis',
                         style: TextStyle(
-                          fontSize: 18,
+                          fontSize: 14 * scaleFactor,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 4 * scaleFactor),
                       if (availableHours.isEmpty)
-                        const Text(
+                        Text(
                           'Nenhum horário disponível. Verifique os horários de trabalho.',
-                          style: TextStyle(color: Colors.white70),
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 10 * scaleFactor,
+                          ),
                         )
                       else
-                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 4,
-                            crossAxisSpacing: 4, // Reduzido de 6 para 4
-                            mainAxisSpacing: 4, // Reduzido de 6 para 4
-                            childAspectRatio: 1.0, // Ajustado para 1.0 (quadrado)
-                          ),
-                          itemCount: availableHours.length,
-                          itemBuilder: (context, index) {
-                            final time = availableHours[index];
+                        Wrap(
+                          spacing: 1 * scaleFactor, // Espaço horizontal entre os blocos
+                          runSpacing: 4 * scaleFactor, // Espaço vertical entre as linhas
+                          children: availableHours.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final time = entry.value;
                             final informacoes = _getInformacoesForTime(time);
                             final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
                             final isUnavailable = _isUserUnavailable(date);
@@ -976,15 +1062,19 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                             final isPastHour = DateFormat('yyyy-MM-dd').format(now) == DateFormat('yyyy-MM-dd').format(_selectedDate) &&
                                 currentTimeInMinutes >= timeEndInMinutes;
 
-                            return FractionallySizedBox(
-                              widthFactor: 0.55, // Reduz a largura para 55% do tamanho original
-                              heightFactor: 0.55, // Reduz a altura para 55% do tamanho original
+                            // Determinar o tamanho do bloco com base na presença de informações
+                            final hasInfo = informacoes.isNotEmpty;
+                            final blockWidth = hasInfo ? largerWidth : baseWidth;
+                            final blockHeight = hasInfo ? largerHeight : baseHeight;
+
+                            return Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 1 * scaleFactor),
                               child: GestureDetector(
                                 onTap: (isPastHour || isUnavailable)
                                     ? null
                                     : () {
-                                        if (timeInMinutes >= (_lunchStartTime.hour * 60 + _lunchStartTime.minute) &&
-                                            timeInMinutes < (_lunchEndTime.hour * 60 + _lunchEndTime.minute)) {
+                                        if (timeInMinutes >= (_lunchStartTime.hour * 10 + _lunchStartTime.minute) &&
+                                            timeInMinutes < (_lunchEndTime.hour * 10 + _lunchEndTime.minute)) {
                                           _showError('Não é possível agendar durante o horário de almoço.');
                                           return;
                                         }
@@ -995,7 +1085,10 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                               text: informacoes.isNotEmpty ? informacoes.first : '',
                                             );
                                             return AlertDialog(
-                                              title: Text('Adicionar/Editar Reserva em ${time.hour.toString().padLeft(2, '0')}:00'),
+                                              title: Text(
+                                                'Adicionar/Editar Reserva em ${time.hour.toString().padLeft(2, '0')}:00',
+                                                style: TextStyle(fontSize: 12 * scaleFactor),
+                                              ),
                                               content: SingleChildScrollView(
                                                 child: Column(
                                                   mainAxisSize: MainAxisSize.min,
@@ -1008,8 +1101,11 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                                       ),
                                                     ),
                                                     if (informacoes.isNotEmpty) ...[
-                                                      const SizedBox(height: 10),
-                                                      const Text('Minhas Reservas Existentes:'),
+                                                      SizedBox(height: 6 * scaleFactor),
+                                                      Text(
+                                                        'Minhas Reservas Existentes:',
+                                                        style: TextStyle(fontSize: 10 * scaleFactor),
+                                                      ),
                                                       ...informacoes.asMap().entries.map((entry) {
                                                         final index = entry.key;
                                                         final info = entry.value;
@@ -1018,11 +1114,14 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                                             Expanded(
                                                               child: Text(
                                                                 info.isNotEmpty ? info : 'Sem informação',
-                                                                style: const TextStyle(fontSize: 12),
+                                                                style: TextStyle(fontSize: 8 * scaleFactor),
                                                               ),
                                                             ),
                                                             IconButton(
-                                                              icon: const Icon(Icons.delete, size: 20),
+                                                              icon: Icon(
+                                                                Icons.delete,
+                                                                size: 12 * scaleFactor,
+                                                              ),
                                                               onPressed: () async {
                                                                 if (_planner.isNotEmpty) {
                                                                   final planner = _planner.first;
@@ -1054,7 +1153,10 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                               actions: [
                                                 TextButton(
                                                   onPressed: () => Navigator.pop(context),
-                                                  child: const Text('Cancelar'),
+                                                  child: Text(
+                                                    'Cancelar',
+                                                    style: TextStyle(fontSize: 10 * scaleFactor),
+                                                  ),
                                                 ),
                                                 TextButton(
                                                   onPressed: () async {
@@ -1067,7 +1169,10 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                                     Navigator.pop(context);
                                                     setState(() {});
                                                   },
-                                                  child: const Text('Salvar'),
+                                                  child: Text(
+                                                    'Salvar',
+                                                    style: TextStyle(fontSize: 10 * scaleFactor),
+                                                  ),
                                                 ),
                                               ],
                                             );
@@ -1075,59 +1180,65 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                         );
                                       },
                                 child: Container(
+                                  width: blockWidth,
+                                  height: blockHeight,
                                   decoration: BoxDecoration(
                                     color: _getColorForGrid(time),
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(4 * scaleFactor),
                                     boxShadow: [
                                       BoxShadow(
                                         color: Colors.black.withOpacity(0.2),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
+                                        blurRadius: 2 * scaleFactor,
+                                        offset: Offset(0, 1 * scaleFactor),
                                       ),
                                     ],
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.2),
+                                      width: 0.6 * scaleFactor,
+                                    ),
                                   ),
                                   child: Stack(
                                     children: [
-                                      Center(
+                                      Padding(
+                                        padding: EdgeInsets.all(2.0 * scaleFactor),
                                         child: Column(
                                           mainAxisAlignment: MainAxisAlignment.center,
                                           crossAxisAlignment: CrossAxisAlignment.center,
                                           children: [
                                             Text(
                                               '${time.hour.toString().padLeft(2, '0')}:00',
-                                              style: const TextStyle(
+                                              style: TextStyle(
                                                 color: Colors.white,
                                                 fontWeight: FontWeight.bold,
-                                                fontSize: 25,
+                                                fontSize: 12 * scaleFactor,
                                               ),
                                               textAlign: TextAlign.center,
                                             ),
-                                            if (informacoes.isNotEmpty) ...[
-                                              const SizedBox(height: 10),
+                                            SizedBox(height: 1 * scaleFactor),
+                                            if (informacoes.isNotEmpty)
                                               Text(
                                                 informacoes.first,
-                                                style: const TextStyle(
+                                                style: TextStyle(
                                                   color: Colors.white,
-                                                  fontSize: 18,
+                                                  fontSize: 8 * scaleFactor,
                                                   fontWeight: FontWeight.w500,
                                                 ),
                                                 textAlign: TextAlign.center,
                                                 overflow: TextOverflow.ellipsis,
                                               ),
-                                            ],
                                           ],
                                         ),
                                       ),
                                       if (isUnavailable && periodInfo != null)
                                         Positioned(
-                                          top: 2,
-                                          right: 2,
+                                          top: 1 * scaleFactor,
+                                          right: 1 * scaleFactor,
                                           child: Tooltip(
                                             message: periodInfo,
-                                            child: const Icon(
+                                            child: Icon(
                                               Icons.info_outline,
                                               color: Colors.white,
-                                              size: 14,
+                                              size: 8 * scaleFactor,
                                             ),
                                           ),
                                         ),
@@ -1136,7 +1247,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                 ),
                               ),
                             );
-                          },
+                          }).toList(),
                         ),
                     ],
                   ),
