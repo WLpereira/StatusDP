@@ -140,6 +140,22 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       }
 
       final planner = _planner.first;
+      final entries = planner.getEntries();
+      final selectedDateStr = DateFormat('yyyy-MM-dd').format(date);
+
+      // Verificar se já existe uma reserva para o horário e data
+      final existingEntryIndex = entries.indexWhere((entry) =>
+          entry['horario'] == timeString &&
+          entry['data'] != null &&
+          DateFormat('yyyy-MM-dd').format(entry['data'] as DateTime) == selectedDateStr);
+
+      if (existingEntryIndex != -1) {
+        // Se existe uma reserva, deletar a entrada existente antes de criar uma nova
+        await _authService.deletePlannerEntry(planner, existingEntryIndex);
+        await _loadPlanner();
+      }
+
+      // Criar uma nova entrada com a informação atualizada
       await _authService.upsertPlanner(planner, timeString, date, informacao);
       await _loadPlanner();
     } catch (e) {
@@ -1070,12 +1086,31 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                 child: Stack(
                                   children: [
                                     Center(
-                                      child: Text(
-                                        '${time.hour.toString().padLeft(2, '0')}:00',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            '${time.hour.toString().padLeft(2, '0')}:00',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                          if (informacoes.isNotEmpty) ...[
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              informacoes.first,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ],
                                       ),
                                     ),
                                     if (isUnavailable && periodInfo != null)
@@ -1104,7 +1139,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
             ),
           ),
         ),
-      ), 
-    ); 
+      ),
+    );
   }
 }
