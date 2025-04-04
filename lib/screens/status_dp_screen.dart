@@ -930,7 +930,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
 
                 // Seção de Agendamento (Grid de Horários)
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(10),
@@ -958,9 +958,9 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                           physics: const NeverScrollableScrollPhysics(),
                           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 4,
-                            crossAxisSpacing: 8,
-                            mainAxisSpacing: 8,
-                            childAspectRatio: 1.2,
+                            crossAxisSpacing: 4, // Reduzido de 6 para 4
+                            mainAxisSpacing: 4, // Reduzido de 6 para 4
+                            childAspectRatio: 1.0, // Ajustado para 1.0 (quadrado)
                           ),
                           itemCount: availableHours.length,
                           itemBuilder: (context, index) {
@@ -976,157 +976,163 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                             final isPastHour = DateFormat('yyyy-MM-dd').format(now) == DateFormat('yyyy-MM-dd').format(_selectedDate) &&
                                 currentTimeInMinutes >= timeEndInMinutes;
 
-                            return GestureDetector(
-                              onTap: (isPastHour || isUnavailable)
-                                  ? null
-                                  : () {
-                                      if (timeInMinutes >= (_lunchStartTime.hour * 60 + _lunchStartTime.minute) &&
-                                          timeInMinutes < (_lunchEndTime.hour * 60 + _lunchEndTime.minute)) {
-                                        _showError('Não é possível agendar durante o horário de almoço.');
-                                        return;
-                                      }
-                                      showDialog(
-                                        context: context,
-                                        builder: (context) {
-                                          final controller = TextEditingController(
-                                            text: informacoes.isNotEmpty ? informacoes.first : '',
-                                          );
-                                          return AlertDialog(
-                                            title: Text('Adicionar/Editar Reserva em ${time.hour.toString().padLeft(2, '0')}:00'),
-                                            content: SingleChildScrollView(
-                                              child: Column(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  TextField(
-                                                    controller: controller,
-                                                    maxLength: 10,
-                                                    decoration: const InputDecoration(
-                                                      labelText: 'Informação da Reserva (máx. 10 caracteres)',
+                            return FractionallySizedBox(
+                              widthFactor: 0.55, // Reduz a largura para 55% do tamanho original
+                              heightFactor: 0.55, // Reduz a altura para 55% do tamanho original
+                              child: GestureDetector(
+                                onTap: (isPastHour || isUnavailable)
+                                    ? null
+                                    : () {
+                                        if (timeInMinutes >= (_lunchStartTime.hour * 60 + _lunchStartTime.minute) &&
+                                            timeInMinutes < (_lunchEndTime.hour * 60 + _lunchEndTime.minute)) {
+                                          _showError('Não é possível agendar durante o horário de almoço.');
+                                          return;
+                                        }
+                                        showDialog(
+                                          context: context,
+                                          builder: (context) {
+                                            final controller = TextEditingController(
+                                              text: informacoes.isNotEmpty ? informacoes.first : '',
+                                            );
+                                            return AlertDialog(
+                                              title: Text('Adicionar/Editar Reserva em ${time.hour.toString().padLeft(2, '0')}:00'),
+                                              content: SingleChildScrollView(
+                                                child: Column(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    TextField(
+                                                      controller: controller,
+                                                      maxLength: 10,
+                                                      decoration: const InputDecoration(
+                                                        labelText: 'Informação da Reserva (máx. 10 caracteres)',
+                                                      ),
                                                     ),
-                                                  ),
-                                                  if (informacoes.isNotEmpty) ...[
-                                                    const SizedBox(height: 10),
-                                                    const Text('Minhas Reservas Existentes:'),
-                                                    ...informacoes.asMap().entries.map((entry) {
-                                                      final index = entry.key;
-                                                      final info = entry.value;
-                                                      return Row(
-                                                        children: [
-                                                          Expanded(
-                                                            child: Text(
-                                                              info.isNotEmpty ? info : 'Sem informação',
-                                                              style: const TextStyle(fontSize: 12),
+                                                    if (informacoes.isNotEmpty) ...[
+                                                      const SizedBox(height: 10),
+                                                      const Text('Minhas Reservas Existentes:'),
+                                                      ...informacoes.asMap().entries.map((entry) {
+                                                        final index = entry.key;
+                                                        final info = entry.value;
+                                                        return Row(
+                                                          children: [
+                                                            Expanded(
+                                                              child: Text(
+                                                                info.isNotEmpty ? info : 'Sem informação',
+                                                                style: const TextStyle(fontSize: 12),
+                                                              ),
                                                             ),
-                                                          ),
-                                                          IconButton(
-                                                            icon: const Icon(Icons.delete, size: 20),
-                                                            onPressed: () async {
-                                                              if (_planner.isNotEmpty) {
-                                                                final planner = _planner.first;
-                                                                final entries = planner.getEntries();
-                                                                final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-                                                                final timeString = '${time.hour.toString().padLeft(2, '0')}:00';
-                                                                final entryIndex = entries.indexWhere((e) =>
-                                                                    e['horario'] == timeString &&
-                                                                    e['data'] != null &&
-                                                                    DateFormat('yyyy-MM-dd').format(e['data'] as DateTime) == selectedDateStr &&
-                                                                    e['informacao'] == info);
-                                                                if (entryIndex != -1) {
-                                                                  await _authService.deletePlannerEntry(planner, entryIndex);
-                                                                  await _loadPlanner();
-                                                                  controller.text = '';
-                                                                  Navigator.pop(context);
-                                                                  setState(() {});
+                                                            IconButton(
+                                                              icon: const Icon(Icons.delete, size: 20),
+                                                              onPressed: () async {
+                                                                if (_planner.isNotEmpty) {
+                                                                  final planner = _planner.first;
+                                                                  final entries = planner.getEntries();
+                                                                  final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+                                                                  final timeString = '${time.hour.toString().padLeft(2, '0')}:00';
+                                                                  final entryIndex = entries.indexWhere((e) =>
+                                                                      e['horario'] == timeString &&
+                                                                      e['data'] != null &&
+                                                                      DateFormat('yyyy-MM-dd').format(e['data'] as DateTime) == selectedDateStr &&
+                                                                      e['informacao'] == info);
+                                                                  if (entryIndex != -1) {
+                                                                    await _authService.deletePlannerEntry(planner, entryIndex);
+                                                                    await _loadPlanner();
+                                                                    controller.text = '';
+                                                                    Navigator.pop(context);
+                                                                    setState(() {});
+                                                                  }
                                                                 }
-                                                              }
-                                                            },
-                                                          ),
-                                                        ],
-                                                      );
-                                                    }),
+                                                              },
+                                                            ),
+                                                          ],
+                                                        );
+                                                      }),
+                                                    ],
                                                   ],
-                                                ],
+                                                ),
                                               ),
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () => Navigator.pop(context),
-                                                child: const Text('Cancelar'),
-                                              ),
-                                              TextButton(
-                                                onPressed: () async {
-                                                  final informacao = controller.text.trim();
-                                                  if (informacao.isEmpty) {
-                                                    _showError('Por favor, insira uma informação para a reserva.');
-                                                    return;
-                                                  }
-                                                  await _saveOrUpdatePlanner(time, _selectedDate, informacao);
-                                                  Navigator.pop(context);
-                                                  setState(() {});
-                                                },
-                                                child: const Text('Salvar'),
-                                              ),
-                                            ],
-                                          );
-                                        },
-                                      );
-                                    },
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: _getColorForGrid(time),
-                                  borderRadius: BorderRadius.circular(8),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.2),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Stack(
-                                  children: [
-                                    Center(
-                                      child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            '${time.hour.toString().padLeft(2, '0')}:00',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
-                                            ),
-                                          ),
-                                          if (informacoes.isNotEmpty) ...[
-                                            const SizedBox(height: 4),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () => Navigator.pop(context),
+                                                  child: const Text('Cancelar'),
+                                                ),
+                                                TextButton(
+                                                  onPressed: () async {
+                                                    final informacao = controller.text.trim();
+                                                    if (informacao.isEmpty) {
+                                                      _showError('Por favor, insira uma informação para a reserva.');
+                                                      return;
+                                                    }
+                                                    await _saveOrUpdatePlanner(time, _selectedDate, informacao);
+                                                    Navigator.pop(context);
+                                                    setState(() {});
+                                                  },
+                                                  child: const Text('Salvar'),
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        );
+                                      },
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: _getColorForGrid(time),
+                                    borderRadius: BorderRadius.circular(8),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.2),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Stack(
+                                    children: [
+                                      Center(
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          crossAxisAlignment: CrossAxisAlignment.center,
+                                          children: [
                                             Text(
-                                              informacoes.first,
+                                              '${time.hour.toString().padLeft(2, '0')}:00',
                                               style: const TextStyle(
                                                 color: Colors.white,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w500,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 25,
                                               ),
                                               textAlign: TextAlign.center,
-                                              overflow: TextOverflow.ellipsis,
                                             ),
+                                            if (informacoes.isNotEmpty) ...[
+                                              const SizedBox(height: 10),
+                                              Text(
+                                                informacoes.first,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                                textAlign: TextAlign.center,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ],
                                           ],
-                                        ],
-                                      ),
-                                    ),
-                                    if (isUnavailable && periodInfo != null)
-                                      Positioned(
-                                        top: 2,
-                                        right: 2,
-                                        child: Tooltip(
-                                          message: periodInfo,
-                                          child: const Icon(
-                                            Icons.info_outline,
-                                            color: Colors.white,
-                                            size: 16,
-                                          ),
                                         ),
                                       ),
-                                  ],
+                                      if (isUnavailable && periodInfo != null)
+                                        Positioned(
+                                          top: 2,
+                                          right: 2,
+                                          child: Tooltip(
+                                            message: periodInfo,
+                                            child: const Icon(
+                                              Icons.info_outline,
+                                              color: Colors.white,
+                                              size: 14,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             );
