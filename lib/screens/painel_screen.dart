@@ -9,7 +9,6 @@ import 'package:intl/intl.dart';
 import 'status_dp_screen.dart';
 import 'admin_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:async'; // Importado para usar o Timer
 
 class PainelScreen extends StatefulWidget {
   final Usuario usuarioLogado;
@@ -29,25 +28,20 @@ class _PainelScreenState extends State<PainelScreen> {
   List<UserPeriod> _userPeriods = [];
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = true;
-  Timer? _timer; // Timer para atualização periódica
 
   late ScaffoldMessengerState _scaffoldMessenger;
+  late RealtimeChannel _subscription;
 
   @override
   void initState() {
     super.initState();
     _loadInitialData();
-    // Inicia o Timer para atualizar a cada 3 segundos
-    _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      if (!_isLoading) { // Só atualiza se não estiver carregando
-        _loadInitialData();
-      }
-    });
+    _setupRealtimeSubscriptions();
   }
 
   @override
   void dispose() {
-    _timer?.cancel(); // Cancela o Timer quando o widget é destruído
+    Supabase.instance.client.channel('public:*').unsubscribe();
     super.dispose();
   }
 
@@ -57,10 +51,124 @@ class _PainelScreenState extends State<PainelScreen> {
     _scaffoldMessenger = ScaffoldMessenger.of(context);
   }
 
-  Future<void> _loadInitialData() async {
+  void _setupRealtimeSubscriptions() {
+    _subscription = Supabase.instance.client
+        .channel('public:*')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'planner',
+          callback: (payload) => _handlePlannerChange(payload),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'usuarios',
+          callback: (payload) => _handleUsuarioChange(payload),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'status',
+          callback: (payload) => _handleStatusChange(payload),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'horarios_trabalho',
+          callback: (payload) => _handleHorarioTrabalhoChange(payload),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'user_periods',
+          callback: (payload) => _handleUserPeriodChange(payload),
+        )
+        .subscribe();
+  }
+
+  void _handlePlannerChange(PostgresChangePayload payload) {
+    if (!mounted) return;
     setState(() {
-      _isLoading = true;
+      if (payload.eventType == PostgresChangeEvent.insert) {
+        _planners.add(Planner.fromJson(payload.newRecord!));
+      } else if (payload.eventType == PostgresChangeEvent.update) {
+        final updatedPlanner = Planner.fromJson(payload.newRecord!);
+        final index = _planners.indexWhere((p) => p.id == updatedPlanner.id);
+        if (index != -1) {
+          _planners[index] = updatedPlanner;
+        } else {
+          _planners.add(updatedPlanner);
+        }
+      } else if (payload.eventType == PostgresChangeEvent.delete) {
+        _planners.removeWhere((p) => p.id == payload.oldRecord!['id'] as int);
+      }
     });
+  }
+
+  void _handleUsuarioChange(PostgresChangePayload payload) {
+    if (!mounted) return;
+    setState(() {
+      if (payload.eventType == PostgresChangeEvent.insert) {
+        final newUsuario = Usuario.fromJson(payload.newRecord!);
+        if (newUsuario.email != 'adm@dataplace.com.br') _usuarios.add(newUsuario);
+      } else if (payload.eventType == PostgresChangeEvent.update) {
+        final updatedUsuario = Usuario.fromJson(payload.newRecord!);
+        final index = _usuarios.indexWhere((u) => u.id == updatedUsuario.id);
+        if (index != -1) _usuarios[index] = updatedUsuario;
+      } else if (payload.eventType == PostgresChangeEvent.delete) {
+        _usuarios.removeWhere((u) => u.id == payload.oldRecord!['id'] as int);
+      }
+    });
+  }
+
+  void _handleStatusChange(PostgresChangePayload payload) {
+    if (!mounted) return;
+    setState(() {
+      if (payload.eventType == PostgresChangeEvent.insert) {
+        _statuses.add(Status.fromJson(payload.newRecord!));
+      } else if (payload.eventType == PostgresChangeEvent.update) {
+        final updatedStatus = Status.fromJson(payload.newRecord!);
+        final index = _statuses.indexWhere((s) => s.id == updatedStatus.id);
+        if (index != -1) _statuses[index] = updatedStatus;
+      } else if (payload.eventType == PostgresChangeEvent.delete) {
+        _statuses.removeWhere((s) => s.id == payload.oldRecord!['id'] as int);
+      }
+    });
+  }
+
+  void _handleHorarioTrabalhoChange(PostgresChangePayload payload) {
+    if (!mounted) return;
+    setState(() {
+      if (payload.eventType == PostgresChangeEvent.insert) {
+        _horariosTrabalho.add(HorarioTrabalho.fromJson(payload.newRecord!));
+      } else if (payload.eventType == PostgresChangeEvent.update) {
+        final updatedHorario = HorarioTrabalho.fromJson(payload.newRecord!);
+        final index = _horariosTrabalho.indexWhere((h) => h.id == updatedHorario.id);
+        if (index != -1) _horariosTrabalho[index] = updatedHorario;
+      } else if (payload.eventType == PostgresChangeEvent.delete) {
+        _horariosTrabalho.removeWhere((h) => h.id == payload.oldRecord!['id'] as int);
+      }
+    });
+  }
+
+  void _handleUserPeriodChange(PostgresChangePayload payload) {
+    if (!mounted) return;
+    setState(() {
+      if (payload.eventType == PostgresChangeEvent.insert) {
+        _userPeriods.add(UserPeriod.fromJson(payload.newRecord!));
+      } else if (payload.eventType == PostgresChangeEvent.update) {
+        final updatedPeriod = UserPeriod.fromJson(payload.newRecord!);
+        final index = _userPeriods.indexWhere((p) => p.id == updatedPeriod.id);
+        if (index != -1) _userPeriods[index] = updatedPeriod;
+      } else if (payload.eventType == PostgresChangeEvent.delete) {
+        _userPeriods.removeWhere((p) => p.id == payload.oldRecord!['id'] as int);
+      }
+    });
+  }
+
+  Future<void> _loadInitialData() async {
+    setState(() => _isLoading = true);
     try {
       await _loadStatuses();
       await _loadUsuarios();
@@ -71,22 +179,14 @@ class _PainelScreenState extends State<PainelScreen> {
       print('Erro ao carregar dados iniciais: $e\n$stackTrace');
       _showMessage('Erro ao carregar dados: $e', isError: true);
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _loadStatuses() async {
     try {
       final statuses = await _authService.getStatuses();
-      if (mounted) {
-        setState(() {
-          _statuses = statuses;
-        });
-      }
+      if (mounted) setState(() => _statuses = statuses);
     } catch (e, stackTrace) {
       print('Erro ao carregar statuses: $e\n$stackTrace');
       _showMessage('Erro ao carregar status: $e', isError: true);
@@ -97,9 +197,7 @@ class _PainelScreenState extends State<PainelScreen> {
     try {
       final usuarios = await _authService.getAllUsuarios();
       if (mounted) {
-        setState(() {
-          _usuarios = usuarios.where((u) => u.email != 'adm@dataplace.com.br').toList();
-        });
+        setState(() => _usuarios = usuarios.where((u) => u.email != 'adm@dataplace.com.br').toList());
       }
     } catch (e, stackTrace) {
       print('Erro ao carregar usuários: $e\n$stackTrace');
@@ -110,11 +208,7 @@ class _PainelScreenState extends State<PainelScreen> {
   Future<void> _loadPlanners() async {
     try {
       final planners = await _authService.getAllPlanners();
-      if (mounted) {
-        setState(() {
-          _planners = planners;
-        });
-      }
+      if (mounted) setState(() => _planners = planners);
     } catch (e, stackTrace) {
       print('Erro ao carregar planners: $e\n$stackTrace');
       _showMessage('Erro ao carregar planners: $e', isError: true);
@@ -124,11 +218,7 @@ class _PainelScreenState extends State<PainelScreen> {
   Future<void> _loadHorariosTrabalho() async {
     try {
       final horarios = await _authService.getAllHorariosTrabalho();
-      if (mounted) {
-        setState(() {
-          _horariosTrabalho = horarios;
-        });
-      }
+      if (mounted) setState(() => _horariosTrabalho = horarios);
     } catch (e, stackTrace) {
       print('Erro ao carregar horários de trabalho: $e\n$stackTrace');
       _showMessage('Erro ao carregar horários de trabalho: $e', isError: true);
@@ -138,11 +228,7 @@ class _PainelScreenState extends State<PainelScreen> {
   Future<void> _loadUserPeriods() async {
     try {
       final periods = await _authService.getAllUserPeriods();
-      if (mounted) {
-        setState(() {
-          _userPeriods = periods;
-        });
-      }
+      if (mounted) setState(() => _userPeriods = periods);
     } catch (e, stackTrace) {
       print('Erro ao carregar períodos: $e\n$stackTrace');
       _showMessage('Erro ao carregar períodos: $e', isError: true);
@@ -155,32 +241,22 @@ class _PainelScreenState extends State<PainelScreen> {
       SnackBar(
         content: Text(message),
         backgroundColor: isError ? Colors.red : const Color.fromARGB(255, 49, 248, 96),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
 
-  int _getNextPlannerId() {
-    if (_planners.isEmpty) {
-      return 1;
-    }
-    final maxId = _planners.map((p) => p.id).reduce((a, b) => a > b ? a : b);
-    return maxId + 1;
-  }
+  int _getNextPlannerId() => _planners.isEmpty ? 1 : _planners.map((p) => p.id).reduce((a, b) => a > b ? a : b) + 1;
 
   List<Map<String, dynamic>> _getPlannerEntriesForUserAndDate(int usuarioId) {
     try {
       final planner = _planners.firstWhere(
         (p) => p.usuarioId == usuarioId,
-        orElse: () => Planner(
-          id: _getNextPlannerId(),
-          usuarioId: usuarioId,
-          statusId: 1,
-        ),
+        orElse: () => Planner(id: _getNextPlannerId(), usuarioId: usuarioId, statusId: 1),
       );
-
       final entries = planner.getEntries();
       final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-
       return entries
           .asMap()
           .entries
@@ -201,9 +277,7 @@ class _PainelScreenState extends State<PainelScreen> {
     }
   }
 
-  DateTime _normalizeDate(DateTime date) {
-    return DateTime(date.year, date.month, date.day);
-  }
+  DateTime _normalizeDate(DateTime date) => DateTime(date.year, date.month, date.day);
 
   List<Map<String, dynamic>> _getAvailableHoursForUser(int usuarioId) {
     try {
@@ -234,25 +308,15 @@ class _PainelScreenState extends State<PainelScreen> {
         },
       );
 
-      final String startTimeStr = horario.horarioInicio ?? '06:00';
-      final String endTimeStr = horario.horarioFim ?? '18:00';
-      final String lunchStartTimeStr = horario.horarioAlmocoInicio ?? '12:00';
-      final String lunchEndTimeStr = horario.horarioAlmocoFim ?? '13:30';
+      final startTime = _parseTimeOfDay(horario.horarioInicio ?? '06:00');
+      final endTime = _parseTimeOfDay(horario.horarioFim ?? '18:00');
+      final lunchStartTime = _parseTimeOfDay(horario.horarioAlmocoInicio ?? '12:00');
+      final lunchEndTime = _parseTimeOfDay(horario.horarioAlmocoFim ?? '13:30');
 
-      final startTime = _parseTimeOfDay(startTimeStr);
-      final endTime = _parseTimeOfDay(endTimeStr);
-      final lunchStartTime = _parseTimeOfDay(lunchStartTimeStr);
-      final lunchEndTime = _parseTimeOfDay(lunchEndTimeStr);
-
-      int startHour = startTime.hour;
-      if (startTime.minute > 0) startHour++;
-
-      int endHour = endTime.hour;
-      if (endTime.minute > 0) endHour--;
-
+      int startHour = startTime.hour + (startTime.minute > 0 ? 1 : 0);
+      int endHour = endTime.hour - (endTime.minute > 0 ? 1 : 0);
       int lunchStartHour = lunchStartTime.hour;
-      int lunchEndHour = lunchEndTime.hour;
-      if (lunchEndTime.minute > 0) lunchEndHour++;
+      int lunchEndHour = lunchEndTime.hour + (lunchEndTime.minute > 0 ? 1 : 0);
 
       List<Map<String, dynamic>> hours = [];
       for (int h = startHour; h <= endHour; h++) {
@@ -261,9 +325,7 @@ class _PainelScreenState extends State<PainelScreen> {
         final lunchStartInMinutes = lunchStartTime.hour * 60 + lunchStartTime.minute;
         final lunchEndInMinutes = lunchEndTime.hour * 60 + lunchEndTime.minute;
 
-        if (timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes) {
-          continue;
-        }
+        if (timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes) continue;
 
         final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, h);
         final normalizedDate = _normalizeDate(date);
@@ -271,17 +333,12 @@ class _PainelScreenState extends State<PainelScreen> {
           final normalizedStartDate = _normalizeDate(period.startDate);
           final normalizedEndDate = _normalizeDate(period.endDate);
           return period.usuarioId == usuarioId &&
-              (normalizedDate.isAfter(normalizedStartDate) ||
-                  normalizedDate.isAtSameMomentAs(normalizedStartDate)) &&
+              (normalizedDate.isAfter(normalizedStartDate) || normalizedDate.isAtSameMomentAs(normalizedStartDate)) &&
               (normalizedDate.isBefore(normalizedEndDate.add(const Duration(days: 1))) ||
                   normalizedDate.isAtSameMomentAs(normalizedEndDate));
         });
 
-        hours.add({
-          'time': time,
-          'isUnavailable': isUnavailable,
-          'endHour': endHour,
-        });
+        hours.add({'time': time, 'isUnavailable': isUnavailable, 'endHour': endHour});
       }
       return hours;
     } catch (e, stackTrace) {
@@ -301,52 +358,38 @@ class _PainelScreenState extends State<PainelScreen> {
   }
 
   bool _podeEditar(int usuarioId, Map<String, dynamic> hour, Map<String, dynamic>? entry) {
-    if (widget.usuarioLogado.email == 'adm@dataplace.com.br') {
-      return true;
-    }
-
-    if (widget.usuarioLogado.id != usuarioId) {
-      return false;
-    }
-
+    if (widget.usuarioLogado.email == 'adm@dataplace.com.br') return true;
+    if (widget.usuarioLogado.id != usuarioId) return false;
     if (entry == null) return true;
 
-    final DateTime agora = DateTime.now();
-    final DateTime? data = _selectedDate;
-    final String? horario = entry['horario'] as String?;
+    final agora = DateTime.now();
+    final data = _selectedDate;
+    final horario = entry['horario'] as String?;
 
     if (data == null || horario == null) return false;
 
-    final List<String> horarioPartes = horario.split(':');
-    final DateTime dataHorario = DateTime(
+    final dataHorario = DateTime(
       data.year,
       data.month,
       data.day,
-      int.parse(horarioPartes[0]),
-      int.parse(horarioPartes[1]),
+      int.parse(horario.split(':')[0]),
+      int.parse(horario.split(':')[1]),
     );
 
-    if (dataHorario.isBefore(agora)) {
-      return false;
-    }
+    if (dataHorario.isBefore(agora)) return false;
 
     final time = hour['time'] as TimeOfDay;
     final endHour = hour['endHour'] as int;
-    if (time.hour == endHour) {
-      return false;
-    }
-
-    return true;
+    return time.hour != endHour;
   }
 
   Future<void> _addOrUpdatePlanner(int usuarioId, TimeOfDay time, Map<String, dynamic>? existingEntry) async {
     final timeString = '${time.hour.toString().padLeft(2, '0')}:00';
     final date = _selectedDate;
-
     final now = DateTime.now();
-    final currentTimeInMinutes = now.hour * 60 + now.minute;
+
     if (DateFormat('yyyy-MM-dd').format(now) == DateFormat('yyyy-MM-dd').format(date) &&
-        (time.hour * 60) <= currentTimeInMinutes) {
+        (time.hour * 60) <= (now.hour * 60 + now.minute)) {
       _showMessage('Não é possível agendar horários passados.', isError: true);
       return;
     }
@@ -356,79 +399,93 @@ class _PainelScreenState extends State<PainelScreen> {
       builder: (context) {
         final controller = TextEditingController(text: existingEntry?['informacao'] as String?);
         return AlertDialog(
-          title: Text(existingEntry == null
-              ? 'Adicionar Reserva em ${time.hour.toString().padLeft(2, '0')}:00'
-              : 'Editar Reserva em ${time.hour.toString().padLeft(2, '0')}:00'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          backgroundColor: const Color(0xFF16213E),
+          title: Text(
+            existingEntry == null ? 'Adicionar às ${time.hour}:00' : 'Editar às ${time.hour}:00',
+            style: const TextStyle(color: Colors.white),
+          ),
           content: TextField(
             controller: controller,
             maxLength: 10,
-            decoration: const InputDecoration(
-              labelText: 'Informação da Reserva (máx. 10 caracteres)',
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              labelText: 'Informação (máx. 10 caracteres)',
+              labelStyle: const TextStyle(color: Colors.white70),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              enabledBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: Colors.white30),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: Colors.green),
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancelar'),
+              child: const Text('Cancelar', style: TextStyle(color: Colors.white70)),
             ),
-            TextButton(
+            ElevatedButton(
               onPressed: () async {
                 if (controller.text.isEmpty) {
-                  _showMessage('Por favor, insira uma informação para a reserva.', isError: true);
+                  _showMessage('Insira uma informação para a reserva.', isError: true);
                   return;
                 }
-
                 try {
                   final planner = _planners.firstWhere(
                     (p) => p.usuarioId == usuarioId,
-                    orElse: () {
-                      final defaultStatus = _statuses.firstWhere(
-                        (s) => s.status == 'DISPONIVEL',
-                        orElse: () => Status(id: 1, status: 'DISPONIVEL'),
-                      );
-                      return Planner(
-                        id: _getNextPlannerId(),
-                        usuarioId: usuarioId,
-                        statusId: defaultStatus.id,
-                      );
-                    },
+                    orElse: () => Planner(
+                      id: _getNextPlannerId(),
+                      usuarioId: usuarioId,
+                      statusId: _statuses.firstWhere((s) => s.status == 'DISPONIVEL',
+                          orElse: () => Status(id: 1, status: 'DISPONIVEL')).id,
+                    ),
                   );
 
                   if (existingEntry != null) {
-                    final index = existingEntry['index'] as int;
                     final updatedPlanner = planner.updateEntry(
-                      index,
+                      existingEntry['index'] as int,
                       horario: timeString,
                       data: date,
                       informacao: controller.text,
                     );
-
                     await Supabase.instance.client
                         .from('planner')
                         .update(updatedPlanner.toJson())
                         .eq('id', updatedPlanner.id);
+                    setState(() {
+                      final index = _planners.indexWhere((p) => p.id == updatedPlanner.id);
+                      if (index != -1) {
+                        _planners[index] = updatedPlanner;
+                      } else {
+                        _planners.add(updatedPlanner);
+                      }
+                    });
                     _showMessage('Reserva atualizada com sucesso!');
                   } else {
                     await _authService.upsertPlanner(planner, timeString, date, controller.text);
+                    // Após a inserção, recarregar os planners para refletir a mudança
+                    await _loadPlanners();
                     _showMessage('Reserva adicionada com sucesso!');
                   }
-
-                  await _loadPlanners();
-                  if (mounted) {
-                    Navigator.pop(context);
-                  }
+                  if (mounted) Navigator.pop(context);
                 } catch (e, stackTrace) {
                   print('Erro ao adicionar/atualizar planner: $e\n$stackTrace');
-                  String errorMessage = 'Erro ao adicionar/atualizar reserva. Tente novamente.';
-                  if (e.toString().contains('Já existe uma reserva')) {
-                    errorMessage = e.toString().replaceFirst('Exception: ', '');
-                  } else if (e.toString().contains('PostgresException')) {
-                    errorMessage = 'Erro no banco de dados. Verifique os dados e tente novamente.';
-                  }
-                  _showMessage(errorMessage, isError: true);
+                  _showMessage(
+                      e.toString().contains('Já existe uma reserva')
+                          ? e.toString().replaceFirst('Exception: ', '')
+                          : 'Erro ao adicionar/atualizar reserva.',
+                      isError: true);
                 }
               },
-              child: Text(existingEntry == null ? 'Adicionar' : 'Salvar'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: Text(existingEntry == null ? 'Adicionar' : 'Salvar', style: const TextStyle(color: Colors.white)),
             ),
           ],
         );
@@ -440,16 +497,22 @@ class _PainelScreenState extends State<PainelScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirmar Exclusão'),
-        content: const Text('Deseja realmente remover esta reserva?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        backgroundColor: const Color(0xFF16213E),
+        title: const Text('Confirmar Exclusão', style: TextStyle(color: Colors.white)),
+        content: const Text('Deseja remover esta reserva?', style: TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.white70)),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Remover'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Remover', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -460,22 +523,17 @@ class _PainelScreenState extends State<PainelScreen> {
     try {
       final planner = _planners.firstWhere(
         (p) => p.usuarioId == usuarioId,
-        orElse: () {
-          final defaultStatus = _statuses.firstWhere(
-            (s) => s.status == 'DISPONIVEL',
-            orElse: () => Status(id: 1, status: 'DISPONIVEL'),
-          );
-          return Planner(
-            id: _getNextPlannerId(),
-            usuarioId: usuarioId,
-            statusId: defaultStatus.id,
-          );
-        },
+        orElse: () => Planner(
+          id: _getNextPlannerId(),
+          usuarioId: usuarioId,
+          statusId: _statuses.firstWhere((s) => s.status == 'DISPONIVEL',
+              orElse: () => Status(id: 1, status: 'DISPONIVEL')).id,
+        ),
       );
-
       await _authService.deletePlannerEntry(planner, index);
-      _showMessage('Reserva removida com sucesso!');
+      // Após a remoção, recarregar os planners para refletir a mudança
       await _loadPlanners();
+      _showMessage('Reserva removida com sucesso!');
     } catch (e, stackTrace) {
       print('Erro ao remover planner: $e\n$stackTrace');
       _showMessage('Erro ao remover reserva: $e', isError: true);
@@ -501,20 +559,19 @@ class _PainelScreenState extends State<PainelScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
+        backgroundColor: Color(0xFF1A1A2E),
+        body: Center(child: CircularProgressIndicator(color: Colors.white)),
       );
     }
 
-    final Map<String, List<Usuario>> usersBySector = {
+    final usersBySector = {
       'Suporte': _usuarios.where((u) => u.setor == 'Suporte').toList(),
       'ADM': _usuarios.where((u) => u.setor == 'ADM').toList(),
       'DEV': _usuarios.where((u) => u.setor == 'DEV').toList(),
       'Externo': _usuarios.where((u) => u.setor == 'Externo').toList(),
     };
 
-    final Map<String, Color> sectorColors = {
+    final sectorColors = {
       'Suporte': Colors.green,
       'ADM': Colors.blue,
       'DEV': Colors.purple,
@@ -523,314 +580,287 @@ class _PainelScreenState extends State<PainelScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A2E),
-      extendBody: true,
       body: RefreshIndicator(
         onRefresh: _loadInitialData,
+        color: Colors.white,
         child: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [
-                Color(0xFF1A1A2E),
-                Color(0xFF16213E),
-                Color(0xFF0F3460),
-              ],
+              colors: [Color(0xFF1A1A2E), Color(0xFF16213E), Color(0xFF0F3460)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
           ),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Cabeçalho
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Icon(
-                      Icons.dashboard,
-                      size: 100,
-                      color: Colors.white,
-                    ),
-                    Column(
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: () async {
-                            final DateTime? picked = await showDatePicker(
-                              context: context,
-                              initialDate: _selectedDate,
-                              firstDate: DateTime(2025),
-                              lastDate: DateTime(2026),
-                            );
-                            if (picked != null && picked != _selectedDate) {
-                              setState(() {
-                                _selectedDate = picked;
-                              });
-                              await _loadInitialData();
-                            }
-                          },
-                          icon: const Icon(Icons.calendar_today, color: Colors.white),
-                          label: Text(
-                            DateFormat('dd/MM/yyyy').format(_selectedDate),
-                            style: const TextStyle(color: Colors.white, fontSize: 16),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white.withOpacity(0.2),
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Painel de Status e Agenda',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Lista de usuários por setor
-                ...usersBySector.entries.map((entry) {
-                  final sector = entry.key;
-                  final users = entry.value;
-                  if (users.isEmpty) return const SizedBox.shrink();
-
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          child: SafeArea(
+            child: CustomScrollView(
+              slivers: [
+                SliverAppBar(
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  pinned: true,
+                  title: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        '$sector (${users.length} usuários)',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: sectorColors[sector] ?? Colors.white,
+                      Row(
+                        children: [
+                          const Icon(Icons.dashboard, color: Colors.white, size: 28),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Painel de Status e Agenda',
+                            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: _selectedDate,
+                            firstDate: DateTime(2025),
+                            lastDate: DateTime(2026),
+                            builder: (context, child) => Theme(
+                              data: ThemeData.dark().copyWith(
+                                colorScheme: const ColorScheme.dark(primary: Colors.green),
+                                dialogBackgroundColor: const Color(0xFF16213E),
+                              ),
+                              child: child!,
+                            ),
+                          );
+                          if (picked != null && picked != _selectedDate) {
+                            setState(() => _selectedDate = picked);
+                            await _loadInitialData();
+                          }
+                        },
+                        icon: const Icon(Icons.calendar_today, color: Colors.white, size: 18),
+                        label: Text(
+                          DateFormat('dd/MM/yyyy').format(_selectedDate),
+                          style: const TextStyle(color: Colors.white, fontSize: 14),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white.withOpacity(0.2),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         ),
                       ),
-                      const SizedBox(height: 10),
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: users.length,
-                        itemBuilder: (context, index) {
-                          final usuario = users[index];
-                          final plannerEntries = _getPlannerEntriesForUserAndDate(usuario.id);
-                          final availableHours = _getAvailableHoursForUser(usuario.id);
-                          final status = _statuses.firstWhere(
-                            (s) => s.status == usuario.status,
-                            orElse: () => Status(id: -1, status: 'Desconhecido'),
-                          );
+                    ],
+                  ),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.all(16.0),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      ...usersBySector.entries.map((entry) {
+                        final sector = entry.key;
+                        final users = entry.value;
+                        if (users.isEmpty) return const SizedBox.shrink();
 
-                          final horario = _horariosTrabalho.firstWhere(
-                            (h) => h.usuarioId == usuario.id && h.diaSemana == _selectedDate.weekday,
-                            orElse: () => HorarioTrabalho(
-                              id: -1,
-                              usuarioId: usuario.id,
-                              diaSemana: _selectedDate.weekday,
-                              horarioInicio: usuario.horarioiniciotrabalho ?? '06:00',
-                              horarioFim: usuario.horariofimtrabalho ?? '18:00',
-                              horarioAlmocoInicio: usuario.horarioalmocoinicio ?? '12:00',
-                              horarioAlmocoFim: usuario.horarioalmocofim ?? '13:30',
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '$sector (${users.length} usuários)',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: sectorColors[sector] ?? Colors.white,
+                              ),
                             ),
-                          );
+                            const SizedBox(height: 12),
+                            ...users.map((usuario) {
+                              final plannerEntries = _getPlannerEntriesForUserAndDate(usuario.id);
+                              final availableHours = _getAvailableHoursForUser(usuario.id);
+                              final status = _statuses.firstWhere(
+                                (s) => s.status == usuario.status,
+                                orElse: () => Status(id: -1, status: 'Desconhecido'),
+                              );
+                              final horario = _horariosTrabalho.firstWhere(
+                                (h) => h.usuarioId == usuario.id && h.diaSemana == _selectedDate.weekday,
+                                orElse: () => HorarioTrabalho(
+                                  id: -1,
+                                  usuarioId: usuario.id,
+                                  diaSemana: _selectedDate.weekday,
+                                  horarioInicio: usuario.horarioiniciotrabalho ?? '06:00',
+                                  horarioFim: usuario.horariofimtrabalho ?? '18:00',
+                                  horarioAlmocoInicio: usuario.horarioalmocoinicio ?? '12:00',
+                                  horarioAlmocoFim: usuario.horarioalmocofim ?? '13:30',
+                                ),
+                              );
+                              final lunchStartTime = _parseTimeOfDay(horario.horarioAlmocoInicio ?? '12:00');
+                              final lunchEndTime = _parseTimeOfDay(horario.horarioAlmocoFim ?? '13:30');
 
-                          final lunchStartTime = _parseTimeOfDay(horario.horarioAlmocoInicio ?? '12:00');
-                          final lunchEndTime = _parseTimeOfDay(horario.horarioAlmocoFim ?? '13:30');
-
-                          final screenWidth = MediaQuery.of(context).size.width;
-                          const leadingWidth = 40.0;
-                          const paddingAndMargins = 32.0;
-                          const nameAndStatusWidth = 200.0;
-                          final trailingWidth = screenWidth - leadingWidth - nameAndStatusWidth - paddingAndMargins;
-
-                          return Card(
-                            color: Colors.white.withOpacity(0.1),
-                            margin: const EdgeInsets.symmetric(vertical: 8.0),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15),
-                            ),
-                            child: Column(
-                              children: [
-                                ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundColor: sectorColors[sector] ?? Colors.grey,
-                                    child: Text(
-                                      usuario.nome?.substring(0, 1) ?? usuario.email.substring(0, 1),
-                                      style: const TextStyle(color: Colors.white),
-                                    ),
-                                  ),
-                                  title: Text(
-                                    usuario.nome ?? usuario.email,
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                  ),
-                                  subtitle: Text(
-                                    'Status: ${status.status}',
-                                    style: TextStyle(
-                                      color: _getStatusColor(status.status),
-                                    ),
-                                  ),
-                                  trailing: SizedBox(
-                                    width: trailingWidth,
-                                    child: Scrollbar(
-                                      thumbVisibility: true, // Força a exibição da barra de rolagem
-                                      thickness: 4.0, // Espessura da barra de rolagem
-                                      radius: const Radius.circular(2), // Bordas arredondadas da barra
-                                      child: SingleChildScrollView(
-                                        scrollDirection: Axis.horizontal,
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: availableHours.map((hour) {
-                                            final time = hour['time'] as TimeOfDay;
-                                            final isUnavailable = hour['isUnavailable'] as bool;
-                                            final entry = plannerEntries.firstWhere(
-                                              (entry) =>
-                                                  entry['horario'] == '${time.hour.toString().padLeft(2, '0')}:00',
-                                              orElse: () => {},
-                                            );
-                                            final isReserved = entry.isNotEmpty;
-
-                                            return GestureDetector(
-                                              onTap: () {
-                                                if (isUnavailable) return;
-                                                if (!_podeEditar(usuario.id, hour, isReserved ? entry : null)) {
-                                                  _showMessage(
-                                                    'Você não pode editar esta reserva.',
-                                                    isError: true,
-                                                  );
-                                                  return;
-                                                }
-                                                _addOrUpdatePlanner(
-                                                  usuario.id,
-                                                  time,
-                                                  isReserved ? entry : null,
-                                                );
-                                              },
-                                              onLongPress: isReserved && _podeEditar(usuario.id, hour, entry)
-                                                  ? () {
-                                                      _removePlannerEntry(usuario.id, entry['index']);
-                                                    }
-                                                  : null,
-                                              child: Container(
-                                                width: 60.0, // Reduzido para caber mais horários
-                                                margin: const EdgeInsets.only(left: 4.0),
-                                                padding: const EdgeInsets.symmetric(horizontal: 2.0, vertical: 4.0), // Reduzido para maior compactação
-                                                decoration: BoxDecoration(
-                                                  color: isUnavailable
-                                                      ? Colors.red.withOpacity(0.5)
-                                                      : (isReserved ? const Color.fromARGB(255, 255, 0, 0) : Colors.grey.withOpacity(0.5)),
-                                                  borderRadius: BorderRadius.circular(5),
+                              return Card(
+                                color: Colors.white.withOpacity(0.15),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 2,
+                                margin: const EdgeInsets.symmetric(vertical: 8),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12.0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          CircleAvatar(
+                                            radius: 20,
+                                            backgroundColor: sectorColors[sector] ?? Colors.grey,
+                                            child: Text(
+                                              usuario.nome?.substring(0, 1) ?? usuario.email.substring(0, 1),
+                                              style: const TextStyle(color: Colors.white, fontSize: 16),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  usuario.nome ?? usuario.email,
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
                                                 ),
-                                                clipBehavior: Clip.none,
-                                                child: Column(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    Text(
-                                                      '${time.hour.toString().padLeft(2, '0')}:00',
-                                                      style: const TextStyle(
-                                                        color: Colors.white,
-                                                        fontSize: 9, // Reduzido para caber no espaço
-                                                        overflow: TextOverflow.visible,
-                                                      ),
-                                                      textAlign: TextAlign.center,
+                                                Text(
+                                                  'Status: ${status.status}',
+                                                  style: TextStyle(
+                                                    color: _getStatusColor(status.status),
+                                                    fontSize: 14,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      SizedBox(
+                                        height: 70,
+                                        child: SingleChildScrollView(
+                                          scrollDirection: Axis.horizontal,
+                                          child: Row(
+                                            children: availableHours.map((hour) {
+                                              final time = hour['time'] as TimeOfDay;
+                                              final isUnavailable = hour['isUnavailable'] as bool;
+                                              final entry = plannerEntries.firstWhere(
+                                                (e) =>
+                                                    e['horario'] ==
+                                                    '${time.hour.toString().padLeft(2, '0')}:00',
+                                                orElse: () => {},
+                                              );
+                                              final isReserved = entry.isNotEmpty;
+
+                                              return GestureDetector(
+                                                onTap: () {
+                                                  if (isUnavailable) return;
+                                                  if (!_podeEditar(usuario.id, hour, isReserved ? entry : null)) {
+                                                    _showMessage('Você não pode editar esta reserva.',
+                                                        isError: true);
+                                                    return;
+                                                  }
+                                                  _addOrUpdatePlanner(usuario.id, time, isReserved ? entry : null);
+                                                },
+                                                onLongPress: isReserved && _podeEditar(usuario.id, hour, entry)
+                                                    ? () => _removePlannerEntry(usuario.id, entry['index'])
+                                                    : null,
+                                                child: Container(
+                                                  width: 60,
+                                                  margin: const EdgeInsets.only(right: 8),
+                                                  padding: const EdgeInsets.all(8),
+                                                  decoration: BoxDecoration(
+                                                    color: isUnavailable
+                                                        ? Colors.red.withOpacity(0.6)
+                                                        : (isReserved
+                                                            ? const Color.fromARGB(255, 255, 0, 0)
+                                                            : Colors.grey.withOpacity(0.4)),
+                                                    borderRadius: BorderRadius.circular(8),
+                                                    border: Border.all(
+                                                      color: isReserved ? Colors.white.withOpacity(0.2) : Colors.transparent,
+                                                      width: 1,
                                                     ),
-                                                    if (isReserved)
+                                                  ),
+                                                  child: Column(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    children: [
                                                       Text(
-                                                        entry['informacao'] ?? 'Sem informação',
+                                                        '${time.hour.toString().padLeft(2, '0')}:00',
                                                         style: const TextStyle(
-                                                          color: Colors.white70,
-                                                          fontSize: 7, // Reduzido para caber no espaço
-                                                          overflow: TextOverflow.visible,
+                                                          color: Colors.white,
+                                                          fontSize: 14,
+                                                          fontWeight: FontWeight.bold,
                                                         ),
-                                                        textAlign: TextAlign.center,
                                                       ),
-                                                  ],
+                                                      if (isReserved)
+                                                        Text(
+                                                          entry['informacao'] ?? 'N/A',
+                                                          style: const TextStyle(
+                                                            color: Colors.white70,
+                                                            fontSize: 12,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                          maxLines: 1,
+                                                        ),
+                                                    ],
+                                                  ),
                                                 ),
-                                              ),
-                                            );
-                                          }).toList(),
+                                              );
+                                            }).toList(),
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'Almoço Início: ${lunchStartTime.format(context)}',
-                                        style: const TextStyle(color: Colors.white, fontSize: 12),
-                                      ),
-                                      Text(
-                                        'Almoço Fim: ${lunchEndTime.format(context)}',
-                                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            'Almoço: ${lunchStartTime.format(context)} - ${lunchEndTime.format(context)}',
+                                            style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
                                 ),
-                              ],
-                            ),
-                          );
-                        },
+                              );
+                            }).toList(),
+                            const SizedBox(height: 20),
+                          ],
+                        );
+                      }).toList(),
+                      Center(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            _showMessage('Voltando para a tela anterior...');
+                            if (mounted) {
+                              if (widget.usuarioLogado.email == 'adm@dataplace.com.br') {
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => AdminScreen(usuario: widget.usuarioLogado)),
+                                );
+                              } else {
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => StatusDPScreen(usuario: widget.usuarioLogado)),
+                                );
+                              }
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.redAccent,
+                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 4,
+                          ),
+                          child: const Text(
+                            'Voltar',
+                            style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold),
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 20),
-                    ],
-                  );
-                }).toList(),
-
-                const SizedBox(height: 20),
-
-                // Botão de voltar centralizado
-                Center(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      if (mounted) {
-                        _showMessage('Voltando para a tela anterior...');
-                        if (widget.usuarioLogado.email == 'adm@dataplace.com.br') {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => AdminScreen(usuario: widget.usuarioLogado),
-                            ),
-                          );
-                        } else {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => StatusDPScreen(usuario: widget.usuarioLogado),
-                            ),
-                          );
-                        }
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      elevation: 10,
-                      shadowColor: Colors.redAccent.withOpacity(0.5),
-                    ),
-                    child: const Text(
-                      'Voltar',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
+                    ]),
                   ),
                 ),
-                const SizedBox(height: 20),
               ],
             ),
           ),
