@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'status_dp_screen.dart';
 import 'admin_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:async'; // Importado para usar o Timer
 
 class PainelScreen extends StatefulWidget {
   final Usuario usuarioLogado;
@@ -28,6 +29,7 @@ class _PainelScreenState extends State<PainelScreen> {
   List<UserPeriod> _userPeriods = [];
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = true;
+  Timer? _timer; // Timer para atualização periódica
 
   late ScaffoldMessengerState _scaffoldMessenger;
 
@@ -35,6 +37,18 @@ class _PainelScreenState extends State<PainelScreen> {
   void initState() {
     super.initState();
     _loadInitialData();
+    // Inicia o Timer para atualizar a cada 3 segundos
+    _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (!_isLoading) { // Só atualiza se não estiver carregando
+        _loadInitialData();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel(); // Cancela o Timer quando o widget é destruído
+    super.dispose();
   }
 
   @override
@@ -664,79 +678,84 @@ class _PainelScreenState extends State<PainelScreen> {
                                   ),
                                   trailing: SizedBox(
                                     width: trailingWidth,
-                                    child: SingleChildScrollView(
-                                      scrollDirection: Axis.horizontal,
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: availableHours.map((hour) {
-                                          final time = hour['time'] as TimeOfDay;
-                                          final isUnavailable = hour['isUnavailable'] as bool;
-                                          final entry = plannerEntries.firstWhere(
-                                            (entry) =>
-                                                entry['horario'] == '${time.hour.toString().padLeft(2, '0')}:00',
-                                            orElse: () => {},
-                                          );
-                                          final isReserved = entry.isNotEmpty;
+                                    child: Scrollbar(
+                                      thumbVisibility: true, // Força a exibição da barra de rolagem
+                                      thickness: 4.0, // Espessura da barra de rolagem
+                                      radius: const Radius.circular(2), // Bordas arredondadas da barra
+                                      child: SingleChildScrollView(
+                                        scrollDirection: Axis.horizontal,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: availableHours.map((hour) {
+                                            final time = hour['time'] as TimeOfDay;
+                                            final isUnavailable = hour['isUnavailable'] as bool;
+                                            final entry = plannerEntries.firstWhere(
+                                              (entry) =>
+                                                  entry['horario'] == '${time.hour.toString().padLeft(2, '0')}:00',
+                                              orElse: () => {},
+                                            );
+                                            final isReserved = entry.isNotEmpty;
 
-                                          return GestureDetector(
-                                            onTap: () {
-                                              if (isUnavailable) return;
-                                              if (!_podeEditar(usuario.id, hour, isReserved ? entry : null)) {
-                                                _showMessage(
-                                                  'Você não pode editar esta reserva.',
-                                                  isError: true,
+                                            return GestureDetector(
+                                              onTap: () {
+                                                if (isUnavailable) return;
+                                                if (!_podeEditar(usuario.id, hour, isReserved ? entry : null)) {
+                                                  _showMessage(
+                                                    'Você não pode editar esta reserva.',
+                                                    isError: true,
+                                                  );
+                                                  return;
+                                                }
+                                                _addOrUpdatePlanner(
+                                                  usuario.id,
+                                                  time,
+                                                  isReserved ? entry : null,
                                                 );
-                                                return;
-                                              }
-                                              _addOrUpdatePlanner(
-                                                usuario.id,
-                                                time,
-                                                isReserved ? entry : null,
-                                              );
-                                            },
-                                            onLongPress: isReserved && _podeEditar(usuario.id, hour, entry)
-                                                ? () {
-                                                    _removePlannerEntry(usuario.id, entry['index']);
-                                                  }
-                                                : null,
-                                            child: Container(
-                                              width: 100.0,
-                                              margin: const EdgeInsets.only(left: 4.0),
-                                              padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
-                                              decoration: BoxDecoration(
-                                                color: isUnavailable
-                                                    ? Colors.red.withOpacity(0.5)
-                                                    : (isReserved ? const Color.fromARGB(255, 255, 0, 0) : Colors.grey.withOpacity(0.5)),
-                                                borderRadius: BorderRadius.circular(5),
-                                              ),
-                                              clipBehavior: Clip.none,
-                                              child: Column(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Text(
-                                                    '${time.hour.toString().padLeft(2, '0')}:00',
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 10,
-                                                      overflow: TextOverflow.visible,
-                                                    ),
-                                                    textAlign: TextAlign.center,
-                                                  ),
-                                                  if (isReserved)
+                                              },
+                                              onLongPress: isReserved && _podeEditar(usuario.id, hour, entry)
+                                                  ? () {
+                                                      _removePlannerEntry(usuario.id, entry['index']);
+                                                    }
+                                                  : null,
+                                              child: Container(
+                                                width: 60.0, // Reduzido para caber mais horários
+                                                margin: const EdgeInsets.only(left: 4.0),
+                                                padding: const EdgeInsets.symmetric(horizontal: 2.0, vertical: 4.0), // Reduzido para maior compactação
+                                                decoration: BoxDecoration(
+                                                  color: isUnavailable
+                                                      ? Colors.red.withOpacity(0.5)
+                                                      : (isReserved ? const Color.fromARGB(255, 255, 0, 0) : Colors.grey.withOpacity(0.5)),
+                                                  borderRadius: BorderRadius.circular(5),
+                                                ),
+                                                clipBehavior: Clip.none,
+                                                child: Column(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
                                                     Text(
-                                                      entry['informacao'] ?? 'Sem informação',
+                                                      '${time.hour.toString().padLeft(2, '0')}:00',
                                                       style: const TextStyle(
-                                                        color: Colors.white70,
-                                                        fontSize: 8,
+                                                        color: Colors.white,
+                                                        fontSize: 9, // Reduzido para caber no espaço
                                                         overflow: TextOverflow.visible,
                                                       ),
                                                       textAlign: TextAlign.center,
                                                     ),
-                                                ],
+                                                    if (isReserved)
+                                                      Text(
+                                                        entry['informacao'] ?? 'Sem informação',
+                                                        style: const TextStyle(
+                                                          color: Colors.white70,
+                                                          fontSize: 7, // Reduzido para caber no espaço
+                                                          overflow: TextOverflow.visible,
+                                                        ),
+                                                        textAlign: TextAlign.center,
+                                                      ),
+                                                  ],
+                                                ),
                                               ),
-                                            ),
-                                          );
-                                        }).toList(),
+                                            );
+                                          }).toList(),
+                                        ),
                                       ),
                                     ),
                                   ),
