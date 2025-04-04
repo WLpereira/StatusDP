@@ -79,7 +79,7 @@ class _PainelScreenState extends State<PainelScreen> {
     }
   }
 
-Future<void> _loadUsuarios() async {
+  Future<void> _loadUsuarios() async {
     try {
       final usuarios = await _authService.getAllUsuarios();
       if (mounted) {
@@ -91,7 +91,7 @@ Future<void> _loadUsuarios() async {
       print('Erro ao carregar usuários: $e\n$stackTrace');
       _showMessage('Erro ao carregar usuários: $e', isError: true);
     }
-}
+  }
 
   Future<void> _loadPlanners() async {
     try {
@@ -700,7 +700,7 @@ Future<void> _loadUsuarios() async {
                                                   }
                                                 : null,
                                             child: Container(
-                                              width: 80.0,
+                                              width: 100.0,
                                               margin: const EdgeInsets.only(left: 4.0),
                                               padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
                                               decoration: BoxDecoration(
@@ -709,21 +709,28 @@ Future<void> _loadUsuarios() async {
                                                     : (isReserved ? const Color.fromARGB(255, 255, 0, 0) : Colors.grey.withOpacity(0.5)),
                                                 borderRadius: BorderRadius.circular(5),
                                               ),
+                                              clipBehavior: Clip.none,
                                               child: Column(
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
                                                   Text(
                                                     '${time.hour.toString().padLeft(2, '0')}:00',
-                                                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 10,
+                                                      overflow: TextOverflow.visible,
+                                                    ),
                                                     textAlign: TextAlign.center,
                                                   ),
                                                   if (isReserved)
                                                     Text(
                                                       entry['informacao'] ?? 'Sem informação',
-                                                      style: const TextStyle(color: Colors.white70, fontSize: 10),
+                                                      style: const TextStyle(
+                                                        color: Colors.white70,
+                                                        fontSize: 8,
+                                                        overflow: TextOverflow.visible,
+                                                      ),
                                                       textAlign: TextAlign.center,
-                                                      overflow: TextOverflow.ellipsis,
-                                                      maxLines: 1,
                                                     ),
                                                 ],
                                               ),
