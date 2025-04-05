@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'status_dp_screen.dart';
 import 'admin_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:async';
 
 class PainelScreen extends StatefulWidget {
   final Usuario usuarioLogado;
@@ -31,17 +32,20 @@ class _PainelScreenState extends State<PainelScreen> {
 
   late ScaffoldMessengerState _scaffoldMessenger;
   late RealtimeChannel _subscription;
+  Timer? _plannerRefreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadInitialData();
     _setupRealtimeSubscriptions();
+    _startPlannerRefreshTimer();
   }
 
   @override
   void dispose() {
     Supabase.instance.client.channel('public:*').unsubscribe();
+    _plannerRefreshTimer?.cancel();
     super.dispose();
   }
 
@@ -49,6 +53,16 @@ class _PainelScreenState extends State<PainelScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _scaffoldMessenger = ScaffoldMessenger.of(context);
+  }
+
+  void _startPlannerRefreshTimer() {
+    _plannerRefreshTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      await _loadPlanners();
+    });
   }
 
   void _setupRealtimeSubscriptions() {
@@ -89,19 +103,26 @@ class _PainelScreenState extends State<PainelScreen> {
 
   void _handlePlannerChange(PostgresChangePayload payload) {
     if (!mounted) return;
+    print('Evento recebido na tabela planner: ${payload.eventType}');
     setState(() {
       if (payload.eventType == PostgresChangeEvent.insert) {
-        _planners.add(Planner.fromJson(payload.newRecord!));
+        final newPlanner = Planner.fromJson(payload.newRecord!);
+        print('Novo planner inserido: ${newPlanner.id}');
+        _planners.add(newPlanner);
       } else if (payload.eventType == PostgresChangeEvent.update) {
         final updatedPlanner = Planner.fromJson(payload.newRecord!);
         final index = _planners.indexWhere((p) => p.id == updatedPlanner.id);
         if (index != -1) {
+          print('Planner atualizado: ${updatedPlanner.id}');
           _planners[index] = updatedPlanner;
         } else {
+          print('Planner não encontrado, adicionando: ${updatedPlanner.id}');
           _planners.add(updatedPlanner);
         }
       } else if (payload.eventType == PostgresChangeEvent.delete) {
-        _planners.removeWhere((p) => p.id == payload.oldRecord!['id'] as int);
+        final deletedId = payload.oldRecord!['id'] as int;
+        print('Planner deletado: $deletedId');
+        _planners.removeWhere((p) => p.id == deletedId);
       }
     });
   }
@@ -435,7 +456,7 @@ class _PainelScreenState extends State<PainelScreen> {
                   return;
                 }
                 try {
-                  final planner = _planners.firstWhere(
+                  Planner planner = _planners.firstWhere(
                     (p) => p.usuarioId == usuarioId,
                     orElse: () => Planner(
                       id: _getNextPlannerId(),
@@ -446,6 +467,7 @@ class _PainelScreenState extends State<PainelScreen> {
                   );
 
                   if (existingEntry != null) {
+                    // Atualizar uma entrada existente
                     final updatedPlanner = planner.updateEntry(
                       existingEntry['index'] as int,
                       horario: timeString,
@@ -456,6 +478,7 @@ class _PainelScreenState extends State<PainelScreen> {
                         .from('planner')
                         .update(updatedPlanner.toJson())
                         .eq('id', updatedPlanner.id);
+                    // Atualizar localmente a lista _planners
                     setState(() {
                       final index = _planners.indexWhere((p) => p.id == updatedPlanner.id);
                       if (index != -1) {
@@ -466,8 +489,9 @@ class _PainelScreenState extends State<PainelScreen> {
                     });
                     _showMessage('Reserva atualizada com sucesso!');
                   } else {
+                    // Adicionar uma nova entrada
                     await _authService.upsertPlanner(planner, timeString, date, controller.text);
-                    // Após a inserção, recarregar os planners para refletir a mudança
+                    // Recarregar os planners para refletir a mudança
                     await _loadPlanners();
                     _showMessage('Reserva adicionada com sucesso!');
                   }
@@ -531,7 +555,7 @@ class _PainelScreenState extends State<PainelScreen> {
         ),
       );
       await _authService.deletePlannerEntry(planner, index);
-      // Após a remoção, recarregar os planners para refletir a mudança
+      // Recarregar os planners para refletir a mudança
       await _loadPlanners();
       _showMessage('Reserva removida com sucesso!');
     } catch (e, stackTrace) {
