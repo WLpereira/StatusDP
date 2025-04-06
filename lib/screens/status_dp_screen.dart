@@ -355,23 +355,27 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
         return Colors.orange;
       case 'ALMOCO':
         return Colors.yellow;
+      case 'OCUPADO': // Adicionado o status OCUPADO com cor vermelha
+        return Colors.red;
       default:
         return Colors.white;
     }
   }
 
-  IconData _getStatusIcon(String? status) {
-    switch (status) {
-      case 'DISPONIVEL':
-        return Icons.check_circle;
-      case 'AUSENTE':
-        return Icons.lock;
-      case 'ALMOCO':
-        return Icons.local_dining;
-      default:
-        return Icons.help;
-    }
+IconData _getStatusIcon(String? status) {
+  switch (status) {
+    case 'DISPONIVEL':
+      return Icons.check_circle;
+    case 'AUSENTE':
+      return Icons.lock;
+    case 'ALMOCO':
+      return Icons.local_dining;
+    case 'OCUPADO': // Usando ícone de "X" para OCUPADO
+      return Icons.close;
+    default:
+      return Icons.help;
   }
+}
 
   void _goToPainel() {
     Navigator.push(
@@ -913,7 +917,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                 ),
                 SizedBox(height: 12 * scaleFactor),
 
-               // Seção de Horário de Trabalho
+                // Seção de Horário de Trabalho
                 Container(
                   padding: EdgeInsets.all(6 * scaleFactor),
                   decoration: BoxDecoration(
@@ -1073,187 +1077,139 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                 currentTimeInMinutes >= timeEndInMinutes;
 
                             // Determinar o tamanho do bloco com base na presença de informações
-                            final hasInfo = informacoes.isNotEmpty;
+                            final hasInfo = informacoes.isNotEmpty || periodInfo != null;
                             final blockWidth = hasInfo ? largerWidth : baseWidth;
                             final blockHeight = hasInfo ? largerHeight : baseHeight;
 
-                            return Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 1 * scaleFactor),
-                              child: GestureDetector(
-                                onTap: (isPastHour || isUnavailable)
-                                    ? null
-                                    : () {
-                                        if (timeInMinutes >= (_lunchStartTime.hour * 10 + _lunchStartTime.minute) &&
-                                            timeInMinutes < (_lunchEndTime.hour * 10 + _lunchEndTime.minute)) {
-                                          _showError('Não é possível agendar durante o horário de almoço.');
-                                          return;
-                                        }
-                                        showDialog(
-                                          context: context,
-                                          builder: (context) {
-                                            final controller = TextEditingController(
-                                              text: informacoes.isNotEmpty ? informacoes.first : '',
-                                            );
-                                            return AlertDialog(
-                                              title: Text(
-                                                'Adicionar/Editar Reserva em ${time.hour.toString().padLeft(2, '0')}:00',
-                                                style: TextStyle(fontSize: 12 * scaleFactor),
-                                              ),
-                                              content: SingleChildScrollView(
-                                                child: Column(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    TextField(
-                                                      controller: controller,
-                                                      maxLength: 10,
-                                                      decoration: const InputDecoration(
-                                                        labelText: 'Informação da Reserva (máx. 10 caracteres)',
-                                                      ),
-                                                    ),
-                                                    if (informacoes.isNotEmpty) ...[
-                                                      SizedBox(height: 6 * scaleFactor),
-                                                      Text(
-                                                        'Minhas Reservas Existentes:',
-                                                        style: TextStyle(fontSize: 10 * scaleFactor),
-                                                      ),
-                                                      ...informacoes.asMap().entries.map((entry) {
-                                                        final index = entry.key;
-                                                        final info = entry.value;
-                                                        return Row(
-                                                          children: [
-                                                            Expanded(
-                                                              child: Text(
-                                                                info.isNotEmpty ? info : 'Sem informação',
-                                                                style: TextStyle(fontSize: 8 * scaleFactor),
-                                                              ),
-                                                            ),
-                                                            IconButton(
-                                                              icon: Icon(
-                                                                Icons.delete,
-                                                                size: 12 * scaleFactor,
-                                                              ),
-                                                              onPressed: () async {
-                                                                if (_planner.isNotEmpty) {
-                                                                  final planner = _planner.first;
-                                                                  final entries = planner.getEntries();
-                                                                  final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-                                                                  final timeString = '${time.hour.toString().padLeft(2, '0')}:00';
-                                                                  final entryIndex = entries.indexWhere((e) =>
-                                                                      e['horario'] == timeString &&
-                                                                      e['data'] != null &&
-                                                                      DateFormat('yyyy-MM-dd').format(e['data'] as DateTime) == selectedDateStr &&
-                                                                      e['informacao'] == info);
-                                                                  if (entryIndex != -1) {
-                                                                    await _authService.deletePlannerEntry(planner, entryIndex);
-                                                                    await _loadPlanner();
-                                                                    controller.text = '';
-                                                                    Navigator.pop(context);
-                                                                    setState(() {});
-                                                                  }
-                                                                }
-                                                              },
-                                                            ),
-                                                          ],
-                                                        );
-                                                      }),
-                                                    ],
-                                                  ],
-                                                ),
-                                              ),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () => Navigator.pop(context),
-                                                  child: Text(
-                                                    'Cancelar',
-                                                    style: TextStyle(fontSize: 10 * scaleFactor),
-                                                  ),
-                                                ),
-                                                TextButton(
-                                                  onPressed: () async {
-                                                    final informacao = controller.text.trim();
-                                                    if (informacao.isEmpty) {
-                                                      _showError('Por favor, insira uma informação para a reserva.');
-                                                      return;
-                                                    }
-                                                    await _saveOrUpdatePlanner(time, _selectedDate, informacao);
-                                                    Navigator.pop(context);
-                                                    setState(() {});
-                                                  },
-                                                  child: Text(
-                                                    'Salvar',
-                                                    style: TextStyle(fontSize: 10 * scaleFactor),
-                                                  ),
-                                                ),
-                                              ],
-                                            );
-                                          },
-                                        );
-                                      },
-                                child: Container(
-                                  width: blockWidth,
-                                  height: blockHeight,
-                                  decoration: BoxDecoration(
-                                    color: _getColorForGrid(time),
-                                    borderRadius: BorderRadius.circular(4 * scaleFactor),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.2),
-                                        blurRadius: 2 * scaleFactor,
-                                        offset: Offset(0, 1 * scaleFactor),
-                                      ),
-                                    ],
-                                    border: Border.all(
-                                      color: Colors.white.withOpacity(0.2),
-                                      width: 0.6 * scaleFactor,
-                                    ),
-                                  ),
-                                  child: Stack(
-                                    children: [
-                                      Padding(
-                                        padding: EdgeInsets.all(2.0 * scaleFactor),
-                                        child: Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          crossAxisAlignment: CrossAxisAlignment.center,
-                                          children: [
-                                            Text(
-                                              '${time.hour.toString().padLeft(2, '0')}:00',
+                            return GestureDetector(
+                              onTap: isPastHour || isUnavailable
+                                  ? null
+                                  : () {
+                                      final controller = TextEditingController(
+                                        text: informacoes.isNotEmpty ? informacoes.first : '',
+                                      );
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) {
+                                          return AlertDialog(
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(10 * scaleFactor),
+                                            ),
+                                            backgroundColor: const Color(0xFF16213E),
+                                            title: Text(
+                                              informacoes.isEmpty
+                                                  ? 'Adicionar às ${time.hour}:00'
+                                                  : 'Editar às ${time.hour}:00',
                                               style: TextStyle(
                                                 color: Colors.white,
-                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14 * scaleFactor,
+                                              ),
+                                            ),
+                                            content: TextField(
+                                              controller: controller,
+                                              maxLength: 10,
+                                              style: TextStyle(
+                                                color: Colors.white,
                                                 fontSize: 12 * scaleFactor,
                                               ),
-                                              textAlign: TextAlign.center,
-                                            ),
-                                            SizedBox(height: 1 * scaleFactor),
-                                            if (informacoes.isNotEmpty)
-                                              Text(
-                                                informacoes.first,
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 8 * scaleFactor,
-                                                  fontWeight: FontWeight.w500,
+                                              decoration: InputDecoration(
+                                                labelText: 'Informação (máx. 10 caracteres)',
+                                                labelStyle: TextStyle(
+                                                  color: Colors.white70,
+                                                  fontSize: 10 * scaleFactor,
                                                 ),
-                                                textAlign: TextAlign.center,
-                                                overflow: TextOverflow.ellipsis,
+                                                border: OutlineInputBorder(
+                                                  borderRadius: BorderRadius.circular(8 * scaleFactor),
+                                                ),
+                                                enabledBorder: OutlineInputBorder(
+                                                  borderSide: const BorderSide(color: Colors.white30),
+                                                  borderRadius: BorderRadius.circular(8 * scaleFactor),
+                                                ),
+                                                focusedBorder: OutlineInputBorder(
+                                                  borderSide: const BorderSide(color: Colors.green),
+                                                  borderRadius: BorderRadius.circular(8 * scaleFactor),
+                                                ),
                                               ),
-                                          ],
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(context),
+                                                child: Text(
+                                                  'Cancelar',
+                                                  style: TextStyle(
+                                                    color: Colors.white70,
+                                                    fontSize: 12 * scaleFactor,
+                                                  ),
+                                                ),
+                                              ),
+                                              ElevatedButton(
+                                                onPressed: () async {
+                                                  if (controller.text.isEmpty) {
+                                                    _showError('Insira uma informação para a reserva.');
+                                                    return;
+                                                  }
+                                                  await _saveOrUpdatePlanner(time, _selectedDate, controller.text);
+                                                  Navigator.pop(context);
+                                                },
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: Colors.green,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadius.circular(8 * scaleFactor),
+                                                  ),
+                                                ),
+                                                child: Text(
+                                                  informacoes.isEmpty ? 'Adicionar' : 'Salvar',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 12 * scaleFactor,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      );
+                                    },
+                              child: Container(
+                                width: blockWidth,
+                                height: blockHeight,
+                                decoration: BoxDecoration(
+                                  color: _getColorForGrid(time),
+                                  borderRadius: BorderRadius.circular(6 * scaleFactor),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.2),
+                                    width: 1 * scaleFactor,
+                                  ),
+                                ),
+                                child: Stack(
+                                  children: [
+                                    Center(
+                                      child: Text(
+                                        '${time.hour.toString().padLeft(2, '0')}:00',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12 * scaleFactor,
+                                          fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                      if (isUnavailable && periodInfo != null)
-                                        Positioned(
-                                          top: 1 * scaleFactor,
-                                          right: 1 * scaleFactor,
-                                          child: Tooltip(
-                                            message: periodInfo,
-                                            child: Icon(
-                                              Icons.info_outline,
-                                              color: Colors.white,
-                                              size: 8 * scaleFactor,
-                                            ),
+                                    ),
+                                    if (hasInfo)
+                                      Positioned(
+                                        bottom: 2 * scaleFactor,
+                                        left: 2 * scaleFactor,
+                                        right: 2 * scaleFactor,
+                                        child: Text(
+                                          periodInfo ?? informacoes.join(', '),
+                                          style: TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 10 * scaleFactor,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
+                                          maxLines: 2,
+                                          textAlign: TextAlign.center,
                                         ),
-                                    ],
-                                  ),
+                                      ),
+                                  ],
                                 ),
                               ),
                             );
@@ -1262,6 +1218,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                     ],
                   ),
                 ),
+                SizedBox(height: 20 * scaleFactor),
               ],
             ),
           ),

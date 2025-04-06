@@ -576,6 +576,8 @@ class _PainelScreenState extends State<PainelScreen> {
         return Colors.yellow;
       case 'GESTAO':
         return Colors.blueAccent;
+      case 'OCUPADO': // Adicionado o status OCUPADO com cor vermelha
+        return Colors.red;
       default:
         return Colors.white;
     }
@@ -604,15 +606,17 @@ class _PainelScreenState extends State<PainelScreen> {
       'ADM': _usuarios.where((u) => u.setor == 'ADM').toList(),
       'DEV': _usuarios.where((u) => u.setor == 'DEV').toList(),
       'Externo': _usuarios.where((u) => u.setor == 'Externo').toList(),
+      'QA': _usuarios.where((u) => u.setor == 'QA').toList(),
     };
 
     final sectorColors = {
-      'Suporte': Colors.green,
-      'Suporte/Consultor': Colors.yellow,
+      'Suporte': const Color.fromARGB(255, 229, 120, 4),
+      'Suporte/Consultor': const Color.fromARGB(255, 239, 2, 2),
       'Cloud': Colors.blue,
-      'ADM': Colors.orange,
-      'DEV': Colors.purple,
-      'Externo': Colors.orange,
+      'ADM': const Color.fromARGB(255, 170, 92, 238),
+      'DEV': const Color.fromARGB(255, 0, 99, 27),
+      'Externo': const Color.fromARGB(255, 144, 255, 253),
+      'QA': const Color.fromARGB(255, 217, 227, 11),
     };
 
     return Scaffold(

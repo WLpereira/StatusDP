@@ -287,16 +287,18 @@ class _AdminScreenState extends State<AdminScreen> {
       'ADM': _usuarios.where((u) => u.setor == 'ADM').toList(),
       'DEV': _usuarios.where((u) => u.setor == 'DEV').toList(),
       'Externo': _usuarios.where((u) => u.setor == 'Externo').toList(),
+      'QA': _usuarios.where((u) => u.setor == 'QA').toList(), // Adicionado o setor QA
       'Sem Setor': _usuarios.where((u) => u.setor == null || u.setor!.isEmpty).toList(),
     };
 
     final sectorColors = {
-      'Suporte': Colors.green,
-      'Suporte/Consultor': Colors.yellow,
+      'Suporte': const Color.fromARGB(255, 232, 94, 1),
+      'Suporte/Consultor': const Color.fromARGB(255, 238, 1, 1),
       'Cloud': Colors.blue,
-      'ADM': Colors.orange,
-      'DEV': Colors.purple,
-      'Externo': Colors.orange,
+      'ADM': const Color.fromARGB(255, 189, 20, 251),
+      'DEV': const Color.fromARGB(255, 1, 106, 40),
+      'Externo': const Color.fromARGB(255, 113, 211, 238),
+      'QA': const Color.fromARGB(255, 207, 217, 4), // Adicionada a cor vermelha para o setor QA
       'Sem Setor': Colors.grey,
     };
 
