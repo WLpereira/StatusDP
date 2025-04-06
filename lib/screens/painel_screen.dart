@@ -576,7 +576,7 @@ class _PainelScreenState extends State<PainelScreen> {
         return Colors.yellow;
       case 'GESTAO':
         return Colors.blueAccent;
-      case 'OCUPADO': // Adicionado o status OCUPADO com cor vermelha
+      case 'OCUPADO':
         return Colors.red;
       default:
         return Colors.white;
@@ -599,14 +599,22 @@ class _PainelScreenState extends State<PainelScreen> {
       );
     }
 
+    // Agrupar usuários por setor e ordenar alfabeticamente dentro de cada setor
     final usersBySector = {
-      'Suporte': _usuarios.where((u) => u.setor == 'Suporte').toList(),
-      'Suporte/Consultor': _usuarios.where((u) => u.setor == 'Suporte/Consultor').toList(),
-      'Cloud': _usuarios.where((u) => u.setor == 'Cloud').toList(),
-      'ADM': _usuarios.where((u) => u.setor == 'ADM').toList(),
-      'DEV': _usuarios.where((u) => u.setor == 'DEV').toList(),
-      'Externo': _usuarios.where((u) => u.setor == 'Externo').toList(),
-      'QA': _usuarios.where((u) => u.setor == 'QA').toList(),
+      'Suporte': _usuarios.where((u) => u.setor == 'Suporte').toList()
+        ..sort((a, b) => (a.nome ?? a.email).compareTo(b.nome ?? b.email)),
+      'Suporte/Consultor': _usuarios.where((u) => u.setor == 'Suporte/Consultor').toList()
+        ..sort((a, b) => (a.nome ?? a.email).compareTo(b.nome ?? b.email)),
+      'Cloud': _usuarios.where((u) => u.setor == 'Cloud').toList()
+        ..sort((a, b) => (a.nome ?? a.email).compareTo(b.nome ?? b.email)),
+      'ADM': _usuarios.where((u) => u.setor == 'ADM').toList()
+        ..sort((a, b) => (a.nome ?? a.email).compareTo(b.nome ?? b.email)),
+      'DEV': _usuarios.where((u) => u.setor == 'DEV').toList()
+        ..sort((a, b) => (a.nome ?? a.email).compareTo(b.nome ?? b.email)),
+      'Externo': _usuarios.where((u) => u.setor == 'Externo').toList()
+        ..sort((a, b) => (a.nome ?? a.email).compareTo(b.nome ?? b.email)),
+      'QA': _usuarios.where((u) => u.setor == 'QA').toList()
+        ..sort((a, b) => (a.nome ?? a.email).compareTo(b.nome ?? b.email)),
     };
 
     final sectorColors = {

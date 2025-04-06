@@ -4,11 +4,11 @@ import '../models/status.dart';
 import '../models/user_period.dart';
 import '../services/auth_service.dart';
 import 'package:intl/intl.dart';
-import 'login_screen.dart'; // Importe a tela de login
-import 'painel_screen.dart'; // Importe a tela do painel
+import 'login_screen.dart';
+import 'painel_screen.dart';
 
 class AdminScreen extends StatefulWidget {
-  final Usuario usuario; // Adicionei 'final' para seguir boas práticas
+  final Usuario usuario;
 
   const AdminScreen({super.key, required this.usuario});
 
@@ -257,8 +257,6 @@ class _AdminScreenState extends State<AdminScreen> {
             ),
             TextButton(
               onPressed: () async {
-                // Aqui você pode implementar a lógica para salvar a solicitação no backend
-                // Por exemplo, criar uma nova tabela 'scheduling_requests' no Supabase
                 _showError('Solicitação enviada com sucesso!');
                 Navigator.pop(context);
               },
@@ -280,15 +278,24 @@ class _AdminScreenState extends State<AdminScreen> {
       );
     }
 
+    // Agrupar usuários por setor e ordenar alfabeticamente dentro de cada setor
     final usersBySector = {
-      'Suporte': _usuarios.where((u) => u.setor == 'Suporte').toList(),
-      'Suporte/Consultor': _usuarios.where((u) => u.setor == 'Suporte/Consultor').toList(),
-      'Cloud': _usuarios.where((u) => u.setor == 'Cloud').toList(),
-      'ADM': _usuarios.where((u) => u.setor == 'ADM').toList(),
-      'DEV': _usuarios.where((u) => u.setor == 'DEV').toList(),
-      'Externo': _usuarios.where((u) => u.setor == 'Externo').toList(),
-      'QA': _usuarios.where((u) => u.setor == 'QA').toList(), // Adicionado o setor QA
-      'Sem Setor': _usuarios.where((u) => u.setor == null || u.setor!.isEmpty).toList(),
+      'Suporte': _usuarios.where((u) => u.setor == 'Suporte').toList()
+        ..sort((a, b) => (a.nome ?? a.email).compareTo(b.nome ?? b.email)),
+      'Suporte/Consultor': _usuarios.where((u) => u.setor == 'Suporte/Consultor').toList()
+        ..sort((a, b) => (a.nome ?? a.email).compareTo(b.nome ?? b.email)),
+      'Cloud': _usuarios.where((u) => u.setor == 'Cloud').toList()
+        ..sort((a, b) => (a.nome ?? a.email).compareTo(b.nome ?? b.email)),
+      'ADM': _usuarios.where((u) => u.setor == 'ADM').toList()
+        ..sort((a, b) => (a.nome ?? a.email).compareTo(b.nome ?? b.email)),
+      'DEV': _usuarios.where((u) => u.setor == 'DEV').toList()
+        ..sort((a, b) => (a.nome ?? a.email).compareTo(b.nome ?? b.email)),
+      'Externo': _usuarios.where((u) => u.setor == 'Externo').toList()
+        ..sort((a, b) => (a.nome ?? a.email).compareTo(b.nome ?? b.email)),
+      'QA': _usuarios.where((u) => u.setor == 'QA').toList()
+        ..sort((a, b) => (a.nome ?? a.email).compareTo(b.nome ?? b.email)),
+      'Sem Setor': _usuarios.where((u) => u.setor == null || u.setor!.isEmpty).toList()
+        ..sort((a, b) => (a.nome ?? a.email).compareTo(b.nome ?? b.email)),
     };
 
     final sectorColors = {
@@ -298,7 +305,7 @@ class _AdminScreenState extends State<AdminScreen> {
       'ADM': const Color.fromARGB(255, 189, 20, 251),
       'DEV': const Color.fromARGB(255, 1, 106, 40),
       'Externo': const Color.fromARGB(255, 113, 211, 238),
-      'QA': const Color.fromARGB(255, 207, 217, 4), // Adicionada a cor vermelha para o setor QA
+      'QA': const Color.fromARGB(255, 207, 217, 4),
       'Sem Setor': Colors.grey,
     };
 
