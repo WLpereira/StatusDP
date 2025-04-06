@@ -590,6 +590,8 @@ class _PainelScreenState extends State<PainelScreen> {
 
     final usersBySector = {
       'Suporte': _usuarios.where((u) => u.setor == 'Suporte').toList(),
+      'Suporte/Consultor': _usuarios.where((u) => u.setor == 'Suporte/Consultor').toList(),
+      'Cloud': _usuarios.where((u) => u.setor == 'Cloud').toList(),
       'ADM': _usuarios.where((u) => u.setor == 'ADM').toList(),
       'DEV': _usuarios.where((u) => u.setor == 'DEV').toList(),
       'Externo': _usuarios.where((u) => u.setor == 'Externo').toList(),
@@ -597,7 +599,9 @@ class _PainelScreenState extends State<PainelScreen> {
 
     final sectorColors = {
       'Suporte': Colors.green,
-      'ADM': Colors.blue,
+      'Suporte/Consultor': Colors.yellow,
+      'Cloud': Colors.blue,
+      'ADM': Colors.orange,
       'DEV': Colors.purple,
       'Externo': Colors.orange,
     };

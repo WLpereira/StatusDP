@@ -94,7 +94,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 20),
                 const Text(
-                  'Bem-vindo ao DataPlace',
+                  'Bem-vindo ao Planner - DataPlace',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
