@@ -88502,7 +88502,7 @@ r=A.b([B.HU,B.eh,B.Wt,B.iy,A.cu(A.b([B.Wo,A.hj(m,m,B.oI,m,m,new A.alz(n),m,m,m)]
 q=t.l7
 B.b.R(r,J.dl(n.e,new A.alA(n),q))
 r.push(B.iy)
-r.push(A.cu(A.b([B.Wr,A.hj(m,m,B.oI,m,m,new A.alB(n),m,m,m)],s),B.w,B.bJ,B.t,m))
+r.push(A.cu(A.b([B.Ws,A.hj(m,m,B.oI,m,m,new A.alB(n),m,m,m)],s),B.w,B.bJ,B.t,m))
 r.push(B.iz)
 B.b.R(r,J.dl(n.f,new A.alC(n),q))
 r.push(B.eh)
@@ -88758,7 +88758,7 @@ p=A.az(p,B.h.A()>>>16&255,B.h.A()>>>8&255,B.h.A()&255)
 p=A.ft(!0,B.aw,!1,q,!0,B.x,q,A.h2(),r.f,q,q,q,q,q,2,A.Ab(q,new A.ea(4,A.cw(30),B.l),q,q,q,q,q,q,!0,q,q,q,q,q,q,p,!0,q,q,q,q,q,q,q,q,q,q,q,q,B.fK,"Senha",q,q,q,q,q,q,q,q,q,!0,q,q,q,q,q,q,q,q,q,q,q,q,q),B.H,!0,q,!0,q,!1,q,B.ay,q,q,q,q,q,q,q,1,q,q,!0,"\u2022",q,q,q,new A.aqR(r),q,!1,q,q,!1,q,!0,q,B.aT,q,q,B.as,B.ao,q,q,q,q,q,q,B.cl,!0,B.T,q,B.aW,q,B.iC,q,q)
 if(r.r)s=B.nb
 else{s=A.cw(30)
-s=A.zm(!1,B.WB,q,q,q,q,q,q,r.gaf1(),q,A.ki(q,q,B.dV,q,q,q,10,q,q,q,q,q,B.k0,A.az(B.d.au(127.5),B.dV.A()>>>16&255,B.dV.A()>>>8&255,B.dV.A()&255),new A.bX(s,B.l),q,q,q,q))}return A.agh(q,A.el(q,A.h6(A.oc(A.cp(A.b([B.HT,B.eh,B.Ws,B.iy,o,B.lA,p,B.iy,s],t.p),B.w,B.da,B.t),B.k_,q,B.af),q,q),B.u,q,q,B.fZ,q,q,q,q,q,q,q),q,!1)}}
+s=A.zm(!1,B.WB,q,q,q,q,q,q,r.gaf1(),q,A.ki(q,q,B.dV,q,q,q,10,q,q,q,q,q,B.k0,A.az(B.d.au(127.5),B.dV.A()>>>16&255,B.dV.A()>>>8&255,B.dV.A()&255),new A.bX(s,B.l),q,q,q,q))}return A.agh(q,A.el(q,A.h6(A.oc(A.cp(A.b([B.HT,B.eh,B.Wq,B.iy,o,B.lA,p,B.iy,s],t.p),B.w,B.da,B.t),B.k_,q,B.af),q,q),B.u,q,q,B.fZ,q,q,q,q,q,q,q),q,!1)}}
 A.aqL.prototype={
 $0(){this.a.r=!0},
 $S:0}
@@ -89118,7 +89118,7 @@ l=t.N
 k=A.T(["Suporte",r,g,q,"Cloud",p,"ADM",o,"DEV",n,"Externo",A.a_(new A.av(s,new A.asP(),m),!0,m.i("o.E"))],l,t.mG)
 j=A.T(["Suporte",B.bK,g,B.i5,"Cloud",B.dW,"ADM",B.fh,"DEV",B.Mz,"Externo",B.fh],l,t.qU)
 l=t.p
-m=A.cu(A.b([A.cu(A.b([B.HW,B.R7,B.Wq],l),B.w,B.r,B.t,h),A.Li(B.HQ,A.aT(A.cS("dd/MM/yyyy").cN(i.y),h,h,h,B.VQ,h,h,h),new A.asQ(i,a),A.ki(h,h,A.az(51,B.h.A()>>>16&255,B.h.A()>>>8&255,B.h.A()&255),h,h,h,h,h,h,h,h,h,B.o7,h,new A.bX(A.cw(12),B.l),h,h,h,h))],l),B.w,B.bJ,B.t,h)
+m=A.cu(A.b([A.cu(A.b([B.HW,B.R7,B.Wr],l),B.w,B.r,B.t,h),A.Li(B.HQ,A.aT(A.cS("dd/MM/yyyy").cN(i.y),h,h,h,B.VQ,h,h,h),new A.asQ(i,a),A.ki(h,h,A.az(51,B.h.A()>>>16&255,B.h.A()>>>8&255,B.h.A()&255),h,h,h,h,h,h,h,h,h,B.o7,h,new A.bX(A.cw(12),B.l),h,h,h,h))],l),B.w,B.bJ,B.t,h)
 s=A.m(k).i("dU<1,2>")
 s=A.lR(new A.dU(k,s),new A.asR(i,j,a),s.i("o.E"),t.F5)
 s=A.a_(A.a_(s,!0,A.m(s).i("o.E")),!0,t.l7)
@@ -99722,12 +99722,12 @@ B.Wn=new A.dy("Voltar",null,B.AZ,null,null,null,null,null,null,null)
 B.fL=new A.p(!0,B.h,null,null,null,null,18,B.au,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.Wo=new A.dy("Gerenciar Usu\xe1rios",null,B.fL,null,null,null,null,null,null,null)
 B.Wp=new A.dy("Per\xedodos de Indisponibilidade:",null,B.AY,null,null,null,null,null,null,null)
-B.Vb=new A.p(!0,B.h,null,null,null,null,20,B.au,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.Wq=new A.dy("Painel de Status e Agenda",null,B.Vb,null,null,null,null,null,null,null)
-B.B_=new A.dy("Salvar",null,null,null,null,null,null,null,null,null)
-B.Wr=new A.dy("Gerenciar Status",null,B.fL,null,null,null,null,null,null,null)
 B.AV=new A.p(!0,B.h,null,null,null,null,24,B.au,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.Ws=new A.dy("Bem-vindo ao Planner - DataPlace",null,B.AV,null,null,null,null,null,null,null)
+B.Wq=new A.dy("Bem-vindo ao PlannerDP",null,B.AV,null,null,null,null,null,null,null)
+B.Vb=new A.p(!0,B.h,null,null,null,null,20,B.au,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
+B.Wr=new A.dy("Painel de Status e Agenda",null,B.Vb,null,null,null,null,null,null,null)
+B.B_=new A.dy("Salvar",null,null,null,null,null,null,null,null,null)
+B.Ws=new A.dy("Gerenciar Status",null,B.fL,null,null,null,null,null,null,null)
 B.Wt=new A.dy("Bem-vindo, Administrador",null,B.AV,null,null,null,null,null,null,null)
 B.Wu=new A.dy("Solicitar",null,null,null,null,null,null,null,null,null)
 B.Wv=new A.dy("Sair",null,B.fL,null,null,null,null,null,null,null)

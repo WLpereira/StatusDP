@@ -90,11 +90,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 const Icon(
                   Icons.lock_outline,
                   size: 100,
-                  color: Colors.white,
+                  color: Colors.white,  
                 ),
                 const SizedBox(height: 20),
                 const Text(
-                  'Bem-vindo ao Planner - DataPlace',
+                  'Bem-vindo ao PlannerDP',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
