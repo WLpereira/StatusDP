@@ -10,6 +10,8 @@ import 'status_dp_screen.dart';
 import 'admin_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
+import 'package:crypto/crypto.dart';
+import 'dart:convert';
 
 class PainelScreen extends StatefulWidget {
   final Usuario usuarioLogado;
@@ -579,6 +581,13 @@ class _PainelScreenState extends State<PainelScreen> {
     }
   }
 
+  String _getGravatarUrl(String email) {
+    final emailTrimmed = email.trim().toLowerCase();
+    final emailBytes = utf8.encode(emailTrimmed);
+    final emailHash = md5.convert(emailBytes).toString();
+    return 'https://www.gravatar.com/avatar/$emailHash?s=200&d=identicon';
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -715,6 +724,7 @@ class _PainelScreenState extends State<PainelScreen> {
                               );
                               final lunchStartTime = _parseTimeOfDay(horario.horarioAlmocoInicio ?? '12:00');
                               final lunchEndTime = _parseTimeOfDay(horario.horarioAlmocoFim ?? '13:30');
+                              final photoUrl = usuario.photoUrl ?? _getGravatarUrl(usuario.email);
 
                               return Card(
                                 color: Colors.white.withOpacity(0.15),
@@ -730,11 +740,8 @@ class _PainelScreenState extends State<PainelScreen> {
                                         children: [
                                           CircleAvatar(
                                             radius: 20,
+                                            backgroundImage: NetworkImage(photoUrl),
                                             backgroundColor: sectorColors[sector] ?? Colors.grey,
-                                            child: Text(
-                                              usuario.nome?.substring(0, 1) ?? usuario.email.substring(0, 1),
-                                              style: const TextStyle(color: Colors.white, fontSize: 16),
-                                            ),
                                           ),
                                           const SizedBox(width: 12),
                                           Expanded(

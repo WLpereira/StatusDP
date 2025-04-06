@@ -9,6 +9,8 @@ import '../models/user_period.dart';
 import 'login_screen.dart';
 import 'painel_screen.dart';
 import 'dart:math'; // Adicionado para usar min()
+import 'package:crypto/crypto.dart';
+import 'dart:convert';
 
 class StatusDPScreen extends StatefulWidget {
   final Usuario usuario;
@@ -504,6 +506,13 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     }
   }
 
+  String _getGravatarUrl(String email) {
+    final emailTrimmed = email.trim().toLowerCase();
+    final emailBytes = utf8.encode(emailTrimmed);
+    final emailHash = md5.convert(emailBytes).toString();
+    return 'https://www.gravatar.com/avatar/$emailHash?s=200&d=identicon';
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -517,6 +526,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     final availableHours = _getAvailableHours();
     final now = DateTime.now();
     final currentTimeInMinutes = now.hour * 60 + now.minute;
+    final photoUrl = _usuario.photoUrl ?? _getGravatarUrl(_usuario.email);
 
     // Obter as dimensões da tela para responsividade
     final screenWidth = MediaQuery.of(context).size.width;
@@ -632,10 +642,10 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(
-                            Icons.person_outline,
-                            size: 36 * scaleFactor,
-                            color: Colors.white,
+                          CircleAvatar(
+                            radius: 18 * scaleFactor,
+                            backgroundImage: NetworkImage(photoUrl),
+                            backgroundColor: Colors.grey,
                           ),
                           SizedBox(width: 6 * scaleFactor),
                           Column(
