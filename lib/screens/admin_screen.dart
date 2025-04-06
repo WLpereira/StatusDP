@@ -280,6 +280,26 @@ class _AdminScreenState extends State<AdminScreen> {
       );
     }
 
+    final usersBySector = {
+      'Suporte': _usuarios.where((u) => u.setor == 'Suporte').toList(),
+      'Suporte/Consultor': _usuarios.where((u) => u.setor == 'Suporte/Consultor').toList(),
+      'Cloud': _usuarios.where((u) => u.setor == 'Cloud').toList(),
+      'ADM': _usuarios.where((u) => u.setor == 'ADM').toList(),
+      'DEV': _usuarios.where((u) => u.setor == 'DEV').toList(),
+      'Externo': _usuarios.where((u) => u.setor == 'Externo').toList(),
+      'Sem Setor': _usuarios.where((u) => u.setor == null || u.setor!.isEmpty).toList(),
+    };
+
+    final sectorColors = {
+      'Suporte': Colors.green,
+      'Suporte/Consultor': Colors.yellow,
+      'Cloud': Colors.blue,
+      'ADM': Colors.orange,
+      'DEV': Colors.purple,
+      'Externo': Colors.orange,
+      'Sem Setor': Colors.grey,
+    };
+
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A2E),
       extendBody: true,
@@ -335,50 +355,71 @@ class _AdminScreenState extends State<AdminScreen> {
                 ],
               ),
               const SizedBox(height: 8),
-              ..._usuarios.map((usuario) {
-                final periods = _userPeriods.where((p) => p.usuarioId == usuario.id).toList();
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4.0),
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.white.withOpacity(0.3)),
+              ...usersBySector.entries.map((entry) {
+                final sector = entry.key;
+                final users = entry.value;
+                if (users.isEmpty) return const SizedBox.shrink();
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$sector (${users.length} usuários)',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: sectorColors[sector] ?? Colors.white,
+                      ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              '${usuario.nome ?? usuario.email} (${usuario.setor ?? "Sem setor"})',
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.white),
-                              onPressed: () => _addOrEditUsuario(usuario: usuario),
-                            ),
-                          ],
-                        ),
-                        if (periods.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Períodos de Indisponibilidade:',
-                            style: TextStyle(color: Colors.white70, fontSize: 12),
+                    const SizedBox(height: 8),
+                    ...users.map((usuario) {
+                      final periods = _userPeriods.where((p) => p.usuarioId == usuario.id).toList();
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4.0),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.white.withOpacity(0.3)),
                           ),
-                          ...periods.map((period) => GestureDetector(
-                                onTap: () => _requestScheduling(usuario, period.startDate),
-                                child: Text(
-                                  '${DateFormat('dd/MM/yyyy').format(period.startDate)} - ${DateFormat('dd/MM/yyyy').format(period.endDate)}: ${period.info}',
-                                  style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    usuario.nome ?? usuario.email,
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.edit, color: Colors.white),
+                                    onPressed: () => _addOrEditUsuario(usuario: usuario),
+                                  ),
+                                ],
+                              ),
+                              if (periods.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Períodos de Indisponibilidade:',
+                                  style: TextStyle(color: Colors.white70, fontSize: 12),
                                 ),
-                              )),
-                        ],
-                      ],
-                    ),
-                  ),
+                                ...periods.map((period) => GestureDetector(
+                                      onTap: () => _requestScheduling(usuario, period.startDate),
+                                      child: Text(
+                                        '${DateFormat('dd/MM/yyyy').format(period.startDate)} - ${DateFormat('dd/MM/yyyy').format(period.endDate)}: ${period.info}',
+                                        style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                                      ),
+                                    )),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                    const SizedBox(height: 20),
+                  ],
                 );
               }),
 
