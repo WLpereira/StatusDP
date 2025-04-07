@@ -345,20 +345,21 @@ class _PainelScreenState extends State<PainelScreen> {
       final lunchStartTime = _parseTimeOfDay(horario.horarioAlmocoInicio ?? '12:00');
       final lunchEndTime = _parseTimeOfDay(horario.horarioAlmocoFim ?? '13:30');
 
+      // Arredondar o horário de início para a próxima hora cheia se houver minutos
       int startHour = startTime.hour + (startTime.minute > 0 ? 1 : 0);
-      int endHour = endTime.hour - (endTime.minute > 0 ? 1 : 0);
-      int lunchStartHour = lunchStartTime.hour;
+      // Última hora cheia antes do fim (sempre subtrair 1 hora)
+      int endHour = endTime.hour - 1;
+      // Última hora cheia antes do início do almoço (sempre subtrair 1 hora)
+      int lunchStartHour = lunchStartTime.hour - 1;
+      // Primeira hora cheia a partir do retorno do almoço
       int lunchEndHour = lunchEndTime.hour + (lunchEndTime.minute > 0 ? 1 : 0);
 
       List<Map<String, dynamic>> hours = [];
       for (int h = startHour; h <= endHour; h++) {
+        // Pular horários após a última hora cheia antes do almoço e antes da primeira hora cheia após o almoço
+        if (h > lunchStartHour && h < lunchEndHour) continue;
+
         final time = TimeOfDay(hour: h, minute: 0);
-        final timeInMinutes = h * 60;
-        final lunchStartInMinutes = lunchStartTime.hour * 60 + lunchStartTime.minute;
-        final lunchEndInMinutes = lunchEndTime.hour * 60 + lunchEndTime.minute;
-
-        if (timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes) continue;
-
         final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, h);
         final normalizedDate = _normalizeDate(date);
         final isUnavailable = _userPeriods.any((period) {
