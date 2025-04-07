@@ -77,7 +77,7 @@ class _AdminScreenState extends State<AdminScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor: Colors.grey[800],
+          backgroundColor: const Color.fromARGB(255, 244, 185, 185),
         ),
       );
     }
@@ -232,6 +232,383 @@ class _AdminScreenState extends State<AdminScreen> {
     );
   }
 
+  Future<void> _manageUserPeriods(Usuario usuario) async {
+    final periods = _userPeriods.where((p) => p.usuarioId == usuario.id).toList();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text('Gerenciar Períodos de Indisponibilidade de ${usuario.nome ?? usuario.email}'),
+              content: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    if (periods.isEmpty)
+                      const Text(
+                        'Nenhum período de indisponibilidade registrado.',
+                        style: TextStyle(color: Colors.grey),
+                      )
+                    else
+                      ...periods.map((period) {
+                        return ListTile(
+                          title: Text(
+                            '${DateFormat('dd/MM/yyyy').format(period.startDate)} - ${DateFormat('dd/MM/yyyy').format(period.endDate)}: ${period.info}',
+                            style: const TextStyle(color: Color.fromARGB(221, 255, 255, 255)),
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () async {
+                              await _deleteUserPeriod(period);
+                              setDialogState(() {
+                                periods.remove(period);
+                              });
+                            },
+                          ),
+                        );
+                      }).toList(),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () async {
+                        await _addUserPeriod(usuario);
+                        setDialogState(() {
+                          periods.clear();
+                          periods.addAll(_userPeriods.where((p) => p.usuarioId == usuario.id));
+                        });
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.add,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Add Indisponibilidade',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Fechar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _addUserPeriod(Usuario usuario) async {
+    DateTime? startDate;
+    DateTime? endDate;
+    final infoController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Adicionar Período de Indisponibilidade'),
+              content: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    TextButton(
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.now(),
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime(2026),
+                          builder: (context, child) => Theme(
+                            data: ThemeData.dark().copyWith(
+                              colorScheme: const ColorScheme.dark(primary: Colors.green),
+                              dialogBackgroundColor: const Color(0xFF16213E),
+                            ),
+                            child: child!,
+                          ),
+                        );
+                        if (picked != null) {
+                          setDialogState(() {
+                            startDate = picked;
+                          });
+                        }
+                      },
+                      child: Text(
+                        startDate == null
+                            ? 'Selecionar Data Início'
+                            : 'Início: ${DateFormat('dd/MM/yyyy').format(startDate!)}',
+                        style: const TextStyle(color: Colors.blue),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: startDate ?? DateTime.now(),
+                          firstDate: startDate ?? DateTime.now(),
+                          lastDate: DateTime(2026),
+                          builder: (context, child) => Theme(
+                            data: ThemeData.dark().copyWith(
+                              colorScheme: const ColorScheme.dark(primary: Colors.green),
+                              dialogBackgroundColor: const Color(0xFF16213E),
+                            ),
+                            child: child!,
+                          ),
+                        );
+                        if (picked != null) {
+                          setDialogState(() {
+                            endDate = picked;
+                          });
+                        }
+                      },
+                      child: Text(
+                        endDate == null
+                            ? 'Selecionar Data Fim'
+                            : 'Fim: ${DateFormat('dd/MM/yyyy').format(endDate!)}',
+                        style: const TextStyle(color: Colors.blue),
+                      ),
+                    ),
+                    TextField(
+                      controller: infoController,
+                      decoration: const InputDecoration(labelText: 'Motivo (máx. 10 caracteres)'),
+                      maxLength: 10,
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancelar'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    if (startDate == null || endDate == null || infoController.text.isEmpty) {
+                      _showError('Preencha todos os campos.');
+                      return;
+                    }
+                    if (endDate!.isBefore(startDate!)) {
+                      _showError('A data final deve ser após a data inicial.');
+                      return;
+                    }
+                    try {
+                      final newPeriod = UserPeriod(
+                        id: 0,
+                        usuarioId: usuario.id,
+                        startDate: startDate!,
+                        endDate: endDate!,
+                        info: infoController.text,
+                      );
+                      await _authService.addUserPeriod(newPeriod);
+                      final updatedPeriods = await _authService.getAllUserPeriods();
+                      setState(() {
+                        _userPeriods = updatedPeriods;
+                      });
+                      _showError('Período adicionado com sucesso!');
+                      Navigator.pop(context);
+                    } catch (e) {
+                      _showError('Erro ao adicionar período: $e');
+                    }
+                  },
+                  child: const Text('Salvar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _addNewUserPeriod() async {
+    Usuario? selectedUser;
+    DateTime? startDate;
+    DateTime? endDate;
+    final infoController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Adicionar Novo Período de Indisponibilidade'),
+              content: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    DropdownButton<Usuario>(
+                      hint: const Text('Selecione um usuário'),
+                      value: selectedUser,
+                      isExpanded: true,
+                      items: _usuarios.map((usuario) {
+                        return DropdownMenuItem<Usuario>(
+                          value: usuario,
+                          child: Text(usuario.nome ?? usuario.email),
+                        );
+                      }).toList(),
+                      onChanged: (Usuario? newValue) {
+                        setDialogState(() {
+                          selectedUser = newValue;
+                        });
+                      },
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.now(),
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime(2026),
+                          builder: (context, child) => Theme(
+                            data: ThemeData.dark().copyWith(
+                              colorScheme: const ColorScheme.dark(primary: Colors.green),
+                              dialogBackgroundColor: const Color(0xFF16213E),
+                            ),
+                            child: child!,
+                          ),
+                        );
+                        if (picked != null) {
+                          setDialogState(() {
+                            startDate = picked;
+                          });
+                        }
+                      },
+                      child: Text(
+                        startDate == null
+                            ? 'Selecionar Data Início'
+                            : 'Início: ${DateFormat('dd/MM/yyyy').format(startDate!)}',
+                        style: const TextStyle(color: Colors.blue),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: startDate ?? DateTime.now(),
+                          firstDate: startDate ?? DateTime.now(),
+                          lastDate: DateTime(2026),
+                          builder: (context, child) => Theme(
+                            data: ThemeData.dark().copyWith(
+                              colorScheme: const ColorScheme.dark(primary: Colors.green),
+                              dialogBackgroundColor: const Color(0xFF16213E),
+                            ),
+                            child: child!,
+                          ),
+                        );
+                        if (picked != null) {
+                          setDialogState(() {
+                            endDate = picked;
+                          });
+                        }
+                      },
+                      child: Text(
+                        endDate == null
+                            ? 'Selecionar Data Fim'
+                            : 'Fim: ${DateFormat('dd/MM/yyyy').format(endDate!)}',
+                        style: const TextStyle(color: Colors.blue),
+                      ),
+                    ),
+                    TextField(
+                      controller: infoController,
+                      decoration: const InputDecoration(labelText: 'Motivo (máx. 10 caracteres)'),
+                      maxLength: 10,
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancelar'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    if (selectedUser == null || startDate == null || endDate == null || infoController.text.isEmpty) {
+                      _showError('Preencha todos os campos.');
+                      return;
+                    }
+                    if (endDate!.isBefore(startDate!)) {
+                      _showError('A data final deve ser após a data inicial.');
+                      return;
+                    }
+                    try {
+                      final newPeriod = UserPeriod(
+                        id: 0,
+                        usuarioId: selectedUser!.id,
+                        startDate: startDate!,
+                        endDate: endDate!,
+                        info: infoController.text,
+                      );
+                      await _authService.addUserPeriod(newPeriod);
+                      final updatedPeriods = await _authService.getAllUserPeriods();
+                      setState(() {
+                        _userPeriods = updatedPeriods;
+                      });
+                      _showError('Período adicionado com sucesso!');
+                      Navigator.pop(context);
+                    } catch (e) {
+                      _showError('Erro ao adicionar período: $e');
+                    }
+                  },
+                  child: const Text('Salvar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteUserPeriod(UserPeriod period) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar Exclusão'),
+        content: const Text('Deseja excluir este período de indisponibilidade?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Excluir', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await _authService.deleteUserPeriod(period.id);
+      final updatedPeriods = await _authService.getAllUserPeriods();
+      setState(() {
+        _userPeriods = updatedPeriods;
+      });
+      _showError('Período excluído com sucesso!');
+    } catch (e) {
+      _showError('Erro ao excluir período: $e');
+    }
+  }
+
   bool _isUserUnavailable(int userId, DateTime date) {
     return _userPeriods.any((period) =>
         period.usuarioId == userId &&
@@ -278,7 +655,6 @@ class _AdminScreenState extends State<AdminScreen> {
       );
     }
 
-    // Agrupar usuários por setor e ordenar alfabeticamente dentro de cada setor
     final usersBySector = {
       'Suporte': _usuarios.where((u) => u.setor == 'Suporte').toList()
         ..sort((a, b) => (a.nome ?? a.email).compareTo(b.nome ?? b.email)),
@@ -348,6 +724,7 @@ class _AdminScreenState extends State<AdminScreen> {
               // Seção de Usuários
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const Text(
                     'Gerenciar Usuários',
@@ -357,9 +734,48 @@ class _AdminScreenState extends State<AdminScreen> {
                       color: Colors.white,
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.add, color: Colors.white),
-                    onPressed: () => _addOrEditUsuario(),
+                  Wrap(
+                    spacing: 8.0,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () => _addNewUserPeriod(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          elevation: 5,
+                          shadowColor: Colors.green.withOpacity(0.5),
+                        ),
+                        child: const Text(
+                          'Adicionar Período de Indisponibilidade',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => _addOrEditUsuario(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.yellow,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          elevation: 5,
+                          shadowColor: Colors.yellow.withOpacity(0.5),
+                        ),
+                        child: const Text(
+                          'Adicionar Usuário',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -398,13 +814,47 @@ class _AdminScreenState extends State<AdminScreen> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    usuario.nome ?? usuario.email,
-                                    style: const TextStyle(color: Colors.white),
+                                  Expanded(
+                                    child: Text(
+                                      usuario.nome ?? usuario.email,
+                                      style: const TextStyle(color: Colors.white),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
-                                  IconButton(
-                                    icon: const Icon(Icons.edit, color: Colors.white),
-                                    onPressed: () => _addOrEditUsuario(usuario: usuario),
+                                  Wrap(
+                                    spacing: 8.0,
+                                    children: [
+                                      ElevatedButton(
+                                        onPressed: () => _manageUserPeriods(usuario),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.green,
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(20),
+                                          ),
+                                          elevation: 5,
+                                          shadowColor: Colors.green.withOpacity(0.5),
+                                        ),
+                                        child: const Text(
+                                          'Gerenciar Indisponibilidade',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.edit,
+                                          color: Colors.white,
+                                          size: 24,
+                                        ),
+                                        onPressed: () => _addOrEditUsuario(usuario: usuario),
+                                        padding: const EdgeInsets.all(8),
+                                        constraints: const BoxConstraints(),
+                                        tooltip: 'Editar Usuário',
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),

@@ -16,6 +16,15 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
 
+  // Lista de emails permitidos para acessar a AdminScreen
+  final List<String> _adminEmails = [
+    'adm@dataplace.com.br',
+    'admqa@dataplace.com.br',
+    'admdev@dataplace.com.br',
+    'admadm@dataplace.com.br',
+    'admcloud@dataplace.com.br',
+  ];
+
   Future<void> _login() async {
     setState(() {
       _isLoading = true;
@@ -35,7 +44,8 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final usuario = await _authService.login(email, password);
       if (usuario != null) {
-        if (email == 'adm@dataplace.com.br') {
+        // Verifica se o email está na lista de administradores
+        if (_adminEmails.contains(email)) {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => AdminScreen(usuario: usuario)),
@@ -90,7 +100,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const Icon(
                   Icons.lock_outline,
                   size: 100,
-                  color: Colors.white,  
+                  color: Colors.white,
                 ),
                 const SizedBox(height: 20),
                 const Text(

@@ -36,6 +36,15 @@ class _PainelScreenState extends State<PainelScreen> {
   late RealtimeChannel _subscription;
   Timer? _plannerRefreshTimer;
 
+  // Lista de emails de administradores que devem redirecionar para AdminScreen
+  final List<String> _adminEmails = [
+    'adm@dataplace.com.br',
+    'admqa@dataplace.com.br',
+    'admdev@dataplace.com.br',
+    'admadm@dataplace.com.br',
+    'admcloud@dataplace.com.br',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -134,7 +143,7 @@ class _PainelScreenState extends State<PainelScreen> {
     setState(() {
       if (payload.eventType == PostgresChangeEvent.insert) {
         final newUsuario = Usuario.fromJson(payload.newRecord!);
-        if (newUsuario.email != 'adm@dataplace.com.br') _usuarios.add(newUsuario);
+        if (!_adminEmails.contains(newUsuario.email)) _usuarios.add(newUsuario);
       } else if (payload.eventType == PostgresChangeEvent.update) {
         final updatedUsuario = Usuario.fromJson(payload.newRecord!);
         final index = _usuarios.indexWhere((u) => u.id == updatedUsuario.id);
@@ -220,7 +229,7 @@ class _PainelScreenState extends State<PainelScreen> {
     try {
       final usuarios = await _authService.getAllUsuarios();
       if (mounted) {
-        setState(() => _usuarios = usuarios.where((u) => u.email != 'adm@dataplace.com.br').toList());
+        setState(() => _usuarios = usuarios.where((u) => !_adminEmails.contains(u.email)).toList());
       }
     } catch (e, stackTrace) {
       print('Erro ao carregar usuários: $e\n$stackTrace');
@@ -381,7 +390,7 @@ class _PainelScreenState extends State<PainelScreen> {
   }
 
   bool _podeEditar(int usuarioId, Map<String, dynamic> hour, Map<String, dynamic>? entry) {
-    if (widget.usuarioLogado.email == 'adm@dataplace.com.br') return true;
+    if (_adminEmails.contains(widget.usuarioLogado.email)) return true;
     if (widget.usuarioLogado.id != usuarioId) return false;
     if (entry == null) return true;
 
@@ -879,7 +888,7 @@ class _PainelScreenState extends State<PainelScreen> {
                           onPressed: () {
                             _showMessage('Voltando para a tela anterior...');
                             if (mounted) {
-                              if (widget.usuarioLogado.email == 'adm@dataplace.com.br') {
+                              if (_adminEmails.contains(widget.usuarioLogado.email)) {
                                 Navigator.pushReplacement(
                                   context,
                                   MaterialPageRoute(builder: (context) => AdminScreen(usuario: widget.usuarioLogado)),
