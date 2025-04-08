@@ -666,19 +666,19 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                 onPressed: _goToPainel,
                 icon: Icon(
                   Icons.dashboard,
-                  color: Colors.white,
+                  color: const Color.fromARGB(255, 255, 255, 255),
                   size: 16 * scaleFactor,
                 ),
                 label: Text(
                   'Painel',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: const Color.fromARGB(255, 255, 255, 255),
                     fontWeight: FontWeight.bold,
                     fontSize: 12 * scaleFactor,
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color.fromARGB(255, 53, 141, 114),
+                  backgroundColor: const Color.fromARGB(255, 29, 142, 255),
                   padding: EdgeInsets.symmetric(vertical: 6 * scaleFactor),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(6 * scaleFactor),

@@ -23,6 +23,18 @@ class _AdminScreenState extends State<AdminScreen> {
   List<UserPeriod> _userPeriods = [];
   bool _isLoading = true;
 
+  // Lista fixa de setores
+  final List<String> _setores = [
+    'Suporte',
+    'Suporte/Consultor',
+    'Cloud',
+    'ADM',
+    'DEV',
+    'Externo',
+    'QA',
+    'Sem Setor',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -87,99 +99,129 @@ class _AdminScreenState extends State<AdminScreen> {
     final isEditing = usuario != null;
     final emailController = TextEditingController(text: isEditing ? usuario.email : '');
     final nomeController = TextEditingController(text: isEditing ? usuario.nome : '');
-    final setorController = TextEditingController(text: isEditing ? usuario.setor : '');
     final senhaController = TextEditingController(text: isEditing ? usuario.senha : '');
-    final statusController = TextEditingController(text: isEditing ? usuario.status : '');
     final inicioController = TextEditingController(text: isEditing ? usuario.horarioiniciotrabalho : '');
     final fimController = TextEditingController(text: isEditing ? usuario.horariofimtrabalho : '');
     final almocoInicioController = TextEditingController(text: isEditing ? usuario.horarioalmocoinicio : '');
     final almocoFimController = TextEditingController(text: isEditing ? usuario.horarioalmocofim : '');
 
+    // Variáveis para os DropdownButton
+    String? selectedSetor = isEditing ? usuario.setor : null;
+    String? selectedStatus = isEditing ? usuario.status : null;
+
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: Text(isEditing ? 'Editar Usuário' : 'Adicionar Usuário'),
-          content: SingleChildScrollView(
-            child: Column(
-              children: [
-                TextField(
-                  controller: emailController,
-                  decoration: const InputDecoration(labelText: 'Email'),
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text(isEditing ? 'Editar Usuário' : 'Adicionar Usuário'),
+              content: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    TextField(
+                      controller: emailController,
+                      decoration: const InputDecoration(labelText: 'Email'),
+                    ),
+                    TextField(
+                      controller: nomeController,
+                      decoration: const InputDecoration(labelText: 'Nome'),
+                    ),
+                    DropdownButtonFormField<String>(
+                      value: selectedSetor,
+                      decoration: const InputDecoration(labelText: 'Setor'),
+                      items: _setores.map((setor) {
+                        return DropdownMenuItem<String>(
+                          value: setor,
+                          child: Text(setor),
+                        );
+                      }).toList(),
+                      onChanged: (String? newValue) {
+                        setDialogState(() {
+                          selectedSetor = newValue;
+                        });
+                      },
+                      isExpanded: true,
+                    ),
+                    TextField(
+                      controller: senhaController,
+                      decoration: const InputDecoration(labelText: 'Senha'),
+                      obscureText: true,
+                    ),
+                    DropdownButtonFormField<String>(
+                      value: selectedStatus,
+                      decoration: const InputDecoration(labelText: 'Status'),
+                      items: _statuses.map((status) {
+                        return DropdownMenuItem<String>(
+                          value: status.status,
+                          child: Text(status.status),
+                        );
+                      }).toList(),
+                      onChanged: (String? newValue) {
+                        setDialogState(() {
+                          selectedStatus = newValue;
+                        });
+                      },
+                      isExpanded: true,
+                    ),
+                    TextField(
+                      controller: inicioController,
+                      decoration: const InputDecoration(labelText: 'Horário Início Trabalho (HH:MM)'),
+                    ),
+                    TextField(
+                      controller: fimController,
+                      decoration: const InputDecoration(labelText: 'Horário Fim Trabalho (HH:MM)'),
+                    ),
+                    TextField(
+                      controller: almocoInicioController,
+                      decoration: const InputDecoration(labelText: 'Horário Início Almoço (HH:MM)'),
+                    ),
+                    TextField(
+                      controller: almocoFimController,
+                      decoration: const InputDecoration(labelText: 'Horário Fim Almoço (HH:MM)'),
+                    ),
+                  ],
                 ),
-                TextField(
-                  controller: nomeController,
-                  decoration: const InputDecoration(labelText: 'Nome'),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancelar'),
                 ),
-                TextField(
-                  controller: setorController,
-                  decoration: const InputDecoration(labelText: 'Setor'),
-                ),
-                TextField(
-                  controller: senhaController,
-                  decoration: const InputDecoration(labelText: 'Senha'),
-                  obscureText: true,
-                ),
-                TextField(
-                  controller: statusController,
-                  decoration: const InputDecoration(labelText: 'Status'),
-                ),
-                TextField(
-                  controller: inicioController,
-                  decoration: const InputDecoration(labelText: 'Horário Início Trabalho (HH:MM)'),
-                ),
-                TextField(
-                  controller: fimController,
-                  decoration: const InputDecoration(labelText: 'Horário Fim Trabalho (HH:MM)'),
-                ),
-                TextField(
-                  controller: almocoInicioController,
-                  decoration: const InputDecoration(labelText: 'Horário Início Almoço (HH:MM)'),
-                ),
-                TextField(
-                  controller: almocoFimController,
-                  decoration: const InputDecoration(labelText: 'Horário Fim Almoço (HH:MM)'),
+                TextButton(
+                  onPressed: () async {
+                    try {
+                      final newUsuario = Usuario(
+                        id: isEditing ? usuario.id : 0,
+                        email: emailController.text,
+                        senha: senhaController.text,
+                        nome: nomeController.text.isEmpty ? null : nomeController.text,
+                        setor: selectedSetor,
+                        status: selectedStatus,
+                        horarioiniciotrabalho: inicioController.text.isEmpty ? null : inicioController.text,
+                        horariofimtrabalho: fimController.text.isEmpty ? null : fimController.text,
+                        horarioalmocoinicio: almocoInicioController.text.isEmpty ? null : almocoInicioController.text,
+                        horarioalmocofim: almocoFimController.text.isEmpty ? null : almocoFimController.text,
+                      );
+
+                      if (isEditing) {
+                        await _authService.updateUsuario(newUsuario);
+                        _showError('Usuário atualizado com sucesso!');
+                      } else {
+                        await _authService.createUsuario(newUsuario);
+                        _showError('Usuário criado com sucesso!');
+                      }
+                      await _loadUsuarios();
+                      Navigator.pop(context);
+                    } catch (e) {
+                      _showError('Erro ao ${isEditing ? "atualizar" : "criar"} usuário: $e');
+                    }
+                  },
+                  child: const Text('Salvar'),
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancelar'),
-            ),
-            TextButton(
-              onPressed: () async {
-                try {
-                  final newUsuario = Usuario(
-                    id: isEditing ? usuario.id : 0,
-                    email: emailController.text,
-                    senha: senhaController.text,
-                    nome: nomeController.text.isEmpty ? null : nomeController.text,
-                    setor: setorController.text.isEmpty ? null : setorController.text,
-                    status: statusController.text.isEmpty ? null : statusController.text,
-                    horarioiniciotrabalho: inicioController.text.isEmpty ? null : inicioController.text,
-                    horariofimtrabalho: fimController.text.isEmpty ? null : fimController.text,
-                    horarioalmocoinicio: almocoInicioController.text.isEmpty ? null : almocoInicioController.text,
-                    horarioalmocofim: almocoFimController.text.isEmpty ? null : almocoFimController.text,
-                  );
-
-                  if (isEditing) {
-                    await _authService.updateUsuario(newUsuario);
-                    _showError('Usuário atualizado com sucesso!');
-                  } else {
-                    await _authService.createUsuario(newUsuario);
-                    _showError('Usuário criado com sucesso!');
-                  }
-                  await _loadUsuarios();
-                  Navigator.pop(context);
-                } catch (e) {
-                  _showError('Erro ao ${isEditing ? "atualizar" : "criar"} usuário: $e');
-                }
-              },
-              child: const Text('Salvar'),
-            ),
-          ],
+            );
+          },
         );
       },
     );
