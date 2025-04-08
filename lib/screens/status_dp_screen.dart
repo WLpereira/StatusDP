@@ -11,6 +11,8 @@ import 'painel_screen.dart';
 import 'dart:math'; // Adicionado para usar min()
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:async';
 
 class StatusDPScreen extends StatefulWidget {
   final Usuario usuario;
@@ -36,19 +38,122 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
   bool _isLoading = true;
   final AuthService _authService = AuthService();
 
+  late dynamic _subscription; // Para gerenciar as assinaturas em tempo real
+  Timer? _plannerRefreshTimer; // Timer para recarregar o planner
+
   @override
   void initState() {
     super.initState();
     _usuario = widget.usuario;
     _selectedStatus = _usuario.status;
     _loadInitialData();
+    _setupRealtimeSubscriptions(); // Configurar assinaturas em tempo real
+    _startPlannerRefreshTimer(); // Iniciar o timer de recarregamento
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Log para confirmar o valor inicial de _startTime
-    debugPrint('Valor inicial de _startTime: ${_startTime.format(context)}');
+  void dispose() {
+    // Cancelar o timer e as assinaturas ao sair da tela
+    _plannerRefreshTimer?.cancel();
+    Supabase.instance.client.removeChannel(_subscription);
+    super.dispose();
+  }
+
+  // Iniciar o timer para recarregar o planner a cada 10 segundos
+  void _startPlannerRefreshTimer() {
+    _plannerRefreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      await _loadPlanner();
+      await _loadHorarioTrabalho();
+    });
+  }
+
+  // Configurar assinaturas em tempo real para as tabelas planner e horarios_trabalho
+  void _setupRealtimeSubscriptions() {
+    _subscription = Supabase.instance.client
+        .channel('public:*')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'planner',
+          callback: (payload) => _handlePlannerChange(payload),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'horarios_trabalho',
+          callback: (payload) => _handleHorarioTrabalhoChange(payload),
+        )
+        .subscribe();
+  }
+
+  // Manipular mudanças na tabela planner
+  void _handlePlannerChange(PostgresChangePayload payload) {
+    if (!mounted) return;
+    print('Evento recebido na tabela planner: ${payload.eventType}');
+    setState(() {
+      if (payload.eventType == PostgresChangeEvent.insert) {
+        final newPlanner = Planner.fromJson(payload.newRecord!);
+        if (newPlanner.usuarioId == _usuario.id) {
+          print('Novo planner inserido para o usuário: ${newPlanner.id}');
+          _planner = [newPlanner]; // Substitui, já que só queremos o planner do usuário
+        }
+      } else if (payload.eventType == PostgresChangeEvent.update) {
+        final updatedPlanner = Planner.fromJson(payload.newRecord!);
+        if (updatedPlanner.usuarioId == _usuario.id) {
+          print('Planner atualizado para o usuário: ${updatedPlanner.id}');
+          _planner = [updatedPlanner];
+        }
+      } else if (payload.eventType == PostgresChangeEvent.delete) {
+        final deletedId = payload.oldRecord!['id'] as int;
+        if (_planner.isNotEmpty && _planner.first.id == deletedId) {
+          print('Planner deletado para o usuário: $deletedId');
+          _planner = [];
+        }
+      }
+    });
+  }
+
+  // Manipular mudanças na tabela horarios_trabalho
+  void _handleHorarioTrabalhoChange(PostgresChangePayload payload) {
+    if (!mounted) return;
+    setState(() {
+      if (payload.eventType == PostgresChangeEvent.insert) {
+        final newHorario = HorarioTrabalho.fromJson(payload.newRecord!);
+        if (newHorario.usuarioId == _usuario.id && newHorario.diaSemana == _selectedDate.weekday) {
+          _horarioTrabalho = [newHorario];
+          _updateTimesFromHorario(newHorario);
+        }
+      } else if (payload.eventType == PostgresChangeEvent.update) {
+        final updatedHorario = HorarioTrabalho.fromJson(payload.newRecord!);
+        if (updatedHorario.usuarioId == _usuario.id && updatedHorario.diaSemana == _selectedDate.weekday) {
+          _horarioTrabalho = [updatedHorario];
+          _updateTimesFromHorario(updatedHorario);
+        }
+      } else if (payload.eventType == PostgresChangeEvent.delete) {
+        final deletedId = payload.oldRecord!['id'] as int;
+        _horarioTrabalho.removeWhere((h) => h.id == deletedId);
+        // Resetar para valores padrão se o horário foi deletado
+        if (_horarioTrabalho.isEmpty) {
+          _startTime = const TimeOfDay(hour: 8, minute: 30);
+          _endTime = const TimeOfDay(hour: 17, minute: 0);
+          _lunchStartTime = const TimeOfDay(hour: 12, minute: 0);
+          _lunchEndTime = const TimeOfDay(hour: 13, minute: 0);
+        }
+      }
+    });
+  }
+
+  // Atualizar os tempos (_startTime, _endTime, etc.) com base no horário recebido
+  void _updateTimesFromHorario(HorarioTrabalho ht) {
+    _startTime = _parseTimeOfDay(ht.horarioInicio, const TimeOfDay(hour: 8, minute: 30));
+    _endTime = _parseTimeOfDay(ht.horarioFim, const TimeOfDay(hour: 17, minute: 0));
+    _lunchStartTime = _parseTimeOfDay(ht.horarioAlmocoInicio, const TimeOfDay(hour: 12, minute: 0));
+    _lunchEndTime = _parseTimeOfDay(ht.horarioAlmocoFim, const TimeOfDay(hour: 13, minute: 0));
+    debugPrint('Horário de Início Atualizado: ${_startTime.hour}:${_startTime.minute.toString().padLeft(2, '0')}');
   }
 
   Future<void> _loadInitialData() async {
@@ -91,12 +196,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
         _horarioTrabalho = horarioTrabalho;
         if (horarioTrabalho.isNotEmpty) {
           final ht = horarioTrabalho.first;
-          _startTime = _parseTimeOfDay(ht.horarioInicio, const TimeOfDay(hour: 8, minute: 30));
-          _endTime = _parseTimeOfDay(ht.horarioFim, const TimeOfDay(hour: 17, minute: 0));
-          _lunchStartTime = _parseTimeOfDay(ht.horarioAlmocoInicio, const TimeOfDay(hour: 12, minute: 0));
-          _lunchEndTime = _parseTimeOfDay(ht.horarioAlmocoFim, const TimeOfDay(hour: 13, minute: 0));
-          // Log para depuração
-          debugPrint('Horário de Início Carregado: ${_startTime.hour}:${_startTime.minute.toString().padLeft(2, '0')}');
+          _updateTimesFromHorario(ht);
         }
       });
     } catch (e) {
@@ -336,7 +436,6 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
   List<TimeOfDay> _getAvailableHours() {
     int startHour = _startTime.hour;
     if (_startTime.minute > 0) startHour++;
-    // Log para depuração
     debugPrint('Start Hour Calculado: $startHour (a partir de _startTime: ${_startTime.hour}:${_startTime.minute})');
 
     int endHour = _endTime.hour;
@@ -539,7 +638,6 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     }
 
     final availableHours = _getAvailableHours();
-    // Log para verificar os horários em availableHours
     debugPrint('Horários Disponíveis: ${availableHours.map((time) => time.hour).toList()}');
     final now = DateTime.now();
     final currentTimeInMinutes = now.hour * 60 + now.minute;
@@ -580,7 +678,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0F3460),
+                  backgroundColor: const Color.fromARGB(255, 53, 141, 114),
                   padding: EdgeInsets.symmetric(vertical: 6 * scaleFactor),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(6 * scaleFactor),

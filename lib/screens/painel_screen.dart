@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Import para usar Clipboard
 import '../models/usuario.dart';
 import '../models/status.dart';
 import '../models/planner.dart';
@@ -33,10 +34,9 @@ class _PainelScreenState extends State<PainelScreen> {
   bool _isLoading = true;
 
   late ScaffoldMessengerState _scaffoldMessenger;
-  late dynamic _subscription; // Alterado para RealtimeChannel
+  late dynamic _subscription;
   Timer? _plannerRefreshTimer;
 
-  // Lista de emails de administradores que devem redirecionar para AdminScreen
   final List<String> _adminEmails = [
     'adm@dataplace.com.br',
     'admqa@dataplace.com.br',
@@ -67,7 +67,7 @@ class _PainelScreenState extends State<PainelScreen> {
   }
 
   void _startPlannerRefreshTimer() {
-    _plannerRefreshTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
+    _plannerRefreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) async {
       if (!mounted) {
         timer.cancel();
         return;
@@ -345,18 +345,13 @@ class _PainelScreenState extends State<PainelScreen> {
       final lunchStartTime = _parseTimeOfDay(horario.horarioAlmocoInicio ?? '12:00');
       final lunchEndTime = _parseTimeOfDay(horario.horarioAlmocoFim ?? '13:30');
 
-      // Arredondar o horário de início para a próxima hora cheia se houver minutos
       int startHour = startTime.hour + (startTime.minute > 0 ? 1 : 0);
-      // Última hora cheia antes do fim (sempre subtrair 1 hora)
       int endHour = endTime.hour - 1;
-      // Última hora cheia antes do início do almoço (sempre subtrair 1 hora)
       int lunchStartHour = lunchStartTime.hour - 1;
-      // Primeira hora cheia a partir do retorno do almoço
       int lunchEndHour = lunchEndTime.hour + (lunchEndTime.minute > 0 ? 1 : 0);
 
       List<Map<String, dynamic>> hours = [];
       for (int h = startHour; h <= endHour; h++) {
-        // Pular horários após a última hora cheia antes do almoço e antes da primeira hora cheia após o almoço
         if (h > lunchStartHour && h < lunchEndHour) continue;
 
         final time = TimeOfDay(hour: h, minute: 0);
@@ -391,10 +386,8 @@ class _PainelScreenState extends State<PainelScreen> {
   }
 
   bool _podeEditar(int usuarioId, Map<String, dynamic> hour, Map<String, dynamic>? entry) {
-    // Verificar se o usuário é administrador
     final isAdmin = _adminEmails.contains(widget.usuarioLogado.email);
 
-    // Usuários comuns só podem editar seus próprios horários
     if (!isAdmin && widget.usuarioLogado.id != usuarioId) {
       return false;
     }
@@ -404,7 +397,6 @@ class _PainelScreenState extends State<PainelScreen> {
     final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
     final currentDateStr = DateFormat('yyyy-MM-dd').format(now);
 
-    // Se a data selecionada não for hoje, verificar se é passada ou futura
     if (selectedDateStr != currentDateStr) {
       final selectedDateTime = DateTime(
         _selectedDate.year,
@@ -414,29 +406,22 @@ class _PainelScreenState extends State<PainelScreen> {
         0,
       );
       if (selectedDateTime.isBefore(now)) {
-        return false; // Não pode editar horários passados de dias anteriores
+        return false;
       }
-      return true; // Pode editar horários futuros
+      return true;
     }
 
-    // Se for hoje, verificar a regra de tempo
     final currentHour = now.hour;
-    final currentMinute = now.minute;
     final slotHour = time.hour;
 
-    // Não pode editar horários passados
     if (slotHour < currentHour) {
-      return false; // Ex.: às 10:50, não pode editar 9:00
+      return false;
     }
 
-    // Pode editar o horário atual até o final da hora (H:59)
-    // Ex.: às 10:50, pode editar 10:00
     if (slotHour == currentHour) {
       return true;
     }
 
-    // Pode editar horários futuros
-    // Ex.: às 10:50, pode editar 11:00, 14:00, etc.
     if (slotHour > currentHour) {
       return true;
     }
@@ -444,12 +429,80 @@ class _PainelScreenState extends State<PainelScreen> {
     return false;
   }
 
+  bool _podeExcluir(int usuarioId) {
+    final isAdmin = _adminEmails.contains(widget.usuarioLogado.email);
+    if (isAdmin) {
+      return true; // Administradores podem excluir qualquer reserva
+    }
+    return usuarioId == widget.usuarioLogado.id; // Usuários comuns só podem excluir suas próprias reservas
+  }
+
+  Future<void> _deletePlannerEntryFromDialog(int usuarioId, Map<String, dynamic> existingEntry, TimeOfDay time) async {
+    // Verificar permissões de exclusão
+    if (!_podeExcluir(usuarioId)) {
+      _showMessage('Você não tem permissão para excluir esta reserva.', isError: true);
+      return;
+    }
+
+    // Verificar se o horário pode ser editado (não pode ser um horário passado)
+    final hour = {'time': time};
+    if (!_podeEditar(usuarioId, hour, existingEntry)) {
+      _showMessage('Não é possível remover esta reserva (horário passado).', isError: true);
+      return;
+    }
+
+    // Confirmar exclusão
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        backgroundColor: const Color(0xFF16213E),
+        title: const Text('Confirmar Exclusão', style: TextStyle(color: Colors.white)),
+        content: const Text('Deseja remover esta reserva?', style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.white70)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Remover', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final planner = _planners.firstWhere(
+        (p) => p.usuarioId == usuarioId,
+        orElse: () => Planner(
+          id: _getNextPlannerId(),
+          usuarioId: usuarioId,
+          statusId: _statuses.firstWhere((s) => s.status == 'DISPONIVEL',
+              orElse: () => Status(id: 1, status: 'DISPONIVEL')).id,
+        ),
+      );
+      await _authService.deletePlannerEntry(planner, existingEntry['index'] as int);
+      await _loadPlanners();
+      _showMessage('Reserva removida com sucesso!');
+      if (mounted) Navigator.pop(context); // Fechar o diálogo de edição
+    } catch (e, stackTrace) {
+      print('Erro ao remover planner: $e\n$stackTrace');
+      _showMessage('Erro ao remover reserva: $e', isError: true);
+    }
+  }
+
   Future<void> _addOrUpdatePlanner(int usuarioId, TimeOfDay time, Map<String, dynamic>? existingEntry) async {
     final timeString = '${time.hour.toString().padLeft(2, '0')}:00';
     final date = _selectedDate;
     final now = DateTime.now();
 
-    // Verificar a regra de tempo antes de permitir a adição/edição
     final selectedDateStr = DateFormat('yyyy-MM-dd').format(date);
     final currentDateStr = DateFormat('yyyy-MM-dd').format(now);
 
@@ -457,15 +510,12 @@ class _PainelScreenState extends State<PainelScreen> {
       final currentHour = now.hour;
       final slotHour = time.hour;
 
-      // Não pode adicionar/editar horários passados
       if (slotHour < currentHour) {
         _showMessage('Não é possível agendar/editar horários passados.', isError: true);
         return;
       }
 
-      // Pode adicionar/editar o horário atual ou futuros
       if (slotHour >= currentHour) {
-        // Prosseguir com a adição/edição
       } else {
         _showMessage('Não é possível agendar/editar horários fora da janela de edição.', isError: true);
         return;
@@ -485,9 +535,24 @@ class _PainelScreenState extends State<PainelScreen> {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
           backgroundColor: const Color(0xFF16213E),
-          title: Text(
-            existingEntry == null ? 'Adicionar às ${time.hour}:00' : 'Editar às ${time.hour}:00',
-            style: const TextStyle(color: Colors.white),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                existingEntry == null ? 'Adicionar às ${time.hour}:00' : 'Editar às ${time.hour}:00',
+                style: const TextStyle(color: Colors.white),
+              ),
+              if (existingEntry != null) // Adicionar ícone de lixeira apenas ao editar
+                IconButton(
+                  icon: const Icon(
+                    Icons.delete,
+                    color: Colors.redAccent,
+                    size: 24,
+                  ),
+                  onPressed: () => _deletePlannerEntryFromDialog(usuarioId, existingEntry, time),
+                  tooltip: 'Excluir reserva',
+                ),
+            ],
           ),
           content: TextField(
             controller: controller,
@@ -530,7 +595,6 @@ class _PainelScreenState extends State<PainelScreen> {
                   );
 
                   if (existingEntry != null) {
-                    // Atualizar uma entrada existente
                     final updatedPlanner = planner.updateEntry(
                       existingEntry['index'] as int,
                       horario: timeString,
@@ -541,7 +605,6 @@ class _PainelScreenState extends State<PainelScreen> {
                         .from('planner')
                         .update(updatedPlanner.toJson())
                         .eq('id', updatedPlanner.id);
-                    // Atualizar localmente a lista _planners
                     setState(() {
                       final index = _planners.indexWhere((p) => p.id == updatedPlanner.id);
                       if (index != -1) {
@@ -552,9 +615,7 @@ class _PainelScreenState extends State<PainelScreen> {
                     });
                     _showMessage('Reserva atualizada com sucesso!');
                   } else {
-                    // Adicionar uma nova entrada
                     await _authService.upsertPlanner(planner, timeString, date, controller.text);
-                    // Recarregar os planners para refletir a mudança
                     await _loadPlanners();
                     _showMessage('Reserva adicionada com sucesso!');
                   }
@@ -600,7 +661,7 @@ class _PainelScreenState extends State<PainelScreen> {
       return;
     }
 
-    final time = TimeOfDay(hour: int.parse(horario.split(':')[0]), minute: 0); // Alterado Zero para 0
+    final time = TimeOfDay(hour: int.parse(horario.split(':')[0]), minute: 0);
     final hour = {'time': time};
     final canEdit = _podeEditar(usuarioId, hour, entry);
 
@@ -637,7 +698,6 @@ class _PainelScreenState extends State<PainelScreen> {
 
     try {
       await _authService.deletePlannerEntry(planner, index);
-      // Recarregar os planners para refletir a mudança
       await _loadPlanners();
       _showMessage('Reserva removida com sucesso!');
     } catch (e, stackTrace) {
@@ -670,6 +730,12 @@ class _PainelScreenState extends State<PainelScreen> {
     return 'https://www.gravatar.com/avatar/$emailHash?s=200&d=identicon';
   }
 
+  // Função para copiar a informação para a área de transferência
+  void _copyToClipboard(String text) {
+    Clipboard.setData(ClipboardData(text: text));
+    _showMessage('Informação copiada com sucesso!');
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -679,7 +745,6 @@ class _PainelScreenState extends State<PainelScreen> {
       );
     }
 
-    // Agrupar usuários por setor e ordenar alfabeticamente dentro de cada setor
     final usersBySector = {
       'Suporte': _usuarios.where((u) => u.setor == 'Suporte').toList()
         ..sort((a, b) => (a.nome ?? a.email).compareTo(b.nome ?? b.email)),
@@ -861,79 +926,206 @@ class _PainelScreenState extends State<PainelScreen> {
                                         ],
                                       ),
                                       const SizedBox(height: 12),
-                                      SizedBox(
-                                        height: 70,
-                                        child: SingleChildScrollView(
-                                          scrollDirection: Axis.horizontal,
-                                          child: Row(
-                                            children: availableHours.map((hour) {
-                                              final time = hour['time'] as TimeOfDay;
-                                              final isUnavailable = hour['isUnavailable'] as bool;
-                                              final entry = plannerEntries.firstWhere(
-                                                (e) =>
-                                                    e['horario'] ==
-                                                    '${time.hour.toString().padLeft(2, '0')}:00',
-                                                orElse: () => {},
-                                              );
-                                              final isReserved = entry.isNotEmpty;
+                                      LayoutBuilder(
+                                        builder: (context, constraints) {
+                                          final isDesktop = constraints.maxWidth > 1024;
+                                          final blockWidth = isDesktop ? 120.0 : 60.0;
+                                          final blockHeight = isDesktop ? 90.0 : 70.0;
+                                          final blockHeightWithInfo = isDesktop ? 110.0 : 70.0;
+                                          final fontSizeHour = isDesktop ? 16.0 : 14.0;
+                                          final fontSizeInfo = isDesktop ? 14.0 : 12.0;
 
-                                              return GestureDetector(
-                                                onTap: () {
-                                                  if (isUnavailable) return;
-                                                  if (!_podeEditar(usuario.id, hour, isReserved ? entry : null)) {
-                                                    _showMessage('Você não pode editar esta reserva.',
-                                                        isError: true);
-                                                    return;
-                                                  }
-                                                  _addOrUpdatePlanner(usuario.id, time, isReserved ? entry : null);
-                                                },
-                                                onLongPress: isReserved && _podeEditar(usuario.id, hour, entry)
-                                                    ? () => _removePlannerEntry(usuario.id, entry['index'])
-                                                    : null,
-                                                child: Container(
-                                                  width: 60,
-                                                  margin: const EdgeInsets.only(right: 8),
-                                                  padding: const EdgeInsets.all(8),
-                                                  decoration: BoxDecoration(
-                                                    color: isUnavailable
-                                                        ? Colors.red.withOpacity(0.6)
-                                                        : (isReserved
-                                                            ? const Color.fromARGB(255, 255, 0, 0)
-                                                            : Colors.grey.withOpacity(0.4)),
-                                                    borderRadius: BorderRadius.circular(8),
-                                                    border: Border.all(
-                                                      color: isReserved ? Colors.white.withOpacity(0.2) : Colors.transparent,
-                                                      width: 1,
-                                                    ),
-                                                  ),
-                                                  child: Column(
-                                                    mainAxisAlignment: MainAxisAlignment.center,
-                                                    children: [
-                                                      Text(
+                                          if (isDesktop) {
+                                            return SizedBox(
+                                              width: double.infinity,
+                                              child: Wrap(
+                                                spacing: 8.0,
+                                                runSpacing: 8.0,
+                                                children: availableHours.map((hour) {
+                                                  final time = hour['time'] as TimeOfDay;
+                                                  final isUnavailable = hour['isUnavailable'] as bool;
+                                                  final entry = plannerEntries.firstWhere(
+                                                    (e) =>
+                                                        e['horario'] ==
                                                         '${time.hour.toString().padLeft(2, '0')}:00',
-                                                        style: const TextStyle(
-                                                          color: Colors.white,
-                                                          fontSize: 14,
-                                                          fontWeight: FontWeight.bold,
+                                                    orElse: () => {},
+                                                  );
+                                                  final isReserved = entry.isNotEmpty;
+
+                                                  return GestureDetector(
+                                                    onTap: () {
+                                                      if (isUnavailable) return;
+                                                      if (!_podeEditar(usuario.id, hour, isReserved ? entry : null)) {
+                                                        _showMessage('Você não pode editar esta reserva.',
+                                                            isError: true);
+                                                        return;
+                                                      }
+                                                      _addOrUpdatePlanner(usuario.id, time, isReserved ? entry : null);
+                                                    },
+                                                    onLongPress: isReserved && _podeEditar(usuario.id, hour, entry)
+                                                        ? () => _removePlannerEntry(usuario.id, entry['index'])
+                                                        : null,
+                                                    child: Container(
+                                                      width: blockWidth,
+                                                      height: isReserved ? blockHeightWithInfo : blockHeight,
+                                                      padding: const EdgeInsets.all(8),
+                                                      decoration: BoxDecoration(
+                                                        color: isUnavailable
+                                                            ? Colors.red.withOpacity(0.6)
+                                                            : (isReserved
+                                                                ? const Color.fromARGB(255, 255, 0, 0)
+                                                                : Colors.grey.withOpacity(0.4)),
+                                                        borderRadius: BorderRadius.circular(8),
+                                                        border: Border.all(
+                                                          color: isReserved ? Colors.white.withOpacity(0.2) : Colors.transparent,
+                                                          width: 1,
                                                         ),
                                                       ),
-                                                      if (isReserved)
-                                                        Text(
-                                                          entry['informacao'] ?? 'N/A',
-                                                          style: const TextStyle(
-                                                            color: Colors.white70,
-                                                            fontSize: 12,
-                                                            overflow: TextOverflow.ellipsis,
+                                                      child: Column(
+                                                        mainAxisAlignment: MainAxisAlignment.center,
+                                                        children: [
+                                                          Text(
+                                                            '${time.hour.toString().padLeft(2, '0')}:00',
+                                                            style: TextStyle(
+                                                              color: Colors.white,
+                                                              fontSize: fontSizeHour,
+                                                              fontWeight: FontWeight.bold,
+                                                            ),
                                                           ),
-                                                          maxLines: 1,
+                                                          if (isReserved)
+                                                            Row(
+                                                              mainAxisAlignment: MainAxisAlignment.center,
+                                                              children: [
+                                                                Flexible(
+                                                                  child: SelectableText(
+                                                                    entry['informacao'] ?? 'N/A',
+                                                                    style: TextStyle(
+                                                                      color: Colors.white70,
+                                                                      fontSize: fontSizeInfo,
+                                                                      overflow: TextOverflow.ellipsis,
+                                                                    ),
+                                                                    maxLines: 1,
+                                                                  ),
+                                                                ),
+                                                                const SizedBox(width: 4),
+                                                                IconButton(
+                                                                  icon: const Icon(
+                                                                    Icons.copy,
+                                                                    size: 16,
+                                                                    color: Colors.white70,
+                                                                  ),
+                                                                  onPressed: () {
+                                                                    _copyToClipboard(entry['informacao'] ?? 'N/A');
+                                                                  },
+                                                                  padding: EdgeInsets.zero,
+                                                                  constraints: const BoxConstraints(),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  );
+                                                }).toList(),
+                                              ),
+                                            );
+                                          } else {
+                                            return SizedBox(
+                                              height: blockHeight,
+                                              child: SingleChildScrollView(
+                                                scrollDirection: Axis.horizontal,
+                                                child: Row(
+                                                  children: availableHours.map((hour) {
+                                                    final time = hour['time'] as TimeOfDay;
+                                                    final isUnavailable = hour['isUnavailable'] as bool;
+                                                    final entry = plannerEntries.firstWhere(
+                                                      (e) =>
+                                                          e['horario'] ==
+                                                          '${time.hour.toString().padLeft(2, '0')}:00',
+                                                      orElse: () => {},
+                                                    );
+                                                    final isReserved = entry.isNotEmpty;
+
+                                                    return GestureDetector(
+                                                      onTap: () {
+                                                        if (isUnavailable) return;
+                                                        if (!_podeEditar(usuario.id, hour, isReserved ? entry : null)) {
+                                                          _showMessage('Você não pode editar esta reserva.',
+                                                              isError: true);
+                                                          return;
+                                                        }
+                                                        _addOrUpdatePlanner(usuario.id, time, isReserved ? entry : null);
+                                                      },
+                                                      onLongPress: isReserved && _podeEditar(usuario.id, hour, entry)
+                                                          ? () => _removePlannerEntry(usuario.id, entry['index'])
+                                                          : null,
+                                                      child: Container(
+                                                        width: blockWidth,
+                                                        margin: const EdgeInsets.only(right: 8),
+                                                        padding: const EdgeInsets.all(8),
+                                                        decoration: BoxDecoration(
+                                                          color: isUnavailable
+                                                              ? Colors.red.withOpacity(0.6)
+                                                              : (isReserved
+                                                                  ? const Color.fromARGB(255, 255, 0, 0)
+                                                                  : Colors.grey.withOpacity(0.4)),
+                                                          borderRadius: BorderRadius.circular(8),
+                                                          border: Border.all(
+                                                            color: isReserved ? Colors.white.withOpacity(0.2) : Colors.transparent,
+                                                            width: 1,
+                                                          ),
                                                         ),
-                                                    ],
-                                                  ),
+                                                        child: Column(
+                                                          mainAxisAlignment: MainAxisAlignment.center,
+                                                          children: [
+                                                            Text(
+                                                              '${time.hour.toString().padLeft(2, '0')}:00',
+                                                              style: TextStyle(
+                                                                color: Colors.white,
+                                                                fontSize: fontSizeHour,
+                                                                fontWeight: FontWeight.bold,
+                                                              ),
+                                                            ),
+                                                            if (isReserved)
+                                                              Row(
+                                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                                children: [
+                                                                  Flexible(
+                                                                    child: SelectableText(
+                                                                      entry['informacao'] ?? 'N/A',
+                                                                      style: TextStyle(
+                                                                        color: Colors.white70,
+                                                                        fontSize: fontSizeInfo,
+                                                                        overflow: TextOverflow.ellipsis,
+                                                                      ),
+                                                                      maxLines: 1,
+                                                                    ),
+                                                                  ),
+                                                                  const SizedBox(width: 4),
+                                                                  IconButton(
+                                                                    icon: const Icon(
+                                                                      Icons.copy,
+                                                                      size: 14,
+                                                                      color: Colors.white70,
+                                                                    ),
+                                                                    onPressed: () {
+                                                                      _copyToClipboard(entry['informacao'] ?? 'N/A');
+                                                                    },
+                                                                    padding: EdgeInsets.zero,
+                                                                    constraints: const BoxConstraints(),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    );
+                                                  }).toList(),
                                                 ),
-                                              );
-                                            }).toList(),
-                                          ),
-                                        ),
+                                              ),
+                                            );
+                                          }
+                                        },
                                       ),
                                       const SizedBox(height: 8),
                                       Row(
