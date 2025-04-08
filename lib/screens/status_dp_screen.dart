@@ -29,7 +29,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
   List<Planner> _planner = [];
   List<HorarioTrabalho> _horarioTrabalho = [];
   DateTime _selectedDate = DateTime.now();
-  TimeOfDay _startTime = const TimeOfDay(hour: 8, minute: 0);
+  TimeOfDay _startTime = const TimeOfDay(hour: 8, minute: 30); // Forçado para 08:30
   TimeOfDay _endTime = const TimeOfDay(hour: 17, minute: 0);
   TimeOfDay _lunchStartTime = const TimeOfDay(hour: 12, minute: 0);
   TimeOfDay _lunchEndTime = const TimeOfDay(hour: 13, minute: 0);
@@ -42,6 +42,13 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     _usuario = widget.usuario;
     _selectedStatus = _usuario.status;
     _loadInitialData();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Log para confirmar o valor inicial de _startTime
+    debugPrint('Valor inicial de _startTime: ${_startTime.format(context)}');
   }
 
   Future<void> _loadInitialData() async {
@@ -84,10 +91,12 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
         _horarioTrabalho = horarioTrabalho;
         if (horarioTrabalho.isNotEmpty) {
           final ht = horarioTrabalho.first;
-          _startTime = _parseTimeOfDay(ht.horarioInicio, const TimeOfDay(hour: 8, minute: 0));
+          _startTime = _parseTimeOfDay(ht.horarioInicio, const TimeOfDay(hour: 8, minute: 30));
           _endTime = _parseTimeOfDay(ht.horarioFim, const TimeOfDay(hour: 17, minute: 0));
           _lunchStartTime = _parseTimeOfDay(ht.horarioAlmocoInicio, const TimeOfDay(hour: 12, minute: 0));
           _lunchEndTime = _parseTimeOfDay(ht.horarioAlmocoFim, const TimeOfDay(hour: 13, minute: 0));
+          // Log para depuração
+          debugPrint('Horário de Início Carregado: ${_startTime.hour}:${_startTime.minute.toString().padLeft(2, '0')}');
         }
       });
     } catch (e) {
@@ -327,6 +336,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
   List<TimeOfDay> _getAvailableHours() {
     int startHour = _startTime.hour;
     if (_startTime.minute > 0) startHour++;
+    // Log para depuração
+    debugPrint('Start Hour Calculado: $startHour (a partir de _startTime: ${_startTime.hour}:${_startTime.minute})');
 
     int endHour = _endTime.hour;
     if (_endTime.minute > 0) endHour--;
@@ -338,7 +349,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       final lunchStartInMinutes = _lunchStartTime.hour * 60 + _lunchStartTime.minute;
       final lunchEndInMinutes = _lunchEndTime.hour * 60 + _lunchEndTime.minute;
 
-      if (timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes) {
+      if (timeInMinutes >= lunchStartInMinutes && timeInMinutes <= lunchEndInMinutes) {
         continue;
       }
 
@@ -355,27 +366,27 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
         return Colors.orange;
       case 'ALMOCO':
         return const Color.fromARGB(255, 176, 158, 1);
-      case 'OCUPADO': // Adicionado o status OCUPADO com cor vermelha
+      case 'OCUPADO':
         return Colors.red;
       default:
         return const Color.fromARGB(255, 105, 181, 248);
     }
   }
 
-IconData _getStatusIcon(String? status) {
-  switch (status) {
-    case 'DISPONIVEL':
-      return Icons.check_circle;
-    case 'AUSENTE':
-      return Icons.lock;
-    case 'ALMOCO':
-      return Icons.local_dining;
-    case 'OCUPADO': // Usando ícone de "X" para OCUPADO
-      return Icons.close;
-    default:
-      return Icons.help;
+  IconData _getStatusIcon(String? status) {
+    switch (status) {
+      case 'DISPONIVEL':
+        return Icons.check_circle;
+      case 'AUSENTE':
+        return Icons.lock;
+      case 'ALMOCO':
+        return Icons.local_dining;
+      case 'OCUPADO':
+        return Icons.close;
+      default:
+        return Icons.help;
+    }
   }
-}
 
   void _goToPainel() {
     Navigator.push(
@@ -528,6 +539,8 @@ IconData _getStatusIcon(String? status) {
     }
 
     final availableHours = _getAvailableHours();
+    // Log para verificar os horários em availableHours
+    debugPrint('Horários Disponíveis: ${availableHours.map((time) => time.hour).toList()}');
     final now = DateTime.now();
     final currentTimeInMinutes = now.hour * 60 + now.minute;
     final photoUrl = _usuario.photoUrl ?? _getGravatarUrl(_usuario.email);
@@ -1065,6 +1078,16 @@ IconData _getStatusIcon(String? status) {
                           children: availableHours.asMap().entries.map((entry) {
                             final index = entry.key;
                             final time = entry.value;
+                            // Calcular startHour para verificação
+                            int startHour = _startTime.hour;
+                            if (_startTime.minute > 0) startHour++;
+                            // Ignorar horários antes de startHour
+                            if (time.hour < startHour) {
+                              debugPrint('Ignorando horário ${time.hour}:00 (antes de startHour: $startHour)');
+                              return const SizedBox.shrink(); // Não exibe o horário
+                            }
+                            // Log para depuração
+                            debugPrint('Exibindo horário: ${time.hour}:00');
                             final informacoes = _getInformacoesForTime(time);
                             final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
                             final isUnavailable = _isUserUnavailable(date);

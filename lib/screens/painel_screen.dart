@@ -33,7 +33,7 @@ class _PainelScreenState extends State<PainelScreen> {
   bool _isLoading = true;
 
   late ScaffoldMessengerState _scaffoldMessenger;
-  late RealtimeChannel _subscription;
+  late dynamic _subscription; // Alterado para RealtimeChannel
   Timer? _plannerRefreshTimer;
 
   // Lista de emails de administradores que devem redirecionar para AdminScreen
@@ -55,7 +55,7 @@ class _PainelScreenState extends State<PainelScreen> {
 
   @override
   void dispose() {
-    Supabase.instance.client.channel('public:*').unsubscribe();
+    Supabase.instance.client.removeChannel(_subscription);
     _plannerRefreshTimer?.cancel();
     super.dispose();
   }
@@ -391,29 +391,57 @@ class _PainelScreenState extends State<PainelScreen> {
   }
 
   bool _podeEditar(int usuarioId, Map<String, dynamic> hour, Map<String, dynamic>? entry) {
-    if (_adminEmails.contains(widget.usuarioLogado.email)) return true;
-    if (widget.usuarioLogado.id != usuarioId) return false;
-    if (entry == null) return true;
+    // Verificar se o usuário é administrador
+    final isAdmin = _adminEmails.contains(widget.usuarioLogado.email);
 
-    final agora = DateTime.now();
-    final data = _selectedDate;
-    final horario = entry['horario'] as String?;
-
-    if (data == null || horario == null) return false;
-
-    final dataHorario = DateTime(
-      data.year,
-      data.month,
-      data.day,
-      int.parse(horario.split(':')[0]),
-      int.parse(horario.split(':')[1]),
-    );
-
-    if (dataHorario.isBefore(agora)) return false;
+    // Usuários comuns só podem editar seus próprios horários
+    if (!isAdmin && widget.usuarioLogado.id != usuarioId) {
+      return false;
+    }
 
     final time = hour['time'] as TimeOfDay;
-    final endHour = hour['endHour'] as int;
-    return time.hour != endHour;
+    final now = DateTime.now();
+    final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    final currentDateStr = DateFormat('yyyy-MM-dd').format(now);
+
+    // Se a data selecionada não for hoje, verificar se é passada ou futura
+    if (selectedDateStr != currentDateStr) {
+      final selectedDateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        time.hour,
+        0,
+      );
+      if (selectedDateTime.isBefore(now)) {
+        return false; // Não pode editar horários passados de dias anteriores
+      }
+      return true; // Pode editar horários futuros
+    }
+
+    // Se for hoje, verificar a regra de tempo
+    final currentHour = now.hour;
+    final currentMinute = now.minute;
+    final slotHour = time.hour;
+
+    // Não pode editar horários passados
+    if (slotHour < currentHour) {
+      return false; // Ex.: às 10:50, não pode editar 9:00
+    }
+
+    // Pode editar o horário atual até o final da hora (H:59)
+    // Ex.: às 10:50, pode editar 10:00
+    if (slotHour == currentHour) {
+      return true;
+    }
+
+    // Pode editar horários futuros
+    // Ex.: às 10:50, pode editar 11:00, 14:00, etc.
+    if (slotHour > currentHour) {
+      return true;
+    }
+
+    return false;
   }
 
   Future<void> _addOrUpdatePlanner(int usuarioId, TimeOfDay time, Map<String, dynamic>? existingEntry) async {
@@ -421,10 +449,33 @@ class _PainelScreenState extends State<PainelScreen> {
     final date = _selectedDate;
     final now = DateTime.now();
 
-    if (DateFormat('yyyy-MM-dd').format(now) == DateFormat('yyyy-MM-dd').format(date) &&
-        (time.hour * 60) <= (now.hour * 60 + now.minute)) {
-      _showMessage('Não é possível agendar horários passados.', isError: true);
-      return;
+    // Verificar a regra de tempo antes de permitir a adição/edição
+    final selectedDateStr = DateFormat('yyyy-MM-dd').format(date);
+    final currentDateStr = DateFormat('yyyy-MM-dd').format(now);
+
+    if (selectedDateStr == currentDateStr) {
+      final currentHour = now.hour;
+      final slotHour = time.hour;
+
+      // Não pode adicionar/editar horários passados
+      if (slotHour < currentHour) {
+        _showMessage('Não é possível agendar/editar horários passados.', isError: true);
+        return;
+      }
+
+      // Pode adicionar/editar o horário atual ou futuros
+      if (slotHour >= currentHour) {
+        // Prosseguir com a adição/edição
+      } else {
+        _showMessage('Não é possível agendar/editar horários fora da janela de edição.', isError: true);
+        return;
+      }
+    } else {
+      final selectedDateTime = DateTime(date.year, date.month, date.day, time.hour, 0);
+      if (selectedDateTime.isBefore(now)) {
+        _showMessage('Não é possível agendar horários passados.', isError: true);
+        return;
+      }
     }
 
     showDialog(
@@ -530,6 +581,34 @@ class _PainelScreenState extends State<PainelScreen> {
   }
 
   Future<void> _removePlannerEntry(int usuarioId, int index) async {
+    final planner = _planners.firstWhere(
+      (p) => p.usuarioId == usuarioId,
+      orElse: () => Planner(
+        id: _getNextPlannerId(),
+        usuarioId: usuarioId,
+        statusId: _statuses.firstWhere((s) => s.status == 'DISPONIVEL',
+            orElse: () => Status(id: 1, status: 'DISPONIVEL')).id,
+      ),
+    );
+    final entries = planner.getEntries();
+    final entry = entries[index];
+    final horario = entry['horario'] as String?;
+    final data = entry['data'] as DateTime?;
+
+    if (horario == null || data == null) {
+      _showMessage('Erro: Entrada inválida.', isError: true);
+      return;
+    }
+
+    final time = TimeOfDay(hour: int.parse(horario.split(':')[0]), minute: 0); // Alterado Zero para 0
+    final hour = {'time': time};
+    final canEdit = _podeEditar(usuarioId, hour, entry);
+
+    if (!canEdit) {
+      _showMessage('Não é possível remover esta reserva (horário passado).', isError: true);
+      return;
+    }
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -557,15 +636,6 @@ class _PainelScreenState extends State<PainelScreen> {
     if (confirm != true) return;
 
     try {
-      final planner = _planners.firstWhere(
-        (p) => p.usuarioId == usuarioId,
-        orElse: () => Planner(
-          id: _getNextPlannerId(),
-          usuarioId: usuarioId,
-          statusId: _statuses.firstWhere((s) => s.status == 'DISPONIVEL',
-              orElse: () => Status(id: 1, status: 'DISPONIVEL')).id,
-        ),
-      );
       await _authService.deletePlannerEntry(planner, index);
       // Recarregar os planners para refletir a mudança
       await _loadPlanners();
