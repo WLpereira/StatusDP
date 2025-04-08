@@ -434,26 +434,49 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
   }
 
   List<TimeOfDay> _getAvailableHours() {
+    // Calcular a hora de início, arredondando para a próxima hora cheia se houver minutos
     int startHour = _startTime.hour;
-    if (_startTime.minute > 0) startHour++;
+    if (_startTime.minute > 0) {
+      startHour++;
+    }
     debugPrint('Start Hour Calculado: $startHour (a partir de _startTime: ${_startTime.hour}:${_startTime.minute})');
 
+    // Calcular a hora de fim, considerando apenas a hora cheia anterior ao término
     int endHour = _endTime.hour;
-    if (_endTime.minute > 0) endHour--;
+    // Se o expediente termina em uma hora cheia (ex.: 18:00), o último horário exibido deve ser a hora anterior (17:00)
+    // Se houver minutos (ex.: 18:30), também ajustamos para a hora anterior (17:00)
+    endHour--; // Sempre pegamos a hora cheia anterior ao término
+
+    // Calcular os minutos de início e fim do almoço
+    int lunchStartMinutes = _lunchStartTime.hour * 60 + _lunchStartTime.minute;
+    int lunchEndMinutes = _lunchEndTime.hour * 60 + _lunchEndTime.minute;
 
     List<TimeOfDay> hours = [];
     for (int h = startHour; h <= endHour; h++) {
       final time = TimeOfDay(hour: h, minute: 0);
       final timeInMinutes = h * 60;
-      final lunchStartInMinutes = _lunchStartTime.hour * 60 + _lunchStartTime.minute;
-      final lunchEndInMinutes = _lunchEndTime.hour * 60 + _lunchEndTime.minute;
 
-      if (timeInMinutes >= lunchStartInMinutes && timeInMinutes <= lunchEndInMinutes) {
+      // Ajustar a lógica do intervalo de almoço considerando os minutos
+      // Ex.: Se o almoço começa às 13:30, o horário das 13:00 não deve ser exibido
+      // Se o almoço termina às 15:00, o próximo horário deve ser 15:00
+      if (timeInMinutes >= (lunchStartMinutes - (lunchStartMinutes % 60)) && timeInMinutes < lunchEndMinutes) {
         continue;
       }
 
       hours.add(time);
     }
+
+    // Se o almoço termina em uma hora cheia (ex.: 15:00), garantir que essa hora seja incluída
+    if (lunchEndMinutes % 60 == 0) {
+      final lunchEndHour = _lunchEndTime.hour;
+      if (lunchEndHour <= endHour && !hours.any((time) => time.hour == lunchEndHour)) {
+        hours.add(TimeOfDay(hour: lunchEndHour, minute: 0));
+      }
+    }
+
+    // Ordenar os horários para garantir a sequência correta
+    hours.sort((a, b) => (a.hour * 60 + a.minute).compareTo(b.hour * 60 + b.minute));
+
     return hours;
   }
 
@@ -894,40 +917,40 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                       fontSize: 10 * scaleFactor,
                     ),
                   )
-                else
-                  ..._userPeriods.map((period) {
-                    return Card(
-                      color: Colors.white.withOpacity(0.1),
-                      elevation: 5,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6 * scaleFactor),
-                      ),
-                      child: ListTile(
-                        title: Text(
-                          '${DateFormat('dd/MM/yyyy').format(period.startDate)} - ${DateFormat('dd/MM/yyyy').format(period.endDate)}',
-                          style: TextStyle(
-                            color: Colors.orangeAccent,
-                            fontSize: 12 * scaleFactor,
-                          ),
-                        ),
-                        subtitle: Text(
-                          period.info ?? '',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 10 * scaleFactor,
-                          ),
-                        ),
-                        trailing: IconButton(
-                          icon: Icon(
-                            Icons.delete,
-                            color: Colors.red,
-                            size: 12 * scaleFactor,
-                          ),
-                          onPressed: () => _removePeriod(period.id),
-                        ),
-                      ),
-                    );
-                  }),
+             else
+  ..._userPeriods.map((period) { // Alterado de _userPeriod para _userPeriods
+    return Card(
+      color: Colors.white.withOpacity(0.1),
+      elevation: 5,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(6 * scaleFactor),
+      ),
+      child: ListTile(
+        title: Text(
+          '${DateFormat('dd/MM/yyyy').format(period.startDate)} - ${DateFormat('dd/MM/yyyy').format(period.endDate)}',
+          style: TextStyle(
+            color: Colors.orangeAccent,
+            fontSize: 12 * scaleFactor,
+          ),
+        ),
+        subtitle: Text(
+          period.info ?? '',
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 10 * scaleFactor,
+          ),
+        ),
+        trailing: IconButton(
+          icon: Icon(
+            Icons.delete,
+            color: Colors.red,
+            size: 12 * scaleFactor,
+          ),
+          onPressed: () => _removePeriod(period.id),
+        ),
+      ),
+    );
+  }),
                 SizedBox(height: 12 * scaleFactor),
 
                 // Seção de Planner (Agenda)
