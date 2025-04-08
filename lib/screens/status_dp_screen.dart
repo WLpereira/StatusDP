@@ -354,11 +354,11 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       case 'AUSENTE':
         return Colors.orange;
       case 'ALMOCO':
-        return Colors.yellow;
+        return const Color.fromARGB(255, 176, 158, 1);
       case 'OCUPADO': // Adicionado o status OCUPADO com cor vermelha
         return Colors.red;
       default:
-        return Colors.white;
+        return const Color.fromARGB(255, 105, 181, 248);
     }
   }
 
@@ -996,7 +996,7 @@ IconData _getStatusIcon(String? status) {
                                 Text(
                                   'Fim Almoço: ${_lunchEndTime.format(context)}',
                                   style: TextStyle(
-                                    color: Colors.white,
+                                    color: const Color.fromARGB(255, 244, 244, 244),
                                     fontSize: 10 * scaleFactor,
                                   ),
                                 ),

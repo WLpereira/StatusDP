@@ -583,13 +583,13 @@ class _PainelScreenState extends State<PainelScreen> {
       case 'AUSENTE':
         return Colors.orange;
       case 'ALMOCO':
-        return Colors.yellow;
+        return const Color.fromARGB(255, 185, 167, 1);
       case 'GESTAO':
         return Colors.blueAccent;
       case 'OCUPADO':
         return Colors.red;
       default:
-        return Colors.white;
+        return const Color.fromARGB(255, 109, 178, 234);
     }
   }
 
