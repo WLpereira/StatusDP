@@ -63,6 +63,60 @@ class AuthService {
     }
   }
 
+  Future<void> createUsuario(Usuario usuario) async {
+    try {
+      await _supabase.from('usuarios').insert({
+        'email': usuario.email,
+        'nome': usuario.nome,
+        'setor': usuario.setor,
+        'senha': usuario.senha,
+        'status': usuario.status,
+        'horarioiniciotrabalho': usuario.horarioiniciotrabalho,
+        'horariofimtrabalho': usuario.horariofimtrabalho,
+        'horarioalmocoinicio': usuario.horarioalmocoinicio,
+        'horarioalmocofim': usuario.horarioalmocofim,
+      });
+    } catch (e) {
+      throw Exception('Erro ao criar usuário: $e');
+    }
+  }
+
+  Future<void> updateUsuario(Usuario usuario) async {
+    try {
+      await _supabase.from('usuarios').update({
+        'email': usuario.email,
+        'nome': usuario.nome,
+        'setor': usuario.setor,
+        'senha': usuario.senha,
+        'status': usuario.status,
+        'horarioiniciotrabalho': usuario.horarioiniciotrabalho,
+        'horariofimtrabalho': usuario.horariofimtrabalho,
+        'horarioalmocoinicio': usuario.horarioalmocoinicio,
+        'horarioalmocofim': usuario.horarioalmocofim,
+      }).eq('id', usuario.id);
+    } catch (e) {
+      throw Exception('Erro ao atualizar usuário: $e');
+    }
+  }
+
+  Future<Usuario> getUserById(int id) async {
+    try {
+      final response = await _supabase
+          .from('usuarios')
+          .select()
+          .eq('id', id)
+          .single();
+
+      if (response == null) {
+        throw Exception('Usuário não encontrado para o ID: $id');
+      }
+
+      return Usuario.fromJson(response);
+    } catch (e) {
+      throw Exception('Erro ao buscar usuário: $e');
+    }
+  }
+
   Future<void> deleteUserPeriod(int periodId) async {
     try {
       await _supabase
@@ -137,75 +191,75 @@ class AuthService {
     }
   }
 
- Future<void> upsertPlanner(Planner planner, String horario, DateTime data, String? informacao) async {
-  try {
-    // Busca ou cria o planner para o usuário
-    final existingPlanner = await _getOrCreatePlanner(planner.usuarioId, planner.statusId);
+  Future<void> upsertPlanner(Planner planner, String horario, DateTime data, String? informacao) async {
+    try {
+      // Busca ou cria o planner para o usuário
+      final existingPlanner = await _getOrCreatePlanner(planner.usuarioId, planner.statusId);
 
-    // Obtém todas as entradas atuais
-    final entries = existingPlanner.getEntries();
+      // Obtém todas as entradas atuais
+      final entries = existingPlanner.getEntries();
 
-    // Verifica se já existe uma reserva no mesmo horário e data
-    final selectedDateStr = DateFormat('yyyy-MM-dd').format(data);
-    final hasConflict = entries.any((entry) =>
-        entry['horario'] == horario &&
-        entry['data'] != null &&
-        DateFormat('yyyy-MM-dd').format(entry['data'] as DateTime) == selectedDateStr);
+      // Verifica se já existe uma reserva no mesmo horário e data
+      final selectedDateStr = DateFormat('yyyy-MM-dd').format(data);
+      final hasConflict = entries.any((entry) =>
+          entry['horario'] == horario &&
+          entry['data'] != null &&
+          DateFormat('yyyy-MM-dd').format(entry['data'] as DateTime) == selectedDateStr);
 
-    if (hasConflict) {
-      throw Exception('Já existe uma reserva neste horário e data.');
+      if (hasConflict) {
+        throw Exception('Já existe uma reserva neste horário e data.');
+      }
+
+      // Conta quantas entradas não nulas existem (considera apenas o campo 'horario')
+      int nonNullEntries = entries.where((entry) => entry['horario'] != null).length;
+
+      int indexToUpdate;
+      Planner updatedPlanner = existingPlanner; // Variável para armazenar o planner atualizado
+      if (nonNullEntries < 30) {
+        // Se há menos de 30 entradas, encontra o primeiro slot vazio
+        indexToUpdate = entries.indexWhere((entry) => entry['horario'] == null);
+        if (indexToUpdate == -1) {
+          // Se não houver slot vazio, usa o próximo índice (deve ser menor que 30)
+          indexToUpdate = nonNullEntries;
+        }
+      } else {
+        // Se já há 30 entradas, sobrescreve a partir do primeiro slot (horario1)
+        // Desloca todas as entradas uma posição para trás e adiciona a nova no último slot
+        final List<Map<String, dynamic>> newEntries = [];
+        for (int i = 1; i < 30; i++) {
+          newEntries.add(entries[i]);
+        }
+        newEntries.add({'horario': horario, 'data': data, 'informacao': informacao});
+
+        // Atualiza todas as entradas, deslocando-as
+        for (int i = 0; i < 29; i++) {
+          updatedPlanner = updatedPlanner.updateEntry(
+            i,
+            horario: newEntries[i]['horario'],
+            data: newEntries[i]['data'],
+            informacao: newEntries[i]['informacao'],
+          );
+        }
+        indexToUpdate = 29; // Último slot (horario30)
+      }
+
+      // Atualiza o slot escolhido
+      updatedPlanner = updatedPlanner.updateEntry(
+        indexToUpdate,
+        horario: horario,
+        data: data,
+        informacao: informacao,
+      );
+
+      // Salva o planner atualizado no banco de dados
+      await _supabase
+          .from('planner')
+          .update(updatedPlanner.toJson())
+          .eq('id', updatedPlanner.id);
+    } catch (e) {
+      throw Exception('Erro ao salvar planner: $e');
     }
-
-    // Conta quantas entradas não nulas existem (considera apenas o campo 'horario')
-    int nonNullEntries = entries.where((entry) => entry['horario'] != null).length;
-
-    int indexToUpdate;
-    Planner updatedPlanner = existingPlanner; // Variável para armazenar o planner atualizado
-    if (nonNullEntries < 30) {
-      // Se há menos de 30 entradas, encontra o primeiro slot vazio
-      indexToUpdate = entries.indexWhere((entry) => entry['horario'] == null);
-      if (indexToUpdate == -1) {
-        // Se não houver slot vazio, usa o próximo índice (deve ser menor que 30)
-        indexToUpdate = nonNullEntries;
-      }
-    } else {
-      // Se já há 30 entradas, sobrescreve a partir do primeiro slot (horario1)
-      // Desloca todas as entradas uma posição para trás e adiciona a nova no último slot
-      final List<Map<String, dynamic>> newEntries = [];
-      for (int i = 1; i < 30; i++) {
-        newEntries.add(entries[i]);
-      }
-      newEntries.add({'horario': horario, 'data': data, 'informacao': informacao});
-
-      // Atualiza todas as entradas, deslocando-as
-      for (int i = 0; i < 29; i++) {
-        updatedPlanner = updatedPlanner.updateEntry(
-          i,
-          horario: newEntries[i]['horario'],
-          data: newEntries[i]['data'],
-          informacao: newEntries[i]['informacao'],
-        );
-      }
-      indexToUpdate = 29; // Último slot (horario30)
-    }
-
-    // Atualiza o slot escolhido
-    updatedPlanner = updatedPlanner.updateEntry(
-      indexToUpdate,
-      horario: horario,
-      data: data,
-      informacao: informacao,
-    );
-
-    // Salva o planner atualizado no banco de dados
-    await _supabase
-        .from('planner')
-        .update(updatedPlanner.toJson())
-        .eq('id', updatedPlanner.id);
-  } catch (e) {
-    throw Exception('Erro ao salvar planner: $e');
   }
-}
 
   Future<void> deletePlannerEntry(Planner planner, int index) async {
     try {
@@ -243,42 +297,6 @@ class AuthService {
       throw Exception('Erro ao buscar usuários: $e');
     }
   }
-
-  Future<void> createUsuario(Usuario usuario) async {
-  try {
-    await _supabase.from('usuarios').insert({
-      'email': usuario.email,
-      'nome': usuario.nome,
-      'setor': usuario.setor,
-      'senha': usuario.senha,
-      'status': usuario.status,
-      'horarioiniciotrabalho': usuario.horarioiniciotrabalho,
-      'horariofimtrabalho': usuario.horariofimtrabalho,
-      'horarioalmocoinicio': usuario.horarioalmocoinicio,
-      'horarioalmocofim': usuario.horarioalmocofim,
-    });
-  } catch (e) {
-    throw Exception('Erro ao criar usuário: $e');
-  }
-}
-
-Future<void> updateUsuario(Usuario usuario) async {
-  try {
-    await _supabase.from('usuarios').update({
-      'email': usuario.email,
-      'nome': usuario.nome,
-      'setor': usuario.setor,
-      'senha': usuario.senha,
-      'status': usuario.status,
-      'horarioiniciotrabalho': usuario.horarioiniciotrabalho,
-      'horariofimtrabalho': usuario.horariofimtrabalho,
-      'horarioalmocoinicio': usuario.horarioalmocoinicio,
-      'horarioalmocofim': usuario.horarioalmocofim,
-    }).eq('id', usuario.id);
-  } catch (e) {
-    throw Exception('Erro ao atualizar usuário: $e');
-  }
-}
 
   Future<void> createStatus(Status status) async {
     try {

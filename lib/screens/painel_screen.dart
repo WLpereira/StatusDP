@@ -36,6 +36,7 @@ class _PainelScreenState extends State<PainelScreen> {
   late ScaffoldMessengerState _scaffoldMessenger;
   late dynamic _subscription;
   Timer? _plannerRefreshTimer;
+  Timer? _statusRefreshTimer; // Novo Timer para atualizar status
 
   final List<String> _adminEmails = [
     'adm@dataplace.com.br',
@@ -51,12 +52,14 @@ class _PainelScreenState extends State<PainelScreen> {
     _loadInitialData();
     _setupRealtimeSubscriptions();
     _startPlannerRefreshTimer();
+    _startStatusRefreshTimer(); // Iniciar o timer para atualizar status
   }
 
   @override
   void dispose() {
     Supabase.instance.client.removeChannel(_subscription);
     _plannerRefreshTimer?.cancel();
+    _statusRefreshTimer?.cancel(); // Cancelar o timer de status
     super.dispose();
   }
 
@@ -74,6 +77,35 @@ class _PainelScreenState extends State<PainelScreen> {
       }
       await _loadPlanners();
     });
+  }
+
+  void _startStatusRefreshTimer() {
+    _statusRefreshTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      await _refreshStatuses();
+    });
+  }
+
+  Future<void> _refreshStatuses() async {
+    try {
+      // Criar uma lista temporária para armazenar os usuários atualizados
+      List<Usuario> updatedUsuarios = [];
+      for (var usuario in _usuarios) {
+        final updatedUsuario = await _authService.getUserById(usuario.id);
+        updatedUsuarios.add(updatedUsuario);
+      }
+      if (mounted) {
+        setState(() {
+          _usuarios = updatedUsuarios;
+        });
+      }
+    } catch (e) {
+      print('Erro ao atualizar status: $e');
+      _showMessage('Erro ao atualizar status: $e', isError: true);
+    }
   }
 
   void _setupRealtimeSubscriptions() {

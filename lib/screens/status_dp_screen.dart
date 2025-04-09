@@ -40,6 +40,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
 
   late dynamic _subscription; // Para gerenciar as assinaturas em tempo real
   Timer? _plannerRefreshTimer; // Timer para recarregar o planner
+  Timer? _statusRefreshTimer; // Novo timer para atualizar o status
 
   @override
   void initState() {
@@ -49,12 +50,14 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     _loadInitialData();
     _setupRealtimeSubscriptions(); // Configurar assinaturas em tempo real
     _startPlannerRefreshTimer(); // Iniciar o timer de recarregamento
+    _startStatusRefreshTimer(); // Iniciar o timer de atualização do status
   }
 
   @override
   void dispose() {
     // Cancelar o timer e as assinaturas ao sair da tela
     _plannerRefreshTimer?.cancel();
+    _statusRefreshTimer?.cancel(); // Cancelar o timer de status
     Supabase.instance.client.removeChannel(_subscription);
     super.dispose();
   }
@@ -69,6 +72,33 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       await _loadPlanner();
       await _loadHorarioTrabalho();
     });
+  }
+
+  // Iniciar o timer para atualizar o status a cada 3 segundos
+  void _startStatusRefreshTimer() {
+    _statusRefreshTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      await _refreshStatus();
+    });
+  }
+
+  // Função para recarregar o status do usuário
+  Future<void> _refreshStatus() async {
+    try {
+      final updatedUser = await _authService.getUserById(_usuario.id);
+      if (mounted) {
+        setState(() {
+          _selectedStatus = updatedUser.status;
+          _usuario = updatedUser; // Atualizar o usuário completo
+        });
+      }
+    } catch (e) {
+      print('Erro ao atualizar status: $e');
+      _showError('Erro ao atualizar status: $e');
+    }
   }
 
   // Configurar assinaturas em tempo real para as tabelas planner e horarios_trabalho
