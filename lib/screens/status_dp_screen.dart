@@ -59,7 +59,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     super.dispose();
   }
 
-  // Iniciar o timer para recarregar o planner a cada 10 segundos
+  // Iniciar o timer para recarregar o planner a cada 5 segundos
   void _startPlannerRefreshTimer() {
     _plannerRefreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) async {
       if (!mounted) {
@@ -667,6 +667,90 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     return 'https://www.gravatar.com/avatar/$emailHash?s=200&d=identicon';
   }
 
+  // Método para exibir o menu de status no bottom sheet
+  void _showStatusMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF16213E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        final scaleFactor = min(MediaQuery.of(context).size.width / 400, 1.5);
+        return Padding(
+          padding: EdgeInsets.all(16.0 * scaleFactor),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Atualizar Status',
+                style: TextStyle(
+                  fontSize: 18 * scaleFactor,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              SizedBox(height: 16 * scaleFactor),
+              Wrap(
+                spacing: 8 * scaleFactor,
+                runSpacing: 8 * scaleFactor,
+                children: _statuses.map((status) {
+                  return ElevatedButton.icon(
+                    onPressed: () async {
+                      setState(() {
+                        _selectedStatus = status.status;
+                      });
+                      await _saveOrUpdateStatus();
+                      Navigator.pop(context); // Fechar o bottom sheet após selecionar
+                    },
+                    icon: Icon(
+                      _getStatusIcon(status.status),
+                      size: 16 * scaleFactor,
+                      color: Colors.white,
+                    ),
+                    label: Text(
+                      status.status,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12 * scaleFactor,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _selectedStatus == status.status
+                          ? _getStatusColor(status.status)
+                          : Colors.grey[700],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8 * scaleFactor),
+                      ),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 12 * scaleFactor,
+                        vertical: 8 * scaleFactor,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              SizedBox(height: 16 * scaleFactor),
+              Center(
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(
+                    'Fechar',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14 * scaleFactor,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -695,6 +779,15 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A2E),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showStatusMenu,
+        backgroundColor: _getStatusColor(_selectedStatus),
+        child: Icon(
+          _getStatusIcon(_selectedStatus),
+          color: Colors.white,
+          size: 24 * scaleFactor,
+        ),
+      ),
       bottomNavigationBar: Container(
         color: const Color(0xFF0F3460),
         padding: EdgeInsets.symmetric(vertical: 4 * scaleFactor, horizontal: 10 * scaleFactor),
@@ -832,55 +925,6 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                       ),
                     ],
                   ),
-                ),
-                SizedBox(height: 12 * scaleFactor),
-
-                // Seção de Status
-                Text(
-                  'Atualizar Status',
-                  style: TextStyle(
-                    fontSize: 14 * scaleFactor,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                SizedBox(height: 4 * scaleFactor),
-                Wrap(
-                  spacing: 6 * scaleFactor,
-                  children: _statuses.map((status) {
-                    return ElevatedButton.icon(
-                      onPressed: () async {
-                        setState(() {
-                          _selectedStatus = status.status;
-                        });
-                        await _saveOrUpdateStatus();
-                      },
-                      icon: Icon(
-                        _getStatusIcon(status.status),
-                        size: 12 * scaleFactor,
-                        color: Colors.white,
-                      ),
-                      label: Text(
-                        status.status,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10 * scaleFactor,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _selectedStatus == status.status
-                            ? _getStatusColor(status.status)
-                            : Colors.grey[700],
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6 * scaleFactor),
-                        ),
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 8 * scaleFactor,
-                          vertical: 4 * scaleFactor,
-                        ),
-                      ),
-                    );
-                  }).toList(),
                 ),
                 SizedBox(height: 12 * scaleFactor),
 
@@ -1339,14 +1383,14 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                   borderRadius: BorderRadius.circular(6 * scaleFactor),
                                   border: Border.all(
                                     color: Colors.white.withOpacity(0.2),
-                                    width: 1 * scaleFactor,
+                                    width: 1,
                                   ),
                                 ),
                                 child: Stack(
                                   children: [
                                     Center(
                                       child: Text(
-                                        '${time.hour.toString().padLeft(2, '0')}:00',
+                                        '${time.hour}:00',
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontSize: 12 * scaleFactor,
@@ -1356,17 +1400,18 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                     ),
                                     if (hasInfo)
                                       Positioned(
-                                        bottom: 2 * scaleFactor,
-                                        left: 2 * scaleFactor,
-                                        right: 2 * scaleFactor,
+                                        bottom: 4 * scaleFactor,
+                                        left: 4 * scaleFactor,
+                                        right: 4 * scaleFactor,
                                         child: Text(
-                                          periodInfo ?? informacoes.join(', '),
+                                          informacoes.isNotEmpty
+                                              ? informacoes.first
+                                              : periodInfo!,
                                           style: TextStyle(
                                             color: Colors.white70,
                                             fontSize: 10 * scaleFactor,
                                             overflow: TextOverflow.ellipsis,
                                           ),
-                                          maxLines: 2,
                                           textAlign: TextAlign.center,
                                         ),
                                       ),
@@ -1379,7 +1424,6 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                     ],
                   ),
                 ),
-                SizedBox(height: 20 * scaleFactor),
               ],
             ),
           ),
