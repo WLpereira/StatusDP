@@ -789,7 +789,7 @@ class _PainelScreenState extends State<PainelScreen> {
             child: CustomScrollView(
               slivers: [
                 SliverAppBar(
-                  backgroundColor: Colors.transparent,
+                  backgroundColor: const Color.fromARGB(255, 8, 39, 63).withOpacity(0.8), // 80% opaco
                   elevation: 0,
                   pinned: true,
                   title: Row(
@@ -828,7 +828,7 @@ class _PainelScreenState extends State<PainelScreen> {
                         icon: const Icon(Icons.calendar_today, color: Colors.white, size: 18),
                         label: Text(
                           DateFormat('dd/MM/yyyy').format(_selectedDate),
-                          style: const TextStyle(color: Colors.white, fontSize: 14),
+                          style: const TextStyle(color: Colors.white, fontSize: 20),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white.withOpacity(0.2),

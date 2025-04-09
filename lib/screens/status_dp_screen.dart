@@ -1030,7 +1030,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                       icon: Icon(
                         Icons.calendar_today,
                         color: Colors.white70,
-                        size: 12 * scaleFactor,
+                        size: 30 * scaleFactor,
                       ),
                       onPressed: () async {
                         final DateTime? picked = await showDatePicker(
