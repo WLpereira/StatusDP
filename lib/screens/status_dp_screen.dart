@@ -136,23 +136,29 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       } else if (payload.eventType == PostgresChangeEvent.delete) {
         final deletedId = payload.oldRecord!['id'] as int;
         _horarioTrabalho.removeWhere((h) => h.id == deletedId);
-        // Resetar para valores padrão se o horário foi deletado
+        // Resetar para valores padrão do usuário se o horário foi deletado
         if (_horarioTrabalho.isEmpty) {
-          _startTime = const TimeOfDay(hour: 8, minute: 30);
-          _endTime = const TimeOfDay(hour: 17, minute: 0);
-          _lunchStartTime = const TimeOfDay(hour: 12, minute: 0);
-          _lunchEndTime = const TimeOfDay(hour: 13, minute: 0);
+          _resetToDefaultTimes();
         }
       }
     });
   }
 
+  // Resetar os horários para os valores padrão do cadastro do usuário
+  void _resetToDefaultTimes() {
+    _startTime = _parseTimeOfDay(_usuario.horarioiniciotrabalho, const TimeOfDay(hour: 8, minute: 30));
+    _endTime = _parseTimeOfDay(_usuario.horariofimtrabalho, const TimeOfDay(hour: 17, minute: 0));
+    _lunchStartTime = _parseTimeOfDay(_usuario.horarioalmocoinicio, const TimeOfDay(hour: 12, minute: 0));
+    _lunchEndTime = _parseTimeOfDay(_usuario.horarioalmocofim, const TimeOfDay(hour: 13, minute: 0));
+    debugPrint('Horários resetados para os padrões do usuário: Início ${_startTime.format(context)}, Fim ${_endTime.format(context)}');
+  }
+
   // Atualizar os tempos (_startTime, _endTime, etc.) com base no horário recebido
   void _updateTimesFromHorario(HorarioTrabalho ht) {
-    _startTime = _parseTimeOfDay(ht.horarioInicio, const TimeOfDay(hour: 8, minute: 30));
-    _endTime = _parseTimeOfDay(ht.horarioFim, const TimeOfDay(hour: 17, minute: 0));
-    _lunchStartTime = _parseTimeOfDay(ht.horarioAlmocoInicio, const TimeOfDay(hour: 12, minute: 0));
-    _lunchEndTime = _parseTimeOfDay(ht.horarioAlmocoFim, const TimeOfDay(hour: 13, minute: 0));
+    _startTime = _parseTimeOfDay(ht.horarioInicio, _parseTimeOfDay(_usuario.horarioiniciotrabalho, const TimeOfDay(hour: 8, minute: 30)));
+    _endTime = _parseTimeOfDay(ht.horarioFim, _parseTimeOfDay(_usuario.horariofimtrabalho, const TimeOfDay(hour: 17, minute: 0)));
+    _lunchStartTime = _parseTimeOfDay(ht.horarioAlmocoInicio, _parseTimeOfDay(_usuario.horarioalmocoinicio, const TimeOfDay(hour: 12, minute: 0)));
+    _lunchEndTime = _parseTimeOfDay(ht.horarioAlmocoFim, _parseTimeOfDay(_usuario.horarioalmocofim, const TimeOfDay(hour: 13, minute: 0)));
     debugPrint('Horário de Início Atualizado: ${_startTime.hour}:${_startTime.minute.toString().padLeft(2, '0')}');
   }
 
@@ -191,6 +197,10 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
 
   Future<void> _loadHorarioTrabalho() async {
     try {
+      // Primeiro, carregar os horários padrão do usuário
+      _resetToDefaultTimes();
+
+      // Em seguida, carregar quaisquer alterações salvas para o dia selecionado
       final horarioTrabalho = await _authService.getHorarioTrabalho(_usuario.id, _selectedDate.weekday);
       setState(() {
         _horarioTrabalho = horarioTrabalho;
@@ -201,6 +211,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       });
     } catch (e) {
       _showError('Erro ao carregar horário de trabalho: $e');
+      // Em caso de erro, manter os horários padrão do usuário
+      _resetToDefaultTimes();
     }
   }
 
@@ -217,13 +229,18 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     try {
       await _authService.updateUserStatus(_usuario.id, _selectedStatus!);
       setState(() {
-        _usuario = Usuario(
+        _usuario = _usuario.copyWith(
           id: _usuario.id,
           nome: _usuario.nome,
           email: _usuario.email,
           setor: _usuario.setor,
           status: _selectedStatus,
           senha: _usuario.senha,
+          photoUrl: _usuario.photoUrl,
+          horarioiniciotrabalho: _usuario.horarioiniciotrabalho,
+          horariofimtrabalho: _usuario.horariofimtrabalho,
+          horarioalmocoinicio: _usuario.horarioalmocoinicio,
+          horarioalmocofim: _usuario.horarioalmocofim,
         );
       });
     } catch (e) {
@@ -917,40 +934,40 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                       fontSize: 10 * scaleFactor,
                     ),
                   )
-             else
-  ..._userPeriods.map((period) { // Alterado de _userPeriod para _userPeriods
-    return Card(
-      color: Colors.white.withOpacity(0.1),
-      elevation: 5,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(6 * scaleFactor),
-      ),
-      child: ListTile(
-        title: Text(
-          '${DateFormat('dd/MM/yyyy').format(period.startDate)} - ${DateFormat('dd/MM/yyyy').format(period.endDate)}',
-          style: TextStyle(
-            color: Colors.orangeAccent,
-            fontSize: 12 * scaleFactor,
-          ),
-        ),
-        subtitle: Text(
-          period.info ?? '',
-          style: TextStyle(
-            color: Colors.white70,
-            fontSize: 10 * scaleFactor,
-          ),
-        ),
-        trailing: IconButton(
-          icon: Icon(
-            Icons.delete,
-            color: Colors.red,
-            size: 12 * scaleFactor,
-          ),
-          onPressed: () => _removePeriod(period.id),
-        ),
-      ),
-    );
-  }),
+                else
+                  ..._userPeriods.map((period) {
+                    return Card(
+                      color: Colors.white.withOpacity(0.1),
+                      elevation: 5,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6 * scaleFactor),
+                      ),
+                      child: ListTile(
+                        title: Text(
+                          '${DateFormat('dd/MM/yyyy').format(period.startDate)} - ${DateFormat('dd/MM/yyyy').format(period.endDate)}',
+                          style: TextStyle(
+                            color: Colors.orangeAccent,
+                            fontSize: 12 * scaleFactor,
+                          ),
+                        ),
+                        subtitle: Text(
+                          period.info ?? '',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 10 * scaleFactor,
+                          ),
+                        ),
+                        trailing: IconButton(
+                          icon: Icon(
+                            Icons.delete,
+                            color: Colors.red,
+                            size: 12 * scaleFactor,
+                          ),
+                          onPressed: () => _removePeriod(period.id),
+                        ),
+                      ),
+                    );
+                  }),
                 SizedBox(height: 12 * scaleFactor),
 
                 // Seção de Planner (Agenda)
