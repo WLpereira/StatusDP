@@ -809,13 +809,13 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A2E),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.large(
         onPressed: _showStatusMenu,
         backgroundColor: _getStatusColor(_selectedStatus),
         child: Icon(
           _getStatusIcon(_selectedStatus),
           color: Colors.white,
-          size: 24 * scaleFactor,
+          size: 36 * scaleFactor, // Aumentado de 24 para 36
         ),
       ),
       bottomNavigationBar: Container(

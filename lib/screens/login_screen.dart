@@ -15,6 +15,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
+  List<String> _userEmails = []; // Lista para armazenar os emails dos usuários
 
   // Lista de emails permitidos para acessar a AdminScreen
   final List<String> _adminEmails = [
@@ -24,6 +25,24 @@ class _LoginScreenState extends State<LoginScreen> {
     'admadm@dataplace.com.br',
     'admcloud@dataplace.com.br',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserEmails(); // Carregar os emails ao iniciar a tela
+  }
+
+  // Método para carregar os emails dos usuários do banco de dados
+  Future<void> _loadUserEmails() async {
+    try {
+      final usuarios = await _authService.getAllUsuarios();
+      setState(() {
+        _userEmails = usuarios.map((usuario) => usuario.email).toList();
+      });
+    } catch (e) {
+      _showError('Erro ao carregar emails: $e');
+    }
+  }
 
   Future<void> _login() async {
     setState(() {
@@ -112,23 +131,79 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 40),
-                TextField(
-                  controller: _emailController,
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Colors.white.withOpacity(0.1),
-                    hintText: 'Email',
-                    hintStyle: const TextStyle(color: Colors.white70),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                  style: const TextStyle(color: Colors.white),
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next,
-                  onSubmitted: (_) {
-                    FocusScope.of(context).nextFocus();
+                Autocomplete<String>(
+                  optionsBuilder: (TextEditingValue textEditingValue) {
+                    if (textEditingValue.text.isEmpty) {
+                      return const Iterable<String>.empty();
+                    }
+                    return _userEmails.where((String email) {
+                      return email.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                    });
+                  },
+                  onSelected: (String selection) {
+                    _emailController.text = selection;
+                    FocusScope.of(context).nextFocus(); // Move o foco para o campo de senha
+                  },
+                  fieldViewBuilder: (BuildContext context, TextEditingController fieldTextEditingController,
+                      FocusNode fieldFocusNode, VoidCallback onFieldSubmitted) {
+                    // Sincronizar o controlador do Autocomplete com o _emailController
+                    fieldTextEditingController.text = _emailController.text;
+                    _emailController.addListener(() {
+                      fieldTextEditingController.text = _emailController.text;
+                    });
+                    return TextField(
+                      controller: fieldTextEditingController,
+                      focusNode: fieldFocusNode,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.white.withOpacity(0.1),
+                        hintText: 'Email',
+                        hintStyle: const TextStyle(color: Colors.white70),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(30),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      style: const TextStyle(color: Colors.white),
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
+                      onSubmitted: (_) {
+                        FocusScope.of(context).nextFocus();
+                      },
+                    );
+                  },
+                  optionsViewBuilder: (BuildContext context, AutocompleteOnSelected<String> onSelected,
+                      Iterable<String> options) {
+                    return Align(
+                      alignment: Alignment.topLeft,
+                      child: Material(
+                        elevation: 4.0,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          color: const Color(0xFF16213E),
+                          width: MediaQuery.of(context).size.width - 32, // Ajusta a largura para o padding
+                          child: ListView.builder(
+                            padding: EdgeInsets.zero,
+                            shrinkWrap: true,
+                            itemCount: options.length,
+                            itemBuilder: (BuildContext context, int index) {
+                              final String option = options.elementAt(index);
+                              return GestureDetector(
+                                onTap: () {
+                                  onSelected(option);
+                                },
+                                child: ListTile(
+                                  title: Text(
+                                    option,
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    );
                   },
                 ),
                 const SizedBox(height: 16),
