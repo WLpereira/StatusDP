@@ -40,7 +40,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
 
   late dynamic _subscription; // Para gerenciar as assinaturas em tempo real
   Timer? _plannerRefreshTimer; // Timer para recarregar o planner
-  Timer? _statusRefreshTimer; // Novo timer para atualizar o status
+  Timer? _statusRefreshTimer; // Timer para atualizar o status
 
   @override
   void initState() {
@@ -49,20 +49,20 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     _selectedStatus = _usuario.status;
     _loadInitialData();
     _setupRealtimeSubscriptions(); // Configurar assinaturas em tempo real
-    _startPlannerRefreshTimer(); // Iniciar o timer de recarregamento
+    _startPlannerRefreshTimer(); // Iniciar o timer de recarregamento apenas para planner
     _startStatusRefreshTimer(); // Iniciar o timer de atualização do status
   }
 
   @override
   void dispose() {
-    // Cancelar o timer e as assinaturas ao sair da tela
+    // Cancelar os timers e as assinaturas ao sair da tela
     _plannerRefreshTimer?.cancel();
-    _statusRefreshTimer?.cancel(); // Cancelar o timer de status
+    _statusRefreshTimer?.cancel();
     Supabase.instance.client.removeChannel(_subscription);
     super.dispose();
   }
 
-  // Iniciar o timer para recarregar o planner a cada 5 segundos
+  // Iniciar o timer para recarregar o planner a cada 5 segundos (sem atualizar horarioTrabalho)
   void _startPlannerRefreshTimer() {
     _plannerRefreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) async {
       if (!mounted) {
@@ -70,7 +70,6 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
         return;
       }
       await _loadPlanner();
-      await _loadHorarioTrabalho();
     });
   }
 
@@ -348,7 +347,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       );
 
       await _authService.upsertHorarioTrabalho(horarioTrabalho);
-      await _loadHorarioTrabalho();
+      // A atualização será tratada pela assinatura em tempo real, não precisamos chamar _loadHorarioTrabalho aqui
     } catch (e) {
       _showError('Erro ao atualizar horário de trabalho: $e');
     }
