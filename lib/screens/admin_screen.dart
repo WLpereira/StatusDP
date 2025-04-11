@@ -227,6 +227,36 @@ class _AdminScreenState extends State<AdminScreen> {
     );
   }
 
+  Future<void> _deleteUsuario(Usuario usuario) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar Exclusão'),
+        content: Text('Deseja excluir o usuário ${usuario.nome ?? usuario.email}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Excluir', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await _authService.deleteUsuario(usuario.id);
+      _showError('Usuário excluído com sucesso!');
+      await _loadUsuarios();
+    } catch (e) {
+      _showError('Erro ao excluir usuário: $e');
+    }
+  }
+
   Future<void> _addOrEditStatus({Status? status}) async {
     final isEditing = status != null;
     final statusController = TextEditingController(text: isEditing ? status.status : '');
@@ -727,6 +757,10 @@ class _AdminScreenState extends State<AdminScreen> {
       'Sem Setor': Colors.grey,
     };
 
+    // Obter as dimensões da tela para responsividade
+    final screenWidth = MediaQuery.of(context).size.width;
+    final scaleFactor = screenWidth < 600 ? 0.8 : 1.0; // Ajuste mais simples para telas pequenas
+
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A2E),
       extendBody: true,
@@ -776,49 +810,112 @@ class _AdminScreenState extends State<AdminScreen> {
                       color: Colors.white,
                     ),
                   ),
-                  Wrap(
-                    spacing: 8.0,
-                    children: [
-                      ElevatedButton(
-                        onPressed: () => _addNewUserPeriod(),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          elevation: 5,
-                          shadowColor: Colors.green.withOpacity(0.5),
+                  // Ajuste para responsividade: Usar Column em telas pequenas
+                  screenWidth < 600
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            ElevatedButton(
+                              onPressed: () => _addNewUserPeriod(),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 8 * scaleFactor,
+                                  vertical: 4 * scaleFactor,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10 * scaleFactor),
+                                ),
+                                elevation: 3,
+                                shadowColor: Colors.green.withOpacity(0.5),
+                              ),
+                              child: Text(
+                                'Add Indisponibilidade',
+                                style: TextStyle(
+                                  fontSize: 20 * scaleFactor,
+                                  color: Colors.white,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            ElevatedButton(
+                              onPressed: () => _addOrEditUsuario(),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.yellow,
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 8 * scaleFactor,
+                                  vertical: 4 * scaleFactor,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10 * scaleFactor),
+                                ),
+                                elevation: 3,
+                                shadowColor: Colors.yellow.withOpacity(0.5),
+                              ),
+                              child: Text(
+                                'Add Usuário',
+                                style: TextStyle(
+                                  fontSize: 20 * scaleFactor,
+                                  color: Colors.black,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            ElevatedButton(
+                              onPressed: () => _addNewUserPeriod(),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 8 * scaleFactor,
+                                  vertical: 4 * scaleFactor,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10 * scaleFactor),
+                                ),
+                                elevation: 3,
+                                shadowColor: Colors.green.withOpacity(0.5),
+                              ),
+                              child: Text(
+                                'Add Indisponibilidade',
+                                style: TextStyle(
+                                  fontSize: 20 * scaleFactor,
+                                  color: Colors.white,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: () => _addOrEditUsuario(),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.yellow,
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 8 * scaleFactor,
+                                  vertical: 4 * scaleFactor,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10 * scaleFactor),
+                                ),
+                                elevation: 3,
+                                shadowColor: Colors.yellow.withOpacity(0.5),
+                              ),
+                              child: Text(
+                                'Add Usuário',
+                                style: TextStyle(
+                                  fontSize: 20 * scaleFactor,
+                                  color: Colors.black,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
                         ),
-                        child: const Text(
-                          'Adicionar Período de Indisponibilidade',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      ElevatedButton(
-                        onPressed: () => _addOrEditUsuario(),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.yellow,
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          elevation: 5,
-                          shadowColor: Colors.yellow.withOpacity(0.5),
-                        ),
-                        child: const Text(
-                          'Adicionar Usuário',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                 ],
               ),
               const SizedBox(height: 8),
@@ -895,6 +992,17 @@ class _AdminScreenState extends State<AdminScreen> {
                                         padding: const EdgeInsets.all(8),
                                         constraints: const BoxConstraints(),
                                         tooltip: 'Editar Usuário',
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.delete,
+                                          color: Colors.red,
+                                          size: 24,
+                                        ),
+                                        onPressed: () => _deleteUsuario(usuario),
+                                        padding: const EdgeInsets.all(8),
+                                        constraints: const BoxConstraints(),
+                                        tooltip: 'Excluir Usuário',
                                       ),
                                     ],
                                   ),

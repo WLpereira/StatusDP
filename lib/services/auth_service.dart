@@ -99,6 +99,18 @@ class AuthService {
     }
   }
 
+  Future<void> deleteUsuario(int userId) async {
+    try {
+      // Remove o usuário da tabela 'usuarios' com base no ID
+      await _supabase
+          .from('usuarios')
+          .delete()
+          .eq('id', userId);
+    } catch (e) {
+      throw Exception('Erro ao excluir usuário: $e');
+    }
+  }
+
   Future<Usuario> getUserById(int id) async {
     try {
       final response = await _supabase

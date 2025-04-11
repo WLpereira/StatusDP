@@ -33,6 +33,17 @@ class _PainelScreenState extends State<PainelScreen> {
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = true;
 
+  // Mapa para controlar o estado de expansão de cada setor
+  final Map<String, bool> _sectorExpansionState = {
+    'Suporte': true,
+    'Suporte/Consultor': true,
+    'Cloud': true,
+    'ADM': true,
+    'DEV': true,
+    'Externo': true,
+    'QA': true,
+  };
+
   late ScaffoldMessengerState _scaffoldMessenger;
   late dynamic _subscription;
   Timer? _plannerRefreshTimer;
@@ -880,106 +891,205 @@ class _PainelScreenState extends State<PainelScreen> {
                         final users = entry.value;
                         if (users.isEmpty) return const SizedBox.shrink();
 
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '$sector (${users.length} usuários)',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: sectorColors[sector] ?? Colors.white,
-                              ),
+                        return ExpansionTile(
+                          title: Text(
+                            '$sector (${users.length} usuários)',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: sectorColors[sector] ?? Colors.white,
                             ),
-                            const SizedBox(height: 12),
-                            ...users.map((usuario) {
-                              final plannerEntries = _getPlannerEntriesForUserAndDate(usuario.id);
-                              final availableHours = _getAvailableHoursForUser(usuario.id);
-                              final status = _statuses.firstWhere(
-                                (s) => s.status == usuario.status,
-                                orElse: () => Status(id: -1, status: 'Desconhecido'),
-                              );
-                              final horario = _horariosTrabalho.firstWhere(
-                                (h) => h.usuarioId == usuario.id && h.diaSemana == _selectedDate.weekday,
-                                orElse: () => HorarioTrabalho(
-                                  id: -1,
-                                  usuarioId: usuario.id,
-                                  diaSemana: _selectedDate.weekday,
-                                  horarioInicio: usuario.horarioiniciotrabalho ?? '06:00',
-                                  horarioFim: usuario.horariofimtrabalho ?? '18:00',
-                                  horarioAlmocoInicio: usuario.horarioalmocoinicio ?? '12:00',
-                                  horarioAlmocoFim: usuario.horarioalmocofim ?? '13:30',
-                                ),
-                              );
-                              final lunchStartTime = _parseTimeOfDay(horario.horarioAlmocoInicio ?? '12:00');
-                              final lunchEndTime = _parseTimeOfDay(horario.horarioAlmocoFim ?? '13:30');
-                              final photoUrl = usuario.photoUrl ?? _getGravatarUrl(usuario.email);
+                          ),
+                          initiallyExpanded: _sectorExpansionState[sector] ?? true, // Estado inicial (expandido por padrão)
+                          onExpansionChanged: (expanded) {
+                            setState(() {
+                              _sectorExpansionState[sector] = expanded; // Atualiza o estado de expansão
+                            });
+                          },
+                          tilePadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+                          childrenPadding: const EdgeInsets.only(bottom: 12.0),
+                          backgroundColor: Colors.transparent,
+                          collapsedBackgroundColor: Colors.transparent,
+                          iconColor: sectorColors[sector] ?? Colors.white, // Cor do ícone de expansão
+                          collapsedIconColor: sectorColors[sector] ?? Colors.white, // Cor do ícone quando recolhido
+                          children: users.map((usuario) {
+                            final plannerEntries = _getPlannerEntriesForUserAndDate(usuario.id);
+                            final availableHours = _getAvailableHoursForUser(usuario.id);
+                            final status = _statuses.firstWhere(
+                              (s) => s.status == usuario.status,
+                              orElse: () => Status(id: -1, status: 'Desconhecido'),
+                            );
+                            final horario = _horariosTrabalho.firstWhere(
+                              (h) => h.usuarioId == usuario.id && h.diaSemana == _selectedDate.weekday,
+                              orElse: () => HorarioTrabalho(
+                                id: -1,
+                                usuarioId: usuario.id,
+                                diaSemana: _selectedDate.weekday,
+                                horarioInicio: usuario.horarioiniciotrabalho ?? '06:00',
+                                horarioFim: usuario.horariofimtrabalho ?? '18:00',
+                                horarioAlmocoInicio: usuario.horarioalmocoinicio ?? '12:00',
+                                horarioAlmocoFim: usuario.horarioalmocofim ?? '13:30',
+                              ),
+                            );
+                            final lunchStartTime = _parseTimeOfDay(horario.horarioAlmocoInicio ?? '12:00');
+                            final lunchEndTime = _parseTimeOfDay(horario.horarioAlmocoFim ?? '13:30');
+                            final photoUrl = usuario.photoUrl ?? _getGravatarUrl(usuario.email);
 
-                              return Card(
-                                color: Colors.white.withOpacity(0.15),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                elevation: 2,
-                                margin: const EdgeInsets.symmetric(vertical: 8),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12.0),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          CircleAvatar(
-                                            radius: 20,
-                                            backgroundImage: NetworkImage(photoUrl),
-                                            backgroundColor: sectorColors[sector] ?? Colors.grey,
+                            return Card(
+                              color: Colors.white.withOpacity(0.15),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              elevation: 2,
+                              margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 20,
+                                          backgroundImage: NetworkImage(photoUrl),
+                                          backgroundColor: sectorColors[sector] ?? Colors.grey,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                usuario.nome ?? usuario.email,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              Text(
+                                                'Status: ${status.status}',
+                                                style: TextStyle(
+                                                  color: _getStatusColor(status.status),
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  usuario.nome ?? usuario.email,
-                                                  style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.bold,
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    LayoutBuilder(
+                                      builder: (context, constraints) {
+                                        final isDesktop = constraints.maxWidth > 1024;
+                                        final blockWidth = isDesktop ? 120.0 : 60.0;
+                                        final blockHeight = isDesktop ? 90.0 : 80.0;
+                                        final blockHeightWithInfo = isDesktop ? 110.0 : 70.0;
+                                        final fontSizeHour = isDesktop ? 16.0 : 14.0;
+                                        final fontSizeInfo = isDesktop ? 16.0 : 14.0;
+
+                                        if (isDesktop) {
+                                          return SizedBox(
+                                            width: double.infinity,
+                                            child: Wrap(
+                                              spacing: 8.0,
+                                              runSpacing: 8.0,
+                                              children: availableHours.map((hour) {
+                                                final time = hour['time'] as TimeOfDay;
+                                                final isUnavailable = hour['isUnavailable'] as bool;
+                                                final entry = plannerEntries.firstWhere(
+                                                  (e) => e['horario'] == '${time.hour.toString().padLeft(2, '0')}:00',
+                                                  orElse: () => {},
+                                                );
+                                                final isReserved = entry.isNotEmpty;
+
+                                                return GestureDetector(
+                                                  onTap: () {
+                                                    if (isUnavailable) return;
+                                                    if (!_podeEditar(usuario.id, hour, isReserved ? entry : null)) {
+                                                      _showMessage('Você não pode editar esta reserva.', isError: true);
+                                                      return;
+                                                    }
+                                                    _addOrUpdatePlanner(usuario.id, time, isReserved ? entry : null);
+                                                  },
+                                                  onLongPress: isReserved && _podeEditar(usuario.id, hour, entry)
+                                                      ? () => _removePlannerEntry(usuario.id, entry['index'])
+                                                      : null,
+                                                  child: Container(
+                                                    width: blockWidth,
+                                                    height: isReserved ? blockHeightWithInfo : blockHeight,
+                                                    padding: const EdgeInsets.all(8),
+                                                    decoration: BoxDecoration(
+                                                      color: isUnavailable
+                                                          ? Colors.red.withOpacity(0.6)
+                                                          : (isReserved
+                                                              ? const Color.fromARGB(255, 255, 0, 0)
+                                                              : Colors.grey.withOpacity(0.4)),
+                                                      borderRadius: BorderRadius.circular(8),
+                                                      border: Border.all(
+                                                        color: isReserved ? Colors.white.withOpacity(0.2) : Colors.transparent,
+                                                        width: 1,
+                                                      ),
+                                                    ),
+                                                    child: Column(
+                                                      mainAxisAlignment: MainAxisAlignment.center,
+                                                      children: [
+                                                        Text(
+                                                          '${time.hour.toString().padLeft(2, '0')}:00',
+                                                          style: TextStyle(
+                                                            color: Colors.white,
+                                                            fontSize: fontSizeHour,
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                        if (isReserved)
+                                                          Row(
+                                                            mainAxisAlignment: MainAxisAlignment.center,
+                                                            children: [
+                                                              Flexible(
+                                                                child: SelectableText(
+                                                                  entry['informacao'] ?? 'N/A',
+                                                                  style: TextStyle(
+                                                                    color: const Color.fromARGB(179, 255, 255, 255),
+                                                                    fontSize: fontSizeInfo,
+                                                                    fontWeight: FontWeight.bold,
+                                                                    overflow: TextOverflow.ellipsis,
+                                                                  ),
+                                                                  maxLines: 1,
+                                                                ),
+                                                              ),
+                                                              const SizedBox(width: 4),
+                                                              IconButton(
+                                                                icon: const Icon(
+                                                                  Icons.copy,
+                                                                  size: 16,
+                                                                  color: Colors.white70,
+                                                                ),
+                                                                onPressed: () {
+                                                                  _copyToClipboard(entry['informacao'] ?? 'N/A');
+                                                                },
+                                                                padding: EdgeInsets.zero,
+                                                                constraints: const BoxConstraints(),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                      ],
+                                                    ),
                                                   ),
-                                                ),
-                                                Text(
-                                                  'Status: ${status.status}',
-                                                  style: TextStyle(
-                                                    color: _getStatusColor(status.status),
-                                                    fontSize: 14,
-                                                  ),
-                                                ),
-                                              ],
+                                                );
+                                              }).toList(),
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 12),
-                                      LayoutBuilder(
-                                        builder: (context, constraints) {
-                                          final isDesktop = constraints.maxWidth > 1024;
-                                          final blockWidth = isDesktop ? 120.0 : 60.0;
-                                          final blockHeight = isDesktop ? 90.0 : 70.0;
-                                          final blockHeightWithInfo = isDesktop ? 110.0 : 70.0;
-                                          final fontSizeHour = isDesktop ? 16.0 : 14.0;
-                                          final fontSizeInfo = isDesktop ? 14.0 : 12.0;
-
-                                          if (isDesktop) {
-                                            return SizedBox(
-                                              width: double.infinity,
-                                              child: Wrap(
-                                                spacing: 8.0,
-                                                runSpacing: 8.0,
+                                          );
+                                        } else {
+                                          return SizedBox(
+                                            height: blockHeight,
+                                            child: SingleChildScrollView(
+                                              scrollDirection: Axis.horizontal,
+                                              child: Row(
                                                 children: availableHours.map((hour) {
                                                   final time = hour['time'] as TimeOfDay;
                                                   final isUnavailable = hour['isUnavailable'] as bool;
                                                   final entry = plannerEntries.firstWhere(
-                                                    (e) =>
-                                                        e['horario'] ==
-                                                        '${time.hour.toString().padLeft(2, '0')}:00',
+                                                    (e) => e['horario'] == '${time.hour.toString().padLeft(2, '0')}:00',
                                                     orElse: () => {},
                                                   );
                                                   final isReserved = entry.isNotEmpty;
@@ -988,8 +1098,7 @@ class _PainelScreenState extends State<PainelScreen> {
                                                     onTap: () {
                                                       if (isUnavailable) return;
                                                       if (!_podeEditar(usuario.id, hour, isReserved ? entry : null)) {
-                                                        _showMessage('Você não pode editar esta reserva.',
-                                                            isError: true);
+                                                        _showMessage('Você não pode editar esta reserva.', isError: true);
                                                         return;
                                                       }
                                                       _addOrUpdatePlanner(usuario.id, time, isReserved ? entry : null);
@@ -999,7 +1108,7 @@ class _PainelScreenState extends State<PainelScreen> {
                                                         : null,
                                                     child: Container(
                                                       width: blockWidth,
-                                                      height: isReserved ? blockHeightWithInfo : blockHeight,
+                                                      margin: const EdgeInsets.only(right: 8),
                                                       padding: const EdgeInsets.all(8),
                                                       decoration: BoxDecoration(
                                                         color: isUnavailable
@@ -1032,8 +1141,9 @@ class _PainelScreenState extends State<PainelScreen> {
                                                                   child: SelectableText(
                                                                     entry['informacao'] ?? 'N/A',
                                                                     style: TextStyle(
-                                                                      color: Colors.white70,
+                                                                      color: const Color.fromARGB(179, 255, 255, 255),
                                                                       fontSize: fontSizeInfo,
+                                                                      fontWeight: FontWeight.bold,
                                                                       overflow: TextOverflow.ellipsis,
                                                                     ),
                                                                     maxLines: 1,
@@ -1043,8 +1153,8 @@ class _PainelScreenState extends State<PainelScreen> {
                                                                 IconButton(
                                                                   icon: const Icon(
                                                                     Icons.copy,
-                                                                    size: 16,
-                                                                    color: Colors.white70,
+                                                                    size: 14,
+                                                                    color: Color.fromARGB(179, 255, 255, 255),
                                                                   ),
                                                                   onPressed: () {
                                                                     _copyToClipboard(entry['informacao'] ?? 'N/A');
@@ -1060,122 +1170,26 @@ class _PainelScreenState extends State<PainelScreen> {
                                                   );
                                                 }).toList(),
                                               ),
-                                            );
-                                          } else {
-                                            return SizedBox(
-                                              height: blockHeight,
-                                              child: SingleChildScrollView(
-                                                scrollDirection: Axis.horizontal,
-                                                child: Row(
-                                                  children: availableHours.map((hour) {
-                                                    final time = hour['time'] as TimeOfDay;
-                                                    final isUnavailable = hour['isUnavailable'] as bool;
-                                                    final entry = plannerEntries.firstWhere(
-                                                      (e) =>
-                                                          e['horario'] ==
-                                                          '${time.hour.toString().padLeft(2, '0')}:00',
-                                                      orElse: () => {},
-                                                    );
-                                                    final isReserved = entry.isNotEmpty;
-
-                                                    return GestureDetector(
-                                                      onTap: () {
-                                                        if (isUnavailable) return;
-                                                        if (!_podeEditar(usuario.id, hour, isReserved ? entry : null)) {
-                                                          _showMessage('Você não pode editar esta reserva.',
-                                                              isError: true);
-                                                          return;
-                                                        }
-                                                        _addOrUpdatePlanner(usuario.id, time, isReserved ? entry : null);
-                                                      },
-                                                      onLongPress: isReserved && _podeEditar(usuario.id, hour, entry)
-                                                          ? () => _removePlannerEntry(usuario.id, entry['index'])
-                                                          : null,
-                                                      child: Container(
-                                                        width: blockWidth,
-                                                        margin: const EdgeInsets.only(right: 8),
-                                                        padding: const EdgeInsets.all(8),
-                                                        decoration: BoxDecoration(
-                                                          color: isUnavailable
-                                                              ? Colors.red.withOpacity(0.6)
-                                                              : (isReserved
-                                                                  ? const Color.fromARGB(255, 255, 0, 0)
-                                                                  : Colors.grey.withOpacity(0.4)),
-                                                          borderRadius: BorderRadius.circular(8),
-                                                          border: Border.all(
-                                                            color: isReserved ? Colors.white.withOpacity(0.2) : Colors.transparent,
-                                                            width: 1,
-                                                          ),
-                                                        ),
-                                                        child: Column(
-                                                          mainAxisAlignment: MainAxisAlignment.center,
-                                                          children: [
-                                                            Text(
-                                                              '${time.hour.toString().padLeft(2, '0')}:00',
-                                                              style: TextStyle(
-                                                                color: Colors.white,
-                                                                fontSize: fontSizeHour,
-                                                                fontWeight: FontWeight.bold,
-                                                              ),
-                                                            ),
-                                                            if (isReserved)
-                                                              Row(
-                                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                                children: [
-                                                                  Flexible(
-                                                                    child: SelectableText(
-                                                                      entry['informacao'] ?? 'N/A',
-                                                                      style: TextStyle(
-                                                                        color: Colors.white70,
-                                                                        fontSize: fontSizeInfo,
-                                                                        overflow: TextOverflow.ellipsis,
-                                                                      ),
-                                                                      maxLines: 1,
-                                                                    ),
-                                                                  ),
-                                                                  const SizedBox(width: 4),
-                                                                  IconButton(
-                                                                    icon: const Icon(
-                                                                      Icons.copy,
-                                                                      size: 14,
-                                                                      color: Colors.white70,
-                                                                    ),
-                                                                    onPressed: () {
-                                                                      _copyToClipboard(entry['informacao'] ?? 'N/A');
-                                                                    },
-                                                                    padding: EdgeInsets.zero,
-                                                                    constraints: const BoxConstraints(),
-                                                                  ),
-                                                                ],
-                                                              ),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                    );
-                                                  }).toList(),
-                                                ),
-                                              ),
-                                            );
-                                          }
-                                        },
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            'Almoço: ${lunchStartTime.format(context)} - ${lunchEndTime.format(context)}',
-                                            style: const TextStyle(color: Colors.white70, fontSize: 12),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          'Almoço: ${lunchStartTime.format(context)} - ${lunchEndTime.format(context)}',
+                                          style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
-                              );
-                            }).toList(),
-                            const SizedBox(height: 20),
-                          ],
+                              ),
+                            );
+                          }).toList(),
                         );
                       }).toList(),
                       Center(
