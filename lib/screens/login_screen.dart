@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Importar o pacote
 import '../services/auth_service.dart';
 import 'status_dp_screen.dart';
 import 'admin_screen.dart';
@@ -15,6 +16,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _savePassword = false; // Estado da checkbox
   List<String> _userEmails = []; // Lista para armazenar os emails dos usuários
 
   // Lista de emails permitidos para acessar a AdminScreen
@@ -30,6 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     _loadUserEmails(); // Carregar os emails ao iniciar a tela
+    _loadSavedCredentials(); // Carregar email e senha salvos
   }
 
   // Método para carregar os emails dos usuários do banco de dados
@@ -41,6 +44,35 @@ class _LoginScreenState extends State<LoginScreen> {
       });
     } catch (e) {
       _showError('Erro ao carregar emails: $e');
+    }
+  }
+
+  // Método para carregar email e senha salvos
+  Future<void> _loadSavedCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedEmail = prefs.getString('saved_email') ?? '';
+    final savedPassword = prefs.getString('saved_password') ?? '';
+    final savePassword = prefs.getBool('save_password') ?? false;
+
+    setState(() {
+      _emailController.text = savedEmail;
+      _passwordController.text = savedPassword;
+      _savePassword = savePassword;
+    });
+  }
+
+  // Método para salvar email e senha
+  Future<void> _saveCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_savePassword) {
+      await prefs.setString('saved_email', _emailController.text.trim());
+      await prefs.setString('saved_password', _passwordController.text.trim());
+      await prefs.setBool('save_password', true);
+    } else {
+      // Limpar os dados salvos se a checkbox não estiver marcada
+      await prefs.remove('saved_email');
+      await prefs.remove('saved_password');
+      await prefs.setBool('save_password', false);
     }
   }
 
@@ -63,6 +95,9 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final usuario = await _authService.login(email, password);
       if (usuario != null) {
+        // Salvar as credenciais se a checkbox estiver marcada
+        await _saveCredentials();
+
         // Verifica se o email está na lista de administradores
         if (_adminEmails.contains(email)) {
           Navigator.pushReplacement(
@@ -227,6 +262,26 @@ class _LoginScreenState extends State<LoginScreen> {
                       _login();
                     }
                   },
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Checkbox(
+                      value: _savePassword,
+                      onChanged: (bool? value) {
+                        setState(() {
+                          _savePassword = value ?? false;
+                        });
+                      },
+                      checkColor: Colors.white,
+                      activeColor: Colors.blueAccent,
+                    ),
+                    const Text(
+                      'Salvar senha',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 40),
                 _isLoading
