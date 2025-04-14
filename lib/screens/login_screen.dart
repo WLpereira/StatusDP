@@ -17,6 +17,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _savePassword = false; // Estado da checkbox
+  bool _obscurePassword = true; // Estado para controlar a visibilidade da senha
   List<String> _userEmails = []; // Lista para armazenar os emails dos usuários
 
   // Lista de emails permitidos para acessar a AdminScreen
@@ -253,9 +254,26 @@ class _LoginScreenState extends State<LoginScreen> {
                       borderRadius: BorderRadius.circular(30),
                       borderSide: BorderSide.none,
                     ),
+                    suffixIcon: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword; // Alterna a visibilidade da senha
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
+                        child: Text(
+                          _obscurePassword ? 'Mostrar' : 'Esconder',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                   style: const TextStyle(color: Colors.white),
-                  obscureText: true,
+                  obscureText: _obscurePassword, // Controla a visibilidade da senha
                   textInputAction: TextInputAction.done,
                   onSubmitted: (_) {
                     if (!_isLoading) {
@@ -274,8 +292,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           _savePassword = value ?? false;
                         });
                       },
-                      checkColor: Colors.white,
-                      activeColor: Colors.blueAccent,
+                      checkColor: Colors.white, // Cor do "check" dentro da checkbox
+                      activeColor: Colors.blueAccent, // Cor de fundo quando marcada
+                      side: const BorderSide(
+                        color: Colors.white70, // Cor da borda da checkbox
+                        width: 2,
+                      ),
                     ),
                     const Text(
                       'Salvar senha',
