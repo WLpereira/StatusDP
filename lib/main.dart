@@ -17,7 +17,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'StatusDP',
+      title: 'Planner DP',
       theme: ThemeData.dark(),
       home: const LoginScreen(),
     );
