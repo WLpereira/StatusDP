@@ -93812,7 +93812,7 @@ return!0},
 gnV(){return"windows"},
 gqq(){return"\\"}}
 A.OV.prototype={
-L(a){return new A.C1(B.lq,"StatusDP",A.k9(B.a9,null,null),null)}}
+L(a){return new A.C1(B.lq,"Planner DP",A.k9(B.a9,null,null),null)}}
 A.h0.prototype={
 dl(){var s=this
 return A.V(["id",s.a,"usuarioid",s.b,"diasemana",s.c,"horarioinicio",s.d,"horariofim",s.e,"horarioalmocoinicio",s.f,"horarioalmocofim",s.r],t.N,t.z)}}
