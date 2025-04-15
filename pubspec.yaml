@@ -17,6 +17,7 @@
     cupertino_icons: ^1.0.8  # Verifique a versão mais recente
     image_picker: ^1.1.2
     crypto: ^3.0.3
+    flutter_launcher_icons: ^0.14.3
 
   dev_dependencies:
     flutter_test:
@@ -25,3 +26,11 @@
 
   flutter:
     uses-material-design: true
+
+  flutter_launcher_icons:
+    # android: true
+    # ios: true
+    image_path: "assets/icon.png"
+    web:
+      generate: true
+      image_path: "assets/icon.png"
