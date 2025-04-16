@@ -297,22 +297,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       borderRadius: BorderRadius.circular(30),
                       borderSide: BorderSide.none,
                     ),
-                    suffixIcon: GestureDetector(
-                      onTap: () {
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility : Icons.visibility_off, // Ícone para alternar a visibilidade da senha
+                        color: Colors.white,
+                      ),
+                      onPressed: () {
                         setState(() {
                           _obscurePassword = !_obscurePassword; // Alterna a visibilidade da senha
                         });
                       },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
-                        child: Text(
-                          _obscurePassword ? 'Mostrar' : 'Esconder',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
                     ),
                   ),
                   style: const TextStyle(color: Colors.white),
