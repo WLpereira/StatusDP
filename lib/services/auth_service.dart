@@ -11,6 +11,7 @@ class AuthService {
 
   Future<Usuario?> login(String email, String password) async {
     try {
+      // Busca o usuário diretamente na tabela usuarios
       final response = await _supabase
           .from('usuarios')
           .select()
@@ -22,7 +23,8 @@ class AuthService {
         return null;
       }
 
-      return Usuario.fromJson(response.first);
+      final usuario = Usuario.fromJson(response.first);
+      return usuario;
     } catch (e) {
       if (e.toString().contains('not found')) {
         return null;

@@ -34,6 +34,40 @@ class _LoginScreenState extends State<LoginScreen> {
     super.initState();
     _loadUserEmails(); // Carregar os emails ao iniciar a tela
     _loadSavedCredentials(); // Carregar email e senha salvos
+    _checkSession(); // Verificar se há uma sessão ativa
+  }
+
+  Future<void> _checkSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedEmail = prefs.getString('saved_email');
+    final savedPassword = prefs.getString('saved_password');
+    final lastLogin = prefs.getInt('last_login');
+
+    if (savedEmail != null && savedPassword != null && lastLogin != null) {
+      // Verifica se o último login foi há menos de 7 dias
+      final now = DateTime.now().millisecondsSinceEpoch;
+      if (now - lastLogin < const Duration(days: 7).inMilliseconds) {
+        // Tenta fazer login automático
+        final usuario = await _authService.login(savedEmail, savedPassword);
+        if (usuario != null) {
+          if (_adminEmails.contains(savedEmail)) {
+            if (mounted) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => AdminScreen(usuario: usuario)),
+              );
+            }
+          } else {
+            if (mounted) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => StatusDPScreen(usuario: usuario)),
+              );
+            }
+          }
+        }
+      }
+    }
   }
 
   // Método para carregar os emails dos usuários do banco de dados
@@ -69,10 +103,13 @@ class _LoginScreenState extends State<LoginScreen> {
       await prefs.setString('saved_email', _emailController.text.trim());
       await prefs.setString('saved_password', _passwordController.text.trim());
       await prefs.setBool('save_password', true);
+      // Salva o timestamp do login
+      await prefs.setInt('last_login', DateTime.now().millisecondsSinceEpoch);
     } else {
       // Limpar os dados salvos se a checkbox não estiver marcada
       await prefs.remove('saved_email');
       await prefs.remove('saved_password');
+      await prefs.remove('last_login');
       await prefs.setBool('save_password', false);
     }
   }
@@ -101,15 +138,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
         // Verifica se o email está na lista de administradores
         if (_adminEmails.contains(email)) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => AdminScreen(usuario: usuario)),
-          );
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => AdminScreen(usuario: usuario)),
+            );
+          }
         } else {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => StatusDPScreen(usuario: usuario)),
-          );
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => StatusDPScreen(usuario: usuario)),
+            );
+          }
         }
       } else {
         _showError('Usuário ou senha está errado.');
@@ -117,9 +158,11 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       _showError('Erro ao fazer login: $e');
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
