@@ -842,7 +842,15 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
   Future<void> _showReplicationDialog(
       TimeOfDay sourceTime, String sourceInfo) async {
     final availableHours = _getAvailableHours();
+    // Filtrar para excluir apenas o horário de origem
+    final selectableHours =
+        availableHours.where((time) => time.hour != sourceTime.hour).toList();
     final List<TimeOfDay> selectedTimes = [];
+
+    if (selectableHours.isEmpty) {
+      _showError('Não há horários disponíveis para replicar.');
+      return;
+    }
 
     await showDialog(
       context: context,
@@ -866,11 +874,7 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: availableHours.map((time) {
-                    // Ignorar o horário de origem
-                    if (time.hour == sourceTime.hour)
-                      return const SizedBox.shrink();
-
+                  children: selectableHours.map((time) {
                     final isPastHour = DateFormat('yyyy-MM-dd')
                                 .format(DateTime.now()) ==
                             DateFormat('yyyy-MM-dd').format(_selectedDate) &&
@@ -1648,8 +1652,11 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                                       _sourceInfo =
                                                           controller.text;
                                                     });
+                                                    // Chamar o diálogo de replicação e aguardar sua conclusão
                                                     await _showReplicationDialog(
                                                         time, controller.text);
+                                                    // Após a replicação, fechar o diálogo principal
+                                                    Navigator.pop(context);
                                                   },
                                                   style:
                                                       ElevatedButton.styleFrom(
