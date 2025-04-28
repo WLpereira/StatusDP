@@ -1636,48 +1636,47 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                                   ),
                                                 ),
                                               ),
-                                              if (_sourceInfo != null &&
-                                                  _sourceTime !=
-                                                      null) // Botão de replicação
-                                                ElevatedButton(
-                                                  onPressed: () async {
-                                                    if (controller
-                                                        .text.isEmpty) {
-                                                      _showError(
-                                                          'Insira uma informação para replicar.');
-                                                      return;
-                                                    }
-                                                    // Atualizar _sourceInfo com o texto atual
-                                                    setState(() {
-                                                      _sourceInfo =
-                                                          controller.text;
-                                                    });
-                                                    // Chamar o diálogo de replicação e aguardar sua conclusão
-                                                    await _showReplicationDialog(
-                                                        time, controller.text);
-                                                    // Após a replicação, fechar o diálogo principal
-                                                    Navigator.pop(context);
-                                                  },
-                                                  style:
-                                                      ElevatedButton.styleFrom(
-                                                    backgroundColor:
-                                                        Colors.blueAccent,
-                                                    shape:
-                                                        RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              8 * scaleFactor),
-                                                    ),
-                                                  ),
-                                                  child: Text(
-                                                    'Replicar',
-                                                    style: TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize:
-                                                          12 * scaleFactor,
-                                                    ),
+                                              ElevatedButton(
+                                                onPressed: () async {
+                                                  if (controller.text.isEmpty) {
+                                                    _showError(
+                                                        'Insira uma informação para replicar.');
+                                                    return;
+                                                  }
+                                                  // Salvar automaticamente o horário clicado antes de abrir o diálogo de replicação
+                                                  await _saveOrUpdatePlanner(
+                                                      time,
+                                                      _selectedDate,
+                                                      controller.text);
+                                                  // Atualizar _sourceInfo com o texto atual
+                                                  setState(() {
+                                                    _sourceTime = time;
+                                                    _sourceInfo =
+                                                        controller.text;
+                                                  });
+                                                  // Chamar o diálogo de replicação e aguardar sua conclusão
+                                                  await _showReplicationDialog(
+                                                      time, controller.text);
+                                                  // Após a replicação, fechar o diálogo principal
+                                                  Navigator.pop(context);
+                                                },
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      Colors.blueAccent,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8 * scaleFactor),
                                                   ),
                                                 ),
+                                                child: Text(
+                                                  'Replicar',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 12 * scaleFactor,
+                                                  ),
+                                                ),
+                                              ),
                                             ],
                                           );
                                         },
