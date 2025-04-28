@@ -31,7 +31,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
   List<Planner> _planner = [];
   List<HorarioTrabalho> _horarioTrabalho = [];
   DateTime _selectedDate = DateTime.now();
-  TimeOfDay _startTime = const TimeOfDay(hour: 8, minute: 30); // Forçado para 08:30
+  TimeOfDay _startTime =
+      const TimeOfDay(hour: 8, minute: 30); // Forçado para 08:30
   TimeOfDay _endTime = const TimeOfDay(hour: 17, minute: 0);
   TimeOfDay _lunchStartTime = const TimeOfDay(hour: 12, minute: 0);
   TimeOfDay _lunchEndTime = const TimeOfDay(hour: 13, minute: 0);
@@ -41,6 +42,10 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
   late dynamic _subscription; // Para gerenciar as assinaturas em tempo real
   Timer? _plannerRefreshTimer; // Timer para recarregar o planner
   Timer? _statusRefreshTimer; // Timer para atualizar o status
+
+  // Variáveis para replicação
+  TimeOfDay? _sourceTime; // Horário de origem para replicação
+  String? _sourceInfo; // Informação do horário de origem
 
   @override
   void initState() {
@@ -64,7 +69,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
 
   // Iniciar o timer para recarregar o planner a cada 5 segundos (sem atualizar horarioTrabalho)
   void _startPlannerRefreshTimer() {
-    _plannerRefreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) async {
+    _plannerRefreshTimer =
+        Timer.periodic(const Duration(seconds: 5), (timer) async {
       if (!mounted) {
         timer.cancel();
         return;
@@ -75,7 +81,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
 
   // Iniciar o timer para atualizar o status a cada 3 segundos
   void _startStatusRefreshTimer() {
-    _statusRefreshTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+    _statusRefreshTimer =
+        Timer.periodic(const Duration(seconds: 3), (timer) async {
       if (!mounted) {
         timer.cancel();
         return;
@@ -128,7 +135,9 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
         final newPlanner = Planner.fromJson(payload.newRecord!);
         if (newPlanner.usuarioId == _usuario.id) {
           print('Novo planner inserido para o usuário: ${newPlanner.id}');
-          _planner = [newPlanner]; // Substitui, já que só queremos o planner do usuário
+          _planner = [
+            newPlanner
+          ]; // Substitui, já que só queremos o planner do usuário
         }
       } else if (payload.eventType == PostgresChangeEvent.update) {
         final updatedPlanner = Planner.fromJson(payload.newRecord!);
@@ -152,13 +161,15 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     setState(() {
       if (payload.eventType == PostgresChangeEvent.insert) {
         final newHorario = HorarioTrabalho.fromJson(payload.newRecord!);
-        if (newHorario.usuarioId == _usuario.id && newHorario.diaSemana == _selectedDate.weekday) {
+        if (newHorario.usuarioId == _usuario.id &&
+            newHorario.diaSemana == _selectedDate.weekday) {
           _horarioTrabalho = [newHorario];
           _updateTimesFromHorario(newHorario);
         }
       } else if (payload.eventType == PostgresChangeEvent.update) {
         final updatedHorario = HorarioTrabalho.fromJson(payload.newRecord!);
-        if (updatedHorario.usuarioId == _usuario.id && updatedHorario.diaSemana == _selectedDate.weekday) {
+        if (updatedHorario.usuarioId == _usuario.id &&
+            updatedHorario.diaSemana == _selectedDate.weekday) {
           _horarioTrabalho = [updatedHorario];
           _updateTimesFromHorario(updatedHorario);
         }
@@ -175,20 +186,38 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
 
   // Resetar os horários para os valores padrão do cadastro do usuário
   void _resetToDefaultTimes() {
-    _startTime = _parseTimeOfDay(_usuario.horarioiniciotrabalho, const TimeOfDay(hour: 8, minute: 30));
-    _endTime = _parseTimeOfDay(_usuario.horariofimtrabalho, const TimeOfDay(hour: 17, minute: 0));
-    _lunchStartTime = _parseTimeOfDay(_usuario.horarioalmocoinicio, const TimeOfDay(hour: 12, minute: 0));
-    _lunchEndTime = _parseTimeOfDay(_usuario.horarioalmocofim, const TimeOfDay(hour: 13, minute: 0));
-    debugPrint('Horários resetados para os padrões do usuário: Início ${_startTime.format(context)}, Fim ${_endTime.format(context)}');
+    _startTime = _parseTimeOfDay(
+        _usuario.horarioiniciotrabalho, const TimeOfDay(hour: 8, minute: 30));
+    _endTime = _parseTimeOfDay(
+        _usuario.horariofimtrabalho, const TimeOfDay(hour: 17, minute: 0));
+    _lunchStartTime = _parseTimeOfDay(
+        _usuario.horarioalmocoinicio, const TimeOfDay(hour: 12, minute: 0));
+    _lunchEndTime = _parseTimeOfDay(
+        _usuario.horarioalmocofim, const TimeOfDay(hour: 13, minute: 0));
+    debugPrint(
+        'Horários resetados para os padrões do usuário: Início ${_startTime.format(context)}, Fim ${_endTime.format(context)}');
   }
 
   // Atualizar os tempos (_startTime, _endTime, etc.) com base no horário recebido
   void _updateTimesFromHorario(HorarioTrabalho ht) {
-    _startTime = _parseTimeOfDay(ht.horarioInicio, _parseTimeOfDay(_usuario.horarioiniciotrabalho, const TimeOfDay(hour: 8, minute: 30)));
-    _endTime = _parseTimeOfDay(ht.horarioFim, _parseTimeOfDay(_usuario.horariofimtrabalho, const TimeOfDay(hour: 17, minute: 0)));
-    _lunchStartTime = _parseTimeOfDay(ht.horarioAlmocoInicio, _parseTimeOfDay(_usuario.horarioalmocoinicio, const TimeOfDay(hour: 12, minute: 0)));
-    _lunchEndTime = _parseTimeOfDay(ht.horarioAlmocoFim, _parseTimeOfDay(_usuario.horarioalmocofim, const TimeOfDay(hour: 13, minute: 0)));
-    debugPrint('Horário de Início Atualizado: ${_startTime.hour}:${_startTime.minute.toString().padLeft(2, '0')}');
+    _startTime = _parseTimeOfDay(
+        ht.horarioInicio,
+        _parseTimeOfDay(_usuario.horarioiniciotrabalho,
+            const TimeOfDay(hour: 8, minute: 30)));
+    _endTime = _parseTimeOfDay(
+        ht.horarioFim,
+        _parseTimeOfDay(
+            _usuario.horariofimtrabalho, const TimeOfDay(hour: 17, minute: 0)));
+    _lunchStartTime = _parseTimeOfDay(
+        ht.horarioAlmocoInicio,
+        _parseTimeOfDay(_usuario.horarioalmocoinicio,
+            const TimeOfDay(hour: 12, minute: 0)));
+    _lunchEndTime = _parseTimeOfDay(
+        ht.horarioAlmocoFim,
+        _parseTimeOfDay(
+            _usuario.horarioalmocofim, const TimeOfDay(hour: 13, minute: 0)));
+    debugPrint(
+        'Horário de Início Atualizado: ${_startTime.hour}:${_startTime.minute.toString().padLeft(2, '0')}');
   }
 
   Future<void> _loadInitialData() async {
@@ -230,7 +259,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       _resetToDefaultTimes();
 
       // Em seguida, carregar quaisquer alterações salvas para o dia selecionado
-      final horarioTrabalho = await _authService.getHorarioTrabalho(_usuario.id, _selectedDate.weekday);
+      final horarioTrabalho = await _authService.getHorarioTrabalho(
+          _usuario.id, _selectedDate.weekday);
       setState(() {
         _horarioTrabalho = horarioTrabalho;
         if (horarioTrabalho.isNotEmpty) {
@@ -277,7 +307,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     }
   }
 
-  Future<void> _saveOrUpdatePlanner(TimeOfDay time, DateTime date, String informacao) async {
+  Future<void> _saveOrUpdatePlanner(
+      TimeOfDay time, DateTime date, String informacao) async {
     try {
       final timeString = '${time.hour.toString().padLeft(2, '0')}:00';
       final timeInMinutes = time.hour * 60;
@@ -285,7 +316,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       final now = DateTime.now();
       final currentTimeInMinutes = now.hour * 60 + now.minute;
 
-      if (DateFormat('yyyy-MM-dd').format(now) == DateFormat('yyyy-MM-dd').format(date) &&
+      if (DateFormat('yyyy-MM-dd').format(now) ==
+              DateFormat('yyyy-MM-dd').format(date) &&
           currentTimeInMinutes >= timeEndInMinutes) {
         _showError('Não é possível agendar horários já passados.');
         return;
@@ -305,7 +337,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       final existingEntryIndex = entries.indexWhere((entry) =>
           entry['horario'] == timeString &&
           entry['data'] != null &&
-          DateFormat('yyyy-MM-dd').format(entry['data'] as DateTime) == selectedDateStr);
+          DateFormat('yyyy-MM-dd').format(entry['data'] as DateTime) ==
+              selectedDateStr);
 
       if (existingEntryIndex != -1) {
         // Se existe uma reserva, deletar a entrada existente antes de criar uma nova
@@ -373,7 +406,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
         .where((entry) =>
             entry.value['horario'] != null &&
             entry.value['data'] != null &&
-            DateFormat('yyyy-MM-dd').format(entry.value['data'] as DateTime) == selectedDateStr)
+            DateFormat('yyyy-MM-dd').format(entry.value['data'] as DateTime) ==
+                selectedDateStr)
         .map((entry) => {
               'index': entry.key,
               'horario': entry.value['horario'] as String,
@@ -392,7 +426,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
         .where((entry) =>
             entry['horario'] == timeString &&
             entry['data'] != null &&
-            DateFormat('yyyy-MM-dd').format(entry['data'] as DateTime) == selectedDateStr)
+            DateFormat('yyyy-MM-dd').format(entry['data'] as DateTime) ==
+                selectedDateStr)
         .map((entry) => entry['informacao'] as String? ?? '')
         .toList();
   }
@@ -400,37 +435,51 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
   bool _isUserUnavailable(DateTime date) {
     final dateOnly = DateTime(date.year, date.month, date.day);
     return _userPeriods.any((period) {
-      final startDate = DateTime(period.startDate.year, period.startDate.month, period.startDate.day);
-      final endDate = DateTime(period.endDate.year, period.endDate.month, period.endDate.day);
-      return (dateOnly.isAfter(startDate) || dateOnly.isAtSameMomentAs(startDate)) &&
+      final startDate = DateTime(
+          period.startDate.year, period.startDate.month, period.startDate.day);
+      final endDate = DateTime(
+          period.endDate.year, period.endDate.month, period.endDate.day);
+      return (dateOnly.isAfter(startDate) ||
+              dateOnly.isAtSameMomentAs(startDate)) &&
           (dateOnly.isBefore(endDate) || dateOnly.isAtSameMomentAs(endDate));
     });
   }
 
   String? _getPeriodInfoForTime(TimeOfDay time) {
-    final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
+    final date = DateTime(
+        _selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
     final dateOnly = DateTime(date.year, date.month, date.day);
     final period = _userPeriods.firstWhere(
       (period) {
-        final startDate = DateTime(period.startDate.year, period.startDate.month, period.startDate.day);
-        final endDate = DateTime(period.endDate.year, period.endDate.month, period.endDate.day);
-        return (dateOnly.isAfter(startDate) || dateOnly.isAtSameMomentAs(startDate)) &&
+        final startDate = DateTime(period.startDate.year,
+            period.startDate.month, period.startDate.day);
+        final endDate = DateTime(
+            period.endDate.year, period.endDate.month, period.endDate.day);
+        return (dateOnly.isAfter(startDate) ||
+                dateOnly.isAtSameMomentAs(startDate)) &&
             (dateOnly.isBefore(endDate) || dateOnly.isAtSameMomentAs(endDate));
       },
-      orElse: () => UserPeriod(id: 0, usuarioId: 0, startDate: DateTime.now(), endDate: DateTime.now(), info: ''),
+      orElse: () => UserPeriod(
+          id: 0,
+          usuarioId: 0,
+          startDate: DateTime.now(),
+          endDate: DateTime.now(),
+          info: ''),
     );
     return period.id != 0 ? period.info : null;
   }
 
   Color _getColorForGrid(TimeOfDay time) {
     final informacoes = _getInformacoesForTime(time);
-    final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
+    final date = DateTime(
+        _selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
     final isUnavailable = _isUserUnavailable(date);
     final timeInMinutes = time.hour * 60;
     final timeEndInMinutes = (time.hour + 1) * 60;
     final now = DateTime.now();
     final currentTimeInMinutes = now.hour * 60 + now.minute;
-    final isPastHour = DateFormat('yyyy-MM-dd').format(now) == DateFormat('yyyy-MM-dd').format(_selectedDate) &&
+    final isPastHour = DateFormat('yyyy-MM-dd').format(now) ==
+            DateFormat('yyyy-MM-dd').format(_selectedDate) &&
         currentTimeInMinutes >= timeEndInMinutes;
 
     if (isPastHour) {
@@ -485,7 +534,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     if (_startTime.minute > 0) {
       startHour++;
     }
-    debugPrint('Start Hour Calculado: $startHour (a partir de _startTime: ${_startTime.hour}:${_startTime.minute})');
+    debugPrint(
+        'Start Hour Calculado: $startHour (a partir de _startTime: ${_startTime.hour}:${_startTime.minute})');
 
     // Calcular a hora de fim, considerando apenas a hora cheia anterior ao término
     int endHour = _endTime.hour;
@@ -505,7 +555,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       // Ajustar a lógica do intervalo de almoço considerando os minutos
       // Ex.: Se o almoço começa às 13:30, o horário das 13:00 não deve ser exibido
       // Se o almoço termina às 15:00, o próximo horário deve ser 15:00
-      if (timeInMinutes >= (lunchStartMinutes - (lunchStartMinutes % 60)) && timeInMinutes < lunchEndMinutes) {
+      if (timeInMinutes >= (lunchStartMinutes - (lunchStartMinutes % 60)) &&
+          timeInMinutes < lunchEndMinutes) {
         continue;
       }
 
@@ -515,13 +566,15 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     // Se o almoço termina em uma hora cheia (ex.: 15:00), garantir que essa hora seja incluída
     if (lunchEndMinutes % 60 == 0) {
       final lunchEndHour = _lunchEndTime.hour;
-      if (lunchEndHour <= endHour && !hours.any((time) => time.hour == lunchEndHour)) {
+      if (lunchEndHour <= endHour &&
+          !hours.any((time) => time.hour == lunchEndHour)) {
         hours.add(TimeOfDay(hour: lunchEndHour, minute: 0));
       }
     }
 
     // Ordenar os horários para garantir a sequência correta
-    hours.sort((a, b) => (a.hour * 60 + a.minute).compareTo(b.hour * 60 + b.minute));
+    hours.sort(
+        (a, b) => (a.hour * 60 + a.minute).compareTo(b.hour * 60 + b.minute));
 
     return hours;
   }
@@ -559,7 +612,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
   void _goToPainel() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => PainelScreen(usuarioLogado: widget.usuario)),
+      MaterialPageRoute(
+          builder: (context) => PainelScreen(usuarioLogado: widget.usuario)),
     ).then((_) async {
       await _loadInitialData();
     });
@@ -639,13 +693,16 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                 ),
                 TextButton(
                   onPressed: () async {
-                    if (startDate == null || endDate == null || infoController.text.isEmpty) {
+                    if (startDate == null ||
+                        endDate == null ||
+                        infoController.text.isEmpty) {
                       _showError('Por favor, preencha todos os campos.');
                       return;
                     }
 
                     if (endDate!.isBefore(startDate!)) {
-                      _showError('A data final não pode ser anterior à data inicial.');
+                      _showError(
+                          'A data final não pode ser anterior à data inicial.');
                       return;
                     }
 
@@ -731,7 +788,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                         _selectedStatus = status.status;
                       });
                       await _saveOrUpdateStatus();
-                      Navigator.pop(context); // Fechar o bottom sheet após selecionar
+                      Navigator.pop(
+                          context); // Fechar o bottom sheet após selecionar
                     },
                     icon: Icon(
                       _getStatusIcon(status.status),
@@ -780,6 +838,126 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     );
   }
 
+  // Método para exibir o diálogo de seleção de horários para replicação
+  Future<void> _showReplicationDialog(
+      TimeOfDay sourceTime, String sourceInfo) async {
+    final availableHours = _getAvailableHours();
+    final List<TimeOfDay> selectedTimes = [];
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            final scaleFactor =
+                min(MediaQuery.of(context).size.width / 400, 1.5);
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10 * scaleFactor),
+              ),
+              backgroundColor: const Color(0xFF16213E),
+              title: Text(
+                'Replicar Informação de ${sourceTime.hour}:00',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14 * scaleFactor,
+                ),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: availableHours.map((time) {
+                    // Ignorar o horário de origem
+                    if (time.hour == sourceTime.hour)
+                      return const SizedBox.shrink();
+
+                    final isPastHour = DateFormat('yyyy-MM-dd')
+                                .format(DateTime.now()) ==
+                            DateFormat('yyyy-MM-dd').format(_selectedDate) &&
+                        (time.hour * 60 + time.minute) <=
+                            (DateTime.now().hour * 60 + DateTime.now().minute);
+                    final isUnavailable = _isUserUnavailable(DateTime(
+                        _selectedDate.year,
+                        _selectedDate.month,
+                        _selectedDate.day,
+                        time.hour));
+
+                    return CheckboxListTile(
+                      title: Text(
+                        '${time.hour}:00',
+                        style: TextStyle(
+                          color: isPastHour || isUnavailable
+                              ? Colors.grey
+                              : Colors.white,
+                          fontSize: 12 * scaleFactor,
+                        ),
+                      ),
+                      value: selectedTimes.contains(time),
+                      onChanged: isPastHour || isUnavailable
+                          ? null
+                          : (bool? value) {
+                              setState(() {
+                                if (value == true) {
+                                  selectedTimes.add(time);
+                                } else {
+                                  selectedTimes.remove(time);
+                                }
+                              });
+                            },
+                      activeColor: Colors.green,
+                      checkColor: Colors.white,
+                    );
+                  }).toList(),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(
+                    'Cancelar',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12 * scaleFactor,
+                    ),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (selectedTimes.isEmpty) {
+                      _showError(
+                          'Selecione pelo menos um horário para replicar.');
+                      return;
+                    }
+                    // Replicar a informação para os horários selecionados
+                    for (final time in selectedTimes) {
+                      await _saveOrUpdatePlanner(
+                          time, _selectedDate, sourceInfo);
+                    }
+                    Navigator.pop(context);
+                    _showError('Informação replicada com sucesso!');
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8 * scaleFactor),
+                    ),
+                  ),
+                  child: Text(
+                    'Replicar',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12 * scaleFactor,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -791,7 +969,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     }
 
     final availableHours = _getAvailableHours();
-    debugPrint('Horários Disponíveis: ${availableHours.map((time) => time.hour).toList()}');
+    debugPrint(
+        'Horários Disponíveis: ${availableHours.map((time) => time.hour).toList()}');
     final now = DateTime.now();
     final currentTimeInMinutes = now.hour * 60 + now.minute;
     final photoUrl = _usuario.photoUrl ?? _getGravatarUrl(_usuario.email);
@@ -819,7 +998,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
       ),
       bottomNavigationBar: Container(
         color: const Color(0xFF0F3460),
-        padding: EdgeInsets.symmetric(vertical: 4 * scaleFactor, horizontal: 10 * scaleFactor),
+        padding: EdgeInsets.symmetric(
+            vertical: 4 * scaleFactor, horizontal: 10 * scaleFactor),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
@@ -854,7 +1034,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                 onPressed: () {
                   Navigator.pushReplacement(
                     context,
-                    MaterialPageRoute(builder: (context) => const LoginScreen()),
+                    MaterialPageRoute(
+                        builder: (context) => const LoginScreen()),
                   );
                 },
                 icon: Icon(
@@ -1085,7 +1266,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
 
                     if (filteredEntries.isEmpty) {
                       return Padding(
-                        padding: EdgeInsets.symmetric(vertical: 4.0 * scaleFactor),
+                        padding:
+                            EdgeInsets.symmetric(vertical: 4.0 * scaleFactor),
                         child: Text(
                           'Nenhuma reserva para este dia.',
                           style: TextStyle(
@@ -1104,7 +1286,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                         return Card(
                           color: Colors.white.withOpacity(0.1),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6 * scaleFactor),
+                            borderRadius:
+                                BorderRadius.circular(6 * scaleFactor),
                           ),
                           child: ListTile(
                             leading: Icon(
@@ -1128,7 +1311,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                               onPressed: () async {
                                 if (_planner.isNotEmpty) {
                                   final planner = _planner.first;
-                                  await _authService.deletePlannerEntry(planner, index);
+                                  await _authService.deletePlannerEntry(
+                                      planner, index);
                                   await _loadPlanner();
                                 }
                               },
@@ -1161,8 +1345,10 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                       ),
                       SizedBox(height: 4 * scaleFactor),
                       Wrap(
-                        spacing: 8 * scaleFactor, // Espaço horizontal entre os elementos
-                        runSpacing: 4 * scaleFactor, // Espaço vertical entre as linhas
+                        spacing: 8 *
+                            scaleFactor, // Espaço horizontal entre os elementos
+                        runSpacing:
+                            4 * scaleFactor, // Espaço vertical entre as linhas
                         children: [
                           GestureDetector(
                             onTap: () => _selectTime(context, 'start'),
@@ -1220,7 +1406,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                 Text(
                                   'Fim Almoço: ${_lunchEndTime.format(context)}',
                                   style: TextStyle(
-                                    color: const Color.fromARGB(255, 244, 244, 244),
+                                    color: const Color.fromARGB(
+                                        255, 244, 244, 244),
                                     fontSize: 10 * scaleFactor,
                                   ),
                                 ),
@@ -1284,8 +1471,10 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                         )
                       else
                         Wrap(
-                          spacing: 1 * scaleFactor, // Espaço horizontal entre os blocos
-                          runSpacing: 4 * scaleFactor, // Espaço vertical entre as linhas
+                          spacing: 1 *
+                              scaleFactor, // Espaço horizontal entre os blocos
+                          runSpacing: 4 *
+                              scaleFactor, // Espaço vertical entre as linhas
                           children: availableHours.asMap().entries.map((entry) {
                             final index = entry.key;
                             final time = entry.value;
@@ -1294,42 +1483,60 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                             if (_startTime.minute > 0) startHour++;
                             // Ignorar horários antes de startHour
                             if (time.hour < startHour) {
-                              debugPrint('Ignorando horário ${time.hour}:00 (antes de startHour: $startHour)');
-                              return const SizedBox.shrink(); // Não exibe o horário
+                              debugPrint(
+                                  'Ignorando horário ${time.hour}:00 (antes de startHour: $startHour)');
+                              return const SizedBox
+                                  .shrink(); // Não exibe o horário
                             }
                             // Log para depuração
                             debugPrint('Exibindo horário: ${time.hour}:00');
                             final informacoes = _getInformacoesForTime(time);
-                            final date = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, time.hour);
+                            final date = DateTime(
+                                _selectedDate.year,
+                                _selectedDate.month,
+                                _selectedDate.day,
+                                time.hour);
                             final isUnavailable = _isUserUnavailable(date);
                             final periodInfo = _getPeriodInfoForTime(time);
                             final timeInMinutes = time.hour * 60;
                             final timeEndInMinutes = (time.hour + 1) * 60;
                             final now = DateTime.now();
-                            final currentTimeInMinutes = now.hour * 60 + now.minute;
-                            final isPastHour = DateFormat('yyyy-MM-dd').format(now) == DateFormat('yyyy-MM-dd').format(_selectedDate) &&
-                                currentTimeInMinutes >= timeEndInMinutes;
+                            final currentTimeInMinutes =
+                                now.hour * 60 + now.minute;
+                            final isPastHour =
+                                DateFormat('yyyy-MM-dd').format(now) ==
+                                        DateFormat('yyyy-MM-dd')
+                                            .format(_selectedDate) &&
+                                    currentTimeInMinutes >= timeEndInMinutes;
 
                             // Determinar o tamanho do bloco com base na presença de informações
-                            final hasInfo = informacoes.isNotEmpty || periodInfo != null;
-                            final blockWidth = hasInfo ? largerWidth : baseWidth;
-                            final blockHeight = hasInfo ? largerHeight : baseHeight;
+                            final hasInfo =
+                                informacoes.isNotEmpty || periodInfo != null;
+                            final blockWidth =
+                                hasInfo ? largerWidth : baseWidth;
+                            final blockHeight =
+                                hasInfo ? largerHeight : baseHeight;
 
                             return GestureDetector(
                               onTap: isPastHour || isUnavailable
                                   ? null
                                   : () {
                                       final controller = TextEditingController(
-                                        text: informacoes.isNotEmpty ? informacoes.first : '',
+                                        text: informacoes.isNotEmpty
+                                            ? informacoes.first
+                                            : '',
                                       );
                                       showDialog(
                                         context: context,
                                         builder: (context) {
                                           return AlertDialog(
                                             shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(10 * scaleFactor),
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                      10 * scaleFactor),
                                             ),
-                                            backgroundColor: const Color(0xFF16213E),
+                                            backgroundColor:
+                                                const Color(0xFF16213E),
                                             title: Text(
                                               informacoes.isEmpty
                                                   ? 'Adicionar às ${time.hour}:00'
@@ -1347,27 +1554,39 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                                 fontSize: 12 * scaleFactor,
                                               ),
                                               decoration: InputDecoration(
-                                                labelText: 'Informação (máx. 10 caracteres)',
+                                                labelText:
+                                                    'Informação (máx. 10 caracteres)',
                                                 labelStyle: TextStyle(
                                                   color: Colors.white70,
                                                   fontSize: 10 * scaleFactor,
                                                 ),
                                                 border: OutlineInputBorder(
-                                                  borderRadius: BorderRadius.circular(8 * scaleFactor),
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          8 * scaleFactor),
                                                 ),
-                                                enabledBorder: OutlineInputBorder(
-                                                  borderSide: const BorderSide(color: Colors.white30),
-                                                  borderRadius: BorderRadius.circular(8 * scaleFactor),
+                                                enabledBorder:
+                                                    OutlineInputBorder(
+                                                  borderSide: const BorderSide(
+                                                      color: Colors.white30),
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          8 * scaleFactor),
                                                 ),
-                                                focusedBorder: OutlineInputBorder(
-                                                  borderSide: const BorderSide(color: Colors.green),
-                                                  borderRadius: BorderRadius.circular(8 * scaleFactor),
+                                                focusedBorder:
+                                                    OutlineInputBorder(
+                                                  borderSide: const BorderSide(
+                                                      color: Colors.green),
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          8 * scaleFactor),
                                                 ),
                                               ),
                                             ),
                                             actions: [
                                               TextButton(
-                                                onPressed: () => Navigator.pop(context),
+                                                onPressed: () =>
+                                                    Navigator.pop(context),
                                                 child: Text(
                                                   'Cancelar',
                                                   style: TextStyle(
@@ -1379,26 +1598,79 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                               ElevatedButton(
                                                 onPressed: () async {
                                                   if (controller.text.isEmpty) {
-                                                    _showError('Insira uma informação para a reserva.');
+                                                    _showError(
+                                                        'Insira uma informação para a reserva.');
                                                     return;
                                                   }
-                                                  await _saveOrUpdatePlanner(time, _selectedDate, controller.text);
+                                                  // Salvar o horário de origem e a informação
+                                                  setState(() {
+                                                    _sourceTime = time;
+                                                    _sourceInfo =
+                                                        controller.text;
+                                                  });
+                                                  await _saveOrUpdatePlanner(
+                                                      time,
+                                                      _selectedDate,
+                                                      controller.text);
                                                   Navigator.pop(context);
                                                 },
                                                 style: ElevatedButton.styleFrom(
                                                   backgroundColor: Colors.green,
                                                   shape: RoundedRectangleBorder(
-                                                    borderRadius: BorderRadius.circular(8 * scaleFactor),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8 * scaleFactor),
                                                   ),
                                                 ),
                                                 child: Text(
-                                                  informacoes.isEmpty ? 'Adicionar' : 'Salvar',
+                                                  informacoes.isEmpty
+                                                      ? 'Adicionar'
+                                                      : 'Salvar',
                                                   style: TextStyle(
                                                     color: Colors.white,
                                                     fontSize: 12 * scaleFactor,
                                                   ),
                                                 ),
                                               ),
+                                              if (_sourceInfo != null &&
+                                                  _sourceTime !=
+                                                      null) // Botão de replicação
+                                                ElevatedButton(
+                                                  onPressed: () async {
+                                                    if (controller
+                                                        .text.isEmpty) {
+                                                      _showError(
+                                                          'Insira uma informação para replicar.');
+                                                      return;
+                                                    }
+                                                    // Atualizar _sourceInfo com o texto atual
+                                                    setState(() {
+                                                      _sourceInfo =
+                                                          controller.text;
+                                                    });
+                                                    await _showReplicationDialog(
+                                                        time, controller.text);
+                                                  },
+                                                  style:
+                                                      ElevatedButton.styleFrom(
+                                                    backgroundColor:
+                                                        Colors.blueAccent,
+                                                    shape:
+                                                        RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              8 * scaleFactor),
+                                                    ),
+                                                  ),
+                                                  child: Text(
+                                                    'Replicar',
+                                                    style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize:
+                                                          12 * scaleFactor,
+                                                    ),
+                                                  ),
+                                                ),
                                             ],
                                           );
                                         },
@@ -1409,7 +1681,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                                 height: blockHeight,
                                 decoration: BoxDecoration(
                                   color: _getColorForGrid(time),
-                                  borderRadius: BorderRadius.circular(6 * scaleFactor),
+                                  borderRadius:
+                                      BorderRadius.circular(6 * scaleFactor),
                                   border: Border.all(
                                     color: Colors.white.withOpacity(0.2),
                                     width: 1,
