@@ -398,12 +398,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
   List<Map<String, dynamic>> _getEntriesForDate() {
     if (_planner.isEmpty) return [];
     final planner = _planner.first;
-    List<Map<String, dynamic>> entries = planner.getEntries();
+    final entries = planner.getEntries();
     final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-    
-    entries.sort((a, b) =>
-        a['horario']!.compareTo(b['horario']!));
-    
     return entries
         .asMap()
         .entries
