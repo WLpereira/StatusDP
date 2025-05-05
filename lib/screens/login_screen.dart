@@ -34,40 +34,6 @@ class _LoginScreenState extends State<LoginScreen> {
     super.initState();
     _loadUserEmails(); // Carregar os emails ao iniciar a tela
     _loadSavedCredentials(); // Carregar email e senha salvos
-    _checkSession(); // Verificar se há uma sessão ativa
-  }
-
-  Future<void> _checkSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedEmail = prefs.getString('saved_email');
-    final savedPassword = prefs.getString('saved_password');
-    final lastLogin = prefs.getInt('last_login');
-
-    if (savedEmail != null && savedPassword != null && lastLogin != null) {
-      // Verifica se o último login foi há menos de 7 dias
-      final now = DateTime.now().millisecondsSinceEpoch;
-      if (now - lastLogin < const Duration(days: 7).inMilliseconds) {
-        // Tenta fazer login automático
-        final usuario = await _authService.login(savedEmail, savedPassword);
-        if (usuario != null) {
-          if (_adminEmails.contains(savedEmail)) {
-            if (mounted) {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => AdminScreen(usuario: usuario)),
-              );
-            }
-          } else {
-            if (mounted) {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => StatusDPScreen(usuario: usuario)),
-              );
-            }
-          }
-        }
-      }
-    }
   }
 
   // Método para carregar os emails dos usuários do banco de dados
@@ -141,14 +107,16 @@ class _LoginScreenState extends State<LoginScreen> {
           if (mounted) {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => AdminScreen(usuario: usuario)),
+              MaterialPageRoute(
+                  builder: (context) => AdminScreen(usuario: usuario)),
             );
           }
         } else {
           if (mounted) {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => StatusDPScreen(usuario: usuario)),
+              MaterialPageRoute(
+                  builder: (context) => StatusDPScreen(usuario: usuario)),
             );
           }
         }
@@ -216,15 +184,20 @@ class _LoginScreenState extends State<LoginScreen> {
                       return const Iterable<String>.empty();
                     }
                     return _userEmails.where((String email) {
-                      return email.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                      return email
+                          .toLowerCase()
+                          .contains(textEditingValue.text.toLowerCase());
                     });
                   },
                   onSelected: (String selection) {
                     _emailController.text = selection;
-                    FocusScope.of(context).nextFocus(); // Move o foco para o campo de senha
+                    FocusScope.of(context)
+                        .nextFocus(); // Move o foco para o campo de senha
                   },
-                  fieldViewBuilder: (BuildContext context, TextEditingController fieldTextEditingController,
-                      FocusNode fieldFocusNode, VoidCallback onFieldSubmitted) {
+                  fieldViewBuilder: (BuildContext context,
+                      TextEditingController fieldTextEditingController,
+                      FocusNode fieldFocusNode,
+                      VoidCallback onFieldSubmitted) {
                     // Sincronizar o controlador do Autocomplete com o _emailController
                     fieldTextEditingController.text = _emailController.text;
                     _emailController.addListener(() {
@@ -251,7 +224,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       },
                     );
                   },
-                  optionsViewBuilder: (BuildContext context, AutocompleteOnSelected<String> onSelected,
+                  optionsViewBuilder: (BuildContext context,
+                      AutocompleteOnSelected<String> onSelected,
                       Iterable<String> options) {
                     return Align(
                       alignment: Alignment.topLeft,
@@ -260,7 +234,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         borderRadius: BorderRadius.circular(8),
                         child: Container(
                           color: const Color(0xFF16213E),
-                          width: MediaQuery.of(context).size.width - 32, // Ajusta a largura para o padding
+                          width: MediaQuery.of(context).size.width -
+                              32, // Ajusta a largura para o padding
                           child: ListView.builder(
                             padding: EdgeInsets.zero,
                             shrinkWrap: true,
@@ -299,18 +274,23 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _obscurePassword ? Icons.visibility : Icons.visibility_off, // Ícone para alternar a visibilidade da senha
+                        _obscurePassword
+                            ? Icons.visibility
+                            : Icons
+                                .visibility_off, // Ícone para alternar a visibilidade da senha
                         color: Colors.white,
                       ),
                       onPressed: () {
                         setState(() {
-                          _obscurePassword = !_obscurePassword; // Alterna a visibilidade da senha
+                          _obscurePassword =
+                              !_obscurePassword; // Alterna a visibilidade da senha
                         });
                       },
                     ),
                   ),
                   style: const TextStyle(color: Colors.white),
-                  obscureText: _obscurePassword, // Controla a visibilidade da senha
+                  obscureText:
+                      _obscurePassword, // Controla a visibilidade da senha
                   textInputAction: TextInputAction.done,
                   onSubmitted: (_) {
                     if (!_isLoading) {
@@ -329,8 +309,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           _savePassword = value ?? false;
                         });
                       },
-                      checkColor: Colors.white, // Cor do "check" dentro da checkbox
-                      activeColor: Colors.blueAccent, // Cor de fundo quando marcada
+                      checkColor:
+                          Colors.white, // Cor do "check" dentro da checkbox
+                      activeColor:
+                          Colors.blueAccent, // Cor de fundo quando marcada
                       side: const BorderSide(
                         color: Colors.white70, // Cor da borda da checkbox
                         width: 2,
@@ -349,7 +331,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         onPressed: _login,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blueAccent,
-                          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 40, vertical: 15),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(30),
                           ),
