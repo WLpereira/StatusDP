@@ -284,6 +284,14 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
     return TimeOfDay(hour: hour, minute: minute);
   }
 
+  TimeOfDay _parseTimeString(String time) {
+    final parts = time.split(':');
+    return TimeOfDay(
+      hour: int.parse(parts[0]),
+      minute: int.parse(parts[1]),
+    );
+  }
+
   Future<void> _saveOrUpdateStatus() async {
     try {
       await _authService.updateUserStatus(_usuario.id, _selectedStatus!);
@@ -413,7 +421,12 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
               'horario': entry.value['horario'] as String,
               'informacao': entry.value['informacao'] as String? ?? '',
             })
-        .toList();
+        .toList()
+        ..sort((a, b) {
+          final timeA = _parseTimeString(a['horario'] as String);
+          final timeB = _parseTimeString(b['horario'] as String);
+          return timeA.hour * 60 + timeA.minute - (timeB.hour * 60 + timeB.minute);
+        });
   }
 
   List<String> _getInformacoesForTime(TimeOfDay time) {
@@ -1351,8 +1364,8 @@ class _StatusDPScreenState extends State<StatusDPScreen> {
                       Wrap(
                         spacing: 8 *
                             scaleFactor, // Espaço horizontal entre os elementos
-                        runSpacing:
-                            4 * scaleFactor, // Espaço vertical entre as linhas
+                        runSpacing: 4 *
+                            scaleFactor, // Espaço vertical entre as linhas
                         children: [
                           GestureDetector(
                             onTap: () => _selectTime(context, 'start'),
